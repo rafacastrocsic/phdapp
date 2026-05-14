@@ -29,6 +29,7 @@ import {
   statusColor,
   priorityColor,
   categoryColor,
+  isOtherCategory,
 } from "@/lib/kanban-constants";
 import { cn, relativeTime, displayName } from "@/lib/utils";
 
@@ -136,7 +137,12 @@ export function KanbanBoard({
     return tickets.filter((t) => {
       if (studentFilter && t.student.id !== studentFilter) return false;
       if (priorityFilter && t.priority !== priorityFilter) return false;
-      if (categoryFilter && t.category !== categoryFilter) return false;
+      if (categoryFilter === "other") {
+        // "Other" matches literal "other" + any custom user-typed label.
+        if (!isOtherCategory(t.category)) return false;
+      } else if (categoryFilter && t.category !== categoryFilter) {
+        return false;
+      }
       if (
         search &&
         !t.title.toLowerCase().includes(search.toLowerCase()) &&
@@ -593,6 +599,8 @@ function NewTicketDialog({
 }) {
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [category, setCategory] = useState<string>("research");
+  const [customCategory, setCustomCategory] = useState<string>("");
 
   // Use teamMembers var to satisfy unused-var when we don't render the full list
   void teamMembers;
@@ -603,6 +611,8 @@ function NewTicketDialog({
     setError(null);
     const fd = new FormData(e.currentTarget);
     const payload = Object.fromEntries(fd.entries()) as Record<string, string>;
+    const customTrim = customCategory.trim();
+    payload.category = category === "other" && customTrim ? customTrim : category;
     if (isStudent) {
       // Force studentId to self
       if (defaultStudentId) payload.studentId = defaultStudentId;
@@ -683,11 +693,22 @@ function NewTicketDialog({
               </Select>
             </Field>
             <Field label="Category">
-              <Select name="category" defaultValue="research">
+              <Select
+                value={category}
+                onChange={(e) => setCategory(e.target.value)}
+              >
                 {CATEGORIES.map((c) => (
                   <option key={c.id} value={c.id}>{c.label}</option>
                 ))}
               </Select>
+              {category === "other" && (
+                <Input
+                  value={customCategory}
+                  onChange={(e) => setCustomCategory(e.target.value)}
+                  placeholder="Custom category (optional)"
+                  className="mt-1.5"
+                />
+              )}
             </Field>
           </div>
           <Field label="Due date">
@@ -728,6 +749,15 @@ function TicketDetailDialog({
   onDeleted: (id: string) => void;
 }) {
   const [editing, setEditing] = useState(false);
+  const [customCategory, setCustomCategory] = useState<string>("");
+  useEffect(() => {
+    if (!ticket) return;
+    setCustomCategory(
+      isOtherCategory(ticket.category) && ticket.category !== "other"
+        ? ticket.category
+        : "",
+    );
+  }, [ticket?.id, ticket?.category]);
   // Debounce timer for text fields so we save changes without one PATCH per keystroke.
   const debounceTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   function debouncedSave(patch: Partial<Ticket> & { dueDate?: string | null }) {
@@ -823,13 +853,28 @@ function TicketDetailDialog({
             </Field>
             <Field label="Category">
               <Select
-                value={ticket.category}
-                onChange={(e) => update({ category: e.target.value })}
+                value={isOtherCategory(ticket.category) ? "other" : ticket.category}
+                onChange={(e) => {
+                  setCustomCategory("");
+                  update({ category: e.target.value });
+                }}
               >
                 {CATEGORIES.map((c) => (
                   <option key={c.id} value={c.id}>{c.label}</option>
                 ))}
               </Select>
+              {isOtherCategory(ticket.category) && (
+                <Input
+                  value={customCategory}
+                  onChange={(e) => {
+                    setCustomCategory(e.target.value);
+                    const v = e.target.value.trim();
+                    debouncedSave({ category: v || "other" });
+                  }}
+                  placeholder="Custom category (optional)"
+                  className="mt-1.5"
+                />
+              )}
             </Field>
             <Field label="Assignee">
               <Select

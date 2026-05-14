@@ -36,5 +36,18 @@ export function priorityColor(id: string) {
   return PRIORITIES.find((p) => p.id === id)?.color ?? "#94a3b8";
 }
 export function categoryColor(id: string) {
-  return CATEGORIES.find((c) => c.id === id)?.color ?? "#94a3b8";
+  return (
+    CATEGORIES.find((c) => c.id === id)?.color ??
+    CATEGORIES.find((c) => c.id === "other")!.color
+  );
+}
+
+const CANONICAL_NON_OTHER_CATEGORY_IDS = new Set(
+  CATEGORIES.filter((c) => c.id !== "other").map((c) => c.id),
+);
+
+/** True when the value falls under the "Other" bucket — either literal "other"
+ * or a custom user-typed label that isn't one of the predefined categories. */
+export function isOtherCategory(value: string): boolean {
+  return !CANONICAL_NON_OTHER_CATEGORY_IDS.has(value);
 }
