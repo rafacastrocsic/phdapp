@@ -42,7 +42,7 @@ export function categoryColor(id: string) {
   );
 }
 
-const CANONICAL_NON_OTHER_CATEGORY_IDS = new Set(
+const CANONICAL_NON_OTHER_CATEGORY_IDS = new Set<string>(
   CATEGORIES.filter((c) => c.id !== "other").map((c) => c.id),
 );
 
