@@ -3,13 +3,14 @@ import { z } from "zod";
 import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
 import { studentVisibilityWhereAllForAdmin, type Role } from "@/lib/access";
+import { logActivity } from "@/lib/activity-log";
 
 const Body = z.object({ body: z.string().min(1) });
 
 async function authorize(id: string, userId: string, role: Role) {
   return prisma.ticket.findFirst({
     where: { id, student: studentVisibilityWhereAllForAdmin(userId, role) },
-    select: { id: true },
+    select: { id: true, studentId: true, title: true },
   });
 }
 
@@ -50,6 +51,19 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
     data: { ticketId: id, body: parsed.data.body, authorId: session.user.id },
     include: { author: { select: { name: true, image: true, color: true } } },
   });
+
+  // Mirror this as a ticket.update so the Tasks board highlights the task
+  // for other team members until they next visit /kanban.
+  await logActivity({
+    actorId: session.user.id,
+    actorRole: session.user.role,
+    studentId: ok.studentId,
+    action: "ticket.update",
+    entityType: "ticket",
+    entityId: id,
+    summary: `commented on “${ok.title}”`,
+  });
+
   return NextResponse.json({
     comment: {
       id: c.id,
