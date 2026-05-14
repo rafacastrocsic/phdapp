@@ -44,7 +44,7 @@ export function Topbar({ user, studentId = null }: TopbarProps) {
         {!isStudent && (
           <Link href="/kanban?new=1">
             <Button variant="brand" size="sm">
-              <Plus className="h-4 w-4" /> New ticket
+              <Plus className="h-4 w-4" /> New task
             </Button>
           </Link>
         )}
