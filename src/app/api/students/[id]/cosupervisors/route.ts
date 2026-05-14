@@ -59,7 +59,10 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
   ]);
   const excluded = new Set([student.supervisorId, ...current.map((c) => c.userId)]);
   const candidates = await prisma.user.findMany({
-    where: { id: { notIn: Array.from(excluded) } },
+    where: {
+      id: { notIn: Array.from(excluded) },
+      role: { not: "student" },
+    },
     select: { id: true, name: true, email: true, image: true, color: true, role: true },
     orderBy: [{ role: "asc" }, { name: "asc" }],
   });
