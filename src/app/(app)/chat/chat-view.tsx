@@ -17,7 +17,11 @@ import {
   File as FileIcon,
   Image as ImageIcon,
   Download,
+  ChevronLeft,
+  ChevronRight,
 } from "lucide-react";
+
+const CHANNELS_COLLAPSE_KEY = "phdapp.chat-channels-collapsed";
 import * as DropdownMenu from "@radix-ui/react-dropdown-menu";
 import { format } from "date-fns";
 import { Avatar } from "@/components/ui/avatar";
@@ -94,6 +98,22 @@ export function ChatView({
   const [messages, setMessages] = useState<Message[]>([]);
   const [body, setBody] = useState("");
   const [search, setSearch] = useState("");
+  const [channelsCollapsed, setChannelsCollapsed] = useState(false);
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    setChannelsCollapsed(window.localStorage.getItem(CHANNELS_COLLAPSE_KEY) === "1");
+  }, []);
+  function toggleChannelsCollapsed() {
+    setChannelsCollapsed((prev) => {
+      const next = !prev;
+      try {
+        window.localStorage.setItem(CHANNELS_COLLAPSE_KEY, next ? "1" : "0");
+      } catch {
+        // ignore
+      }
+      return next;
+    });
+  }
   const [pendingAttachments, setPendingAttachments] = useState<Attachment[]>([]);
   const [uploading, setUploading] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -288,48 +308,82 @@ export function ChatView({
 
   return (
     <div className="flex h-[calc(100vh-4rem)] overflow-hidden">
-      <aside className="w-72 shrink-0 border-r bg-white flex flex-col">
+      <aside
+        className={cn(
+          "shrink-0 border-r bg-white flex flex-col transition-[width] duration-200",
+          channelsCollapsed ? "w-[72px]" : "w-72",
+        )}
+      >
         <div className="p-3 border-b space-y-2">
-          <div className="flex items-center justify-between">
-            <h2 className="text-xs font-semibold uppercase text-slate-500">
-              Channels
-            </h2>
-            <NewChannelDialog
-              students={students}
-              teamMembers={teamMembers}
-              onCreated={(c) => {
-                setChannels((prev) => [c, ...prev]);
-                setActiveId(c.id);
-              }}
-            />
+          <div className="flex items-center justify-between gap-1">
+            {!channelsCollapsed && (
+              <h2 className="text-xs font-semibold uppercase text-slate-500">
+                Channels
+              </h2>
+            )}
+            <div className="flex items-center gap-1 ml-auto">
+              <NewChannelDialog
+                students={students}
+                teamMembers={teamMembers}
+                onCreated={(c) => {
+                  setChannels((prev) => [c, ...prev]);
+                  setActiveId(c.id);
+                }}
+              />
+              <button
+                type="button"
+                onClick={toggleChannelsCollapsed}
+                title={channelsCollapsed ? "Expand channels" : "Collapse channels"}
+                className="rounded-md p-1 text-slate-400 hover:bg-slate-100 hover:text-slate-700"
+              >
+                {channelsCollapsed ? (
+                  <ChevronRight className="h-4 w-4" />
+                ) : (
+                  <ChevronLeft className="h-4 w-4" />
+                )}
+              </button>
+            </div>
           </div>
-          <div className="relative">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-slate-400" />
-            <Input
-              placeholder="Find channel…"
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              className="!h-8 !pl-8 !text-xs"
-            />
-          </div>
+          {!channelsCollapsed && (
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-slate-400" />
+              <Input
+                placeholder="Find channel…"
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                className="!h-8 !pl-8 !text-xs"
+              />
+            </div>
+          )}
         </div>
         <div className="flex-1 overflow-y-auto p-2 space-y-0.5">
           {filteredChannels.length === 0 ? (
-            <p className="text-xs text-slate-400 p-4 text-center">No channels yet.</p>
+            !channelsCollapsed && (
+              <p className="text-xs text-slate-400 p-4 text-center">No channels yet.</p>
+            )
           ) : (
             filteredChannels.map((c) => {
               const unread = unreadByChannel[c.id] ?? 0;
               const hasUnread = unread > 0;
+              const isActive = activeId === c.id;
               return (
                 <button
                   key={c.id}
                   onClick={() => setActiveId(c.id)}
+                  title={
+                    channelsCollapsed
+                      ? `${c.name}${hasUnread ? ` · ${unread} unread` : ""}`
+                      : undefined
+                  }
                   className={cn(
-                    "w-full flex items-center gap-2 rounded-lg px-2 py-2 text-left hover:bg-slate-50",
-                    activeId === c.id && "bg-slate-100",
+                    "w-full flex items-center rounded-lg text-left hover:bg-slate-50",
+                    channelsCollapsed
+                      ? "justify-center px-2 py-2"
+                      : "gap-2 px-2 py-2",
+                    isActive && "bg-slate-100",
                   )}
                 >
-                  {hasUnread && (
+                  {!channelsCollapsed && hasUnread && (
                     <span
                       className="inline-flex h-5 min-w-5 shrink-0 items-center justify-center rounded-full bg-[var(--c-pink)] px-1.5 text-[10px] font-bold text-white"
                       title={`${unread} unread message${unread === 1 ? "" : "s"}`}
@@ -338,25 +392,32 @@ export function ChatView({
                     </span>
                   )}
                   <span
-                    className="flex h-7 w-7 items-center justify-center rounded-lg shrink-0"
+                    className="relative flex h-7 w-7 items-center justify-center rounded-lg shrink-0"
                     style={{ background: `${c.color}1f`, color: c.color }}
                   >
                     {iconFor(c.kind)}
+                    {channelsCollapsed && hasUnread && (
+                      <span
+                        className="absolute -top-1 -right-1 h-2.5 w-2.5 rounded-full border-2 border-white bg-[var(--c-pink)]"
+                      />
+                    )}
                   </span>
-                  <div className="flex-1 min-w-0">
-                    <div
-                      className={cn(
-                        "text-sm truncate",
-                        hasUnread ? "font-bold text-slate-900" : "font-medium text-slate-900",
-                      )}
-                    >
-                      {c.name}
+                  {!channelsCollapsed && (
+                    <div className="flex-1 min-w-0">
+                      <div
+                        className={cn(
+                          "text-sm truncate",
+                          hasUnread ? "font-bold text-slate-900" : "font-medium text-slate-900",
+                        )}
+                      >
+                        {c.name}
+                      </div>
+                      <div className="text-[10px] text-slate-500 truncate">
+                        {channelKindLabel(c.kind)} · {c.memberCount} member
+                        {c.memberCount === 1 ? "" : "s"}
+                      </div>
                     </div>
-                    <div className="text-[10px] text-slate-500 truncate">
-                      {channelKindLabel(c.kind)} · {c.memberCount} member
-                      {c.memberCount === 1 ? "" : "s"}
-                    </div>
-                  </div>
+                  )}
                 </button>
               );
             })

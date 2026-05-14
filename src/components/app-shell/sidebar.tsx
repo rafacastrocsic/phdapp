@@ -14,8 +14,12 @@ import {
   GraduationCap,
   ScrollText,
   Shield,
+  ChevronLeft,
+  ChevronRight,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+
+const COLLAPSE_KEY = "phdapp.sidebar-collapsed";
 
 type Nav = {
   href: string;
@@ -54,6 +58,22 @@ export function Sidebar({
   const [unreadChat, setUnreadChat] = useState(initialUnread);
   const [unreadKanban, setUnreadKanban] = useState(initialUnreadKanban);
   const [unreadCalendar, setUnreadCalendar] = useState(initialUnreadCalendar);
+  const [collapsed, setCollapsed] = useState(false);
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    setCollapsed(window.localStorage.getItem(COLLAPSE_KEY) === "1");
+  }, []);
+  function toggleCollapsed() {
+    setCollapsed((prev) => {
+      const next = !prev;
+      try {
+        window.localStorage.setItem(COLLAPSE_KEY, next ? "1" : "0");
+      } catch {
+        // ignore
+      }
+      return next;
+    });
+  }
 
   useEffect(() => {
     let cancelled = false;
@@ -91,19 +111,33 @@ export function Sidebar({
     };
   }, [pathname]);
   return (
-    <aside className="hidden md:flex w-60 shrink-0 flex-col gap-1 border-r bg-white p-4">
-      <Link href="/" className="flex items-center gap-2 px-2 py-2 mb-4">
-        <div className="h-9 w-9 rounded-xl brand-bg flex items-center justify-center shadow-md shadow-violet-500/30">
+    <aside
+      className={cn(
+        "hidden md:flex shrink-0 flex-col gap-1 border-r bg-white p-4 transition-[width] duration-200",
+        collapsed ? "w-[72px]" : "w-60",
+      )}
+    >
+      <Link
+        href="/"
+        className={cn(
+          "flex items-center gap-2 py-2 mb-4",
+          collapsed ? "justify-center px-0" : "px-2",
+        )}
+        title={collapsed ? "PhDapp · Supervision Hub" : undefined}
+      >
+        <div className="h-9 w-9 rounded-xl brand-bg flex items-center justify-center shadow-md shadow-violet-500/30 shrink-0">
           <Sparkles className="h-5 w-5 text-white" />
         </div>
-        <div>
-          <div className="text-base font-bold leading-tight brand-gradient">
-            PhDapp
+        {!collapsed && (
+          <div>
+            <div className="text-base font-bold leading-tight brand-gradient">
+              PhDapp
+            </div>
+            <div className="text-[10px] text-slate-500 leading-tight">
+              Supervision Hub
+            </div>
           </div>
-          <div className="text-[10px] text-slate-500 leading-tight">
-            Supervision Hub
-          </div>
-        </div>
+        )}
       </Link>
 
       <nav className="flex flex-col gap-0.5">
@@ -118,12 +152,34 @@ export function Sidebar({
               ? pathname === "/"
               : pathname.startsWith(item.href);
           const Icon = item.icon;
+          const unread =
+            item.href === "/chat"
+              ? unreadChat
+              : item.href === "/kanban"
+                ? unreadKanban
+                : item.href === "/calendar"
+                  ? unreadCalendar
+                  : 0;
+          const unreadColor =
+            item.href === "/chat"
+              ? "var(--c-pink)"
+              : item.href === "/kanban"
+                ? "var(--c-orange)"
+                : "var(--c-teal)";
+          const unreadLabel =
+            item.href === "/chat"
+              ? `${unread} unread message${unread === 1 ? "" : "s"}`
+              : item.href === "/kanban"
+                ? `${unread} new task change${unread === 1 ? "" : "s"}`
+                : `${unread} new event change${unread === 1 ? "" : "s"}`;
           return (
             <Link
               key={item.href}
               href={item.href}
+              title={collapsed ? (unread > 0 ? `${item.label} · ${unreadLabel}` : item.label) : undefined}
               className={cn(
-                "group relative flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors",
+                "group relative flex items-center rounded-lg text-sm font-medium transition-colors",
+                collapsed ? "justify-center px-2 py-2" : "gap-3 px-3 py-2",
                 active
                   ? "bg-slate-100 text-slate-900"
                   : "text-slate-600 hover:bg-slate-50 hover:text-slate-900",
@@ -131,7 +187,7 @@ export function Sidebar({
             >
               <span
                 className={cn(
-                  "flex h-7 w-7 items-center justify-center rounded-md transition-colors",
+                  "relative flex h-7 w-7 items-center justify-center rounded-md transition-colors shrink-0",
                   active ? "text-white" : "text-slate-500 group-hover:text-slate-700",
                 )}
                 style={
@@ -142,40 +198,32 @@ export function Sidebar({
                   className="h-4 w-4"
                   style={!active ? { color: item.color } : undefined}
                 />
+                {collapsed && unread > 0 && (
+                  <span
+                    className="absolute -top-1 -right-1 h-2.5 w-2.5 rounded-full border-2 border-white"
+                    style={{ background: unreadColor }}
+                  />
+                )}
               </span>
-              {item.label}
-              {item.href === "/chat" && unreadChat > 0 && (
-                <span
-                  className="ml-auto inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-[var(--c-pink)] px-1.5 text-[10px] font-bold text-white"
-                  title={`${unreadChat} unread message${unreadChat === 1 ? "" : "s"}`}
-                >
-                  {unreadChat > 99 ? "99+" : unreadChat}
-                </span>
-              )}
-              {item.href === "/kanban" && unreadKanban > 0 && (
-                <span
-                  className="ml-auto inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-[var(--c-orange)] px-1.5 text-[10px] font-bold text-white"
-                  title={`${unreadKanban} new task change${unreadKanban === 1 ? "" : "s"}`}
-                >
-                  {unreadKanban > 99 ? "99+" : unreadKanban}
-                </span>
-              )}
-              {item.href === "/calendar" && unreadCalendar > 0 && (
-                <span
-                  className="ml-auto inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-[var(--c-teal)] px-1.5 text-[10px] font-bold text-white"
-                  title={`${unreadCalendar} new event change${unreadCalendar === 1 ? "" : "s"}`}
-                >
-                  {unreadCalendar > 99 ? "99+" : unreadCalendar}
-                </span>
-              )}
-              {active &&
-                item.href !== "/chat" &&
-                item.href !== "/kanban" &&
-                item.href !== "/calendar" && (
-                <span
-                  className="absolute right-2 h-1.5 w-1.5 rounded-full"
-                  style={{ background: item.color }}
-                />
+              {!collapsed && (
+                <>
+                  {item.label}
+                  {unread > 0 && (
+                    <span
+                      className="ml-auto inline-flex h-5 min-w-5 items-center justify-center rounded-full px-1.5 text-[10px] font-bold text-white"
+                      style={{ background: unreadColor }}
+                      title={unreadLabel}
+                    >
+                      {unread > 99 ? "99+" : unread}
+                    </span>
+                  )}
+                  {active && unread === 0 && (
+                    <span
+                      className="absolute right-2 h-1.5 w-1.5 rounded-full"
+                      style={{ background: item.color }}
+                    />
+                  )}
+                </>
               )}
             </Link>
           );
@@ -186,27 +234,48 @@ export function Sidebar({
         {isAdmin && (
           <Link
             href="/admin"
+            title={collapsed ? "Admin" : undefined}
             className={cn(
-              "flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium hover:bg-slate-50",
+              "flex items-center rounded-lg text-sm font-medium hover:bg-slate-50",
+              collapsed ? "justify-center px-2 py-2" : "gap-3 px-3 py-2",
               pathname.startsWith("/admin")
                 ? "bg-red-50 text-[var(--c-red)]"
                 : "text-[var(--c-red)]",
             )}
           >
-            <Shield className="h-4 w-4" /> Admin
+            <Shield className="h-4 w-4" /> {!collapsed && "Admin"}
           </Link>
         )}
         {role !== "student" && (
         <Link
           href="/settings"
+          title={collapsed ? "Settings" : undefined}
           className={cn(
-            "flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium text-slate-600 hover:bg-slate-50",
+            "flex items-center rounded-lg text-sm font-medium text-slate-600 hover:bg-slate-50",
+            collapsed ? "justify-center px-2 py-2" : "gap-3 px-3 py-2",
             pathname.startsWith("/settings") && "bg-slate-100 text-slate-900",
           )}
         >
-          <Settings className="h-4 w-4" /> Settings
+          <Settings className="h-4 w-4" /> {!collapsed && "Settings"}
         </Link>
         )}
+        <button
+          type="button"
+          onClick={toggleCollapsed}
+          title={collapsed ? "Expand sidebar" : "Collapse sidebar"}
+          className={cn(
+            "mt-2 flex w-full items-center rounded-lg text-xs text-slate-400 hover:bg-slate-50 hover:text-slate-600",
+            collapsed ? "justify-center px-2 py-2" : "gap-2 px-3 py-2",
+          )}
+        >
+          {collapsed ? (
+            <ChevronRight className="h-4 w-4" />
+          ) : (
+            <>
+              <ChevronLeft className="h-4 w-4" /> Collapse
+            </>
+          )}
+        </button>
       </div>
     </aside>
   );
