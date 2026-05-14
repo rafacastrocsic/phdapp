@@ -225,7 +225,7 @@ export function KanbanBoard({
       <div className="px-6 lg:px-8 py-4 border-b bg-white space-y-3">
         <div className="flex items-start justify-between gap-3">
           <div className="min-w-0">
-            <h1 className="text-2xl font-bold text-slate-900">Kanban</h1>
+            <h1 className="text-2xl font-bold text-slate-900">Tasks</h1>
             <p className="text-sm text-slate-500 mt-1">
               {filtered.length} of {tickets.length} task
               {tickets.length === 1 ? "" : "s"}

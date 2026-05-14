@@ -129,7 +129,7 @@ export function EditStudentDialog({
             </Field>
           </div>
           <p className="text-[11px] text-slate-500 -mt-1">
-            The alias is used across the app (sidebars, kanban cards, calendar).
+            The alias is used across the app (sidebars, task cards, calendar).
             The full name shows on the profile header and formal listings.
           </p>
           <Field label="Email">
@@ -165,7 +165,7 @@ export function EditStudentDialog({
                 className="h-9 w-12 cursor-pointer rounded border bg-white"
               />
               <span className="text-xs text-slate-500">
-                Used for avatars, kanban stripes, calendar dots.
+                Used for avatars, task stripes, calendar dots.
               </span>
             </div>
           </Field>

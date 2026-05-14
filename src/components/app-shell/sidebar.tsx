@@ -28,7 +28,7 @@ type Nav = {
 const NAV: Nav[] = [
   { href: "/", label: "Dashboard", icon: LayoutDashboard, color: "var(--c-violet)" },
   { href: "/students", label: "Students", icon: GraduationCap, color: "var(--c-pink)", hideFor: ["student"] },
-  { href: "/kanban", label: "Kanban", icon: KanbanSquare, color: "var(--c-orange)" },
+  { href: "/kanban", label: "Tasks", icon: KanbanSquare, color: "var(--c-orange)" },
   { href: "/calendar", label: "Calendar", icon: CalendarDays, color: "var(--c-teal)" },
   { href: "/files", label: "Files", icon: FolderOpen, color: "var(--c-blue)" },
   { href: "/chat", label: "Chat", icon: MessagesSquare, color: "var(--c-green)" },

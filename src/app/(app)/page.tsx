@@ -153,14 +153,14 @@ export default async function DashboardPage() {
               href="/kanban"
               className="text-xs font-semibold text-[var(--c-violet)] flex items-center gap-1 hover:underline"
             >
-              Open Kanban <ArrowRight className="h-3 w-3" />
+              Open Tasks <ArrowRight className="h-3 w-3" />
             </Link>
           </CardHeader>
           <CardContent className="p-0">
             {recentTickets.length === 0 ? (
               <EmptyState
                 title="No tasks yet"
-                hint="Create your first task from the Kanban board."
+                hint="Create your first task from the Tasks board."
               />
             ) : (
               <ul className="divide-y">
