@@ -116,7 +116,7 @@ export function CalendarView({
   const [selectedDay, setSelectedDay] = useState<Date | null>(null);
   const [syncing, setSyncing] = useState(false);
   const [openEventId, setOpenEventId] = useState<string | null>(null);
-  const [view, setView] = useState<"month" | "week" | "day">("month");
+  const [view, setView] = useState<"year" | "month" | "week" | "day">("month");
   const router = useRouter();
   const openEvent = events.find((e) => e.id === openEventId) ?? null;
 
@@ -130,17 +130,21 @@ export function CalendarView({
   const noSharedCalendar = !!activeStudent && !activeStudent.calendarId;
 
   function goPrev() {
-    if (view === "month") setCursor((c) => subMonths(c, 1));
+    if (view === "year") setCursor((c) => subMonths(c, 12));
+    else if (view === "month") setCursor((c) => subMonths(c, 1));
     else if (view === "week") setCursor((c) => subWeeks(c, 1));
     else setCursor((c) => subDays(c, 1));
   }
   function goNext() {
-    if (view === "month") setCursor((c) => addMonths(c, 1));
+    if (view === "year") setCursor((c) => addMonths(c, 12));
+    else if (view === "month") setCursor((c) => addMonths(c, 1));
     else if (view === "week") setCursor((c) => addWeeks(c, 1));
     else setCursor((c) => addDays(c, 1));
   }
   const headerLabel =
-    view === "month"
+    view === "year"
+      ? format(cursor, "yyyy")
+      : view === "month"
       ? format(cursor, "MMMM yyyy")
       : view === "week"
       ? (() => {
@@ -187,9 +191,17 @@ export function CalendarView({
 
     async function tick() {
       if (!newOpen && !openEventId) {
-        // Pull a 3-month window around the cursor (matches the page-load query).
-        const from = subMonths(startOfMonth(cursor), 1).toISOString();
-        const to = addMonths(endOfMonth(cursor), 1).toISOString();
+        // Pull a window around the cursor. Year view needs the whole year;
+        // other views use the 3-month context (matches the page-load query).
+        const isYear = view === "year";
+        const from = (isYear
+          ? new Date(cursor.getFullYear(), 0, 1)
+          : subMonths(startOfMonth(cursor), 1)
+        ).toISOString();
+        const to = (isYear
+          ? new Date(cursor.getFullYear(), 11, 31, 23, 59, 59)
+          : addMonths(endOfMonth(cursor), 1)
+        ).toISOString();
         const params = new URLSearchParams({ from, to });
         if (studentFilter) params.set("student", studentFilter);
         try {
@@ -207,12 +219,13 @@ export function CalendarView({
       }
       if (!cancelled) timer = setTimeout(tick, 8000);
     }
-    timer = setTimeout(tick, 8000);
+    // First tick: fire immediately so view/cursor changes show fresh data.
+    tick();
     return () => {
       cancelled = true;
       if (timer) clearTimeout(timer);
     };
-  }, [cursor, newOpen, openEventId, studentFilter]);
+  }, [cursor, newOpen, openEventId, studentFilter, view]);
 
   async function syncFromGoogle() {
     setSyncing(true);
@@ -249,7 +262,7 @@ export function CalendarView({
             Today
           </Button>
           <div className="flex rounded-lg border bg-slate-50 p-0.5 ml-2">
-            {(["month", "week", "day"] as const).map((v) => (
+            {(["year", "month", "week", "day"] as const).map((v) => (
               <button
                 key={v}
                 type="button"
@@ -319,6 +332,16 @@ export function CalendarView({
 
       <div className="flex-1 grid grid-cols-1 xl:grid-cols-[1fr_320px] gap-0 overflow-hidden">
         <div className="flex flex-col overflow-hidden">
+          {view === "year" && (
+            <YearGrid
+              year={cursor.getFullYear()}
+              events={filtered}
+              onPickDay={(day) => {
+                setCursor(day);
+                setView("month");
+              }}
+            />
+          )}
           {view === "month" && (
             <>
               <div className="grid grid-cols-7 border-b bg-slate-50">
@@ -1124,6 +1147,111 @@ function NowLine() {
     >
       <div className="h-px bg-[var(--c-red)]" />
       <div className="absolute -left-1 -top-1 h-2 w-2 rounded-full bg-[var(--c-red)]" />
+    </div>
+  );
+}
+
+function YearGrid({
+  year,
+  events,
+  onPickDay,
+}: {
+  year: number;
+  events: Event[];
+  onPickDay: (day: Date) => void;
+}) {
+  // Bucket events by yyyy-MM-dd for fast lookup.
+  const byDay = useMemo(() => {
+    const m: Record<string, Event[]> = {};
+    for (const e of events) {
+      const d = new Date(e.startsAt);
+      if (d.getFullYear() !== year) continue;
+      const key = format(d, "yyyy-MM-dd");
+      (m[key] ??= []).push(e);
+    }
+    return m;
+  }, [events, year]);
+
+  const months = Array.from({ length: 12 }, (_, i) => new Date(year, i, 1));
+  const today = new Date();
+
+  return (
+    <div className="flex-1 overflow-auto p-4 lg:p-6">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+        {months.map((monthDate) => {
+          const start = startOfWeek(startOfMonth(monthDate), { weekStartsOn: 1 });
+          const end = endOfWeek(endOfMonth(monthDate), { weekStartsOn: 1 });
+          const days = eachDayOfInterval({ start, end });
+          return (
+            <div
+              key={monthDate.getMonth()}
+              className="rounded-xl border bg-white p-3"
+            >
+              <div className="text-xs font-bold text-slate-700 mb-2 uppercase tracking-wide">
+                {format(monthDate, "MMMM")}
+              </div>
+              <div className="grid grid-cols-7 text-[9px] text-slate-400 mb-1">
+                {["M", "T", "W", "T", "F", "S", "S"].map((d, i) => (
+                  <div key={i} className="text-center">
+                    {d}
+                  </div>
+                ))}
+              </div>
+              <div className="grid grid-cols-7 gap-y-0.5">
+                {days.map((day) => {
+                  const key = format(day, "yyyy-MM-dd");
+                  const evs = byDay[key] ?? [];
+                  const inMonth = isSameMonth(day, monthDate);
+                  const isToday = isSameDay(day, today);
+                  const hasTask = evs.some((e) => e.ticketId);
+                  return (
+                    <button
+                      key={key}
+                      type="button"
+                      onClick={() => onPickDay(day)}
+                      title={
+                        evs.length > 0
+                          ? `${format(day, "MMM d")} · ${evs.length} item${evs.length === 1 ? "" : "s"}`
+                          : format(day, "MMM d")
+                      }
+                      className={cn(
+                        "flex flex-col items-center justify-start h-7 rounded text-[10px] hover:bg-slate-100",
+                        !inMonth && "text-slate-300",
+                        inMonth && !isToday && "text-slate-700",
+                        isToday && "bg-[var(--c-violet)] text-white font-bold hover:bg-[var(--c-violet)]",
+                      )}
+                    >
+                      <span className="leading-none mt-0.5">{format(day, "d")}</span>
+                      {evs.length > 0 && (
+                        <span className="flex gap-px mt-0.5">
+                          {evs.slice(0, 3).map((e, i) => (
+                            <span
+                              key={i}
+                              className="block h-1 w-1 rounded-full"
+                              style={{
+                                background: e.ticketId
+                                  ? taskPriorityColor(e.taskPriority)
+                                  : e.student?.color ?? "#6366f1",
+                              }}
+                            />
+                          ))}
+                          {evs.length > 3 && (
+                            <span
+                              className="block h-1 w-1 rounded-full bg-slate-400"
+                              title={`+${evs.length - 3} more`}
+                            />
+                          )}
+                        </span>
+                      )}
+                      {hasTask && evs.length === 0 && null}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          );
+        })}
+      </div>
     </div>
   );
 }
