@@ -60,6 +60,13 @@ export async function POST(req: Request) {
     },
   });
 
+  if (created.dueDate) {
+    const { syncTaskDueEvent } = await import("@/lib/task-event-sync");
+    await syncTaskDueEvent(created.id, session.user.id).catch((err) =>
+      console.error("syncTaskDueEvent on create failed", err),
+    );
+  }
+
   await logActivity({
     actorId: session.user.id,
     actorRole: session.user.role,

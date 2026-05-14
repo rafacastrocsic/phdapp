@@ -73,6 +73,19 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
 
   await prisma.ticket.update({ where: { id }, data });
 
+  // If due date or title/description changed, keep the linked calendar event
+  // in sync (creates / updates / deletes as appropriate).
+  if (
+    d.dueDate !== undefined ||
+    d.title !== undefined ||
+    d.description !== undefined
+  ) {
+    const { syncTaskDueEvent } = await import("@/lib/task-event-sync");
+    await syncTaskDueEvent(id, session.user.id).catch((err) =>
+      console.error("syncTaskDueEvent on patch failed", err),
+    );
+  }
+
   await logActivity({
     actorId: session.user.id,
     actorRole: session.user.role,
@@ -107,6 +120,16 @@ export async function DELETE(_req: Request, { params }: { params: Promise<{ id: 
       { error: "You don't have permission to delete this task" },
       { status: 403 },
     );
+
+  // Delete the linked Google Calendar event first (the in-app Event row will
+  // also be cascaded away when the Ticket is deleted, but we need to read
+  // googleEventId before that happens).
+  {
+    const { deleteTaskDueEvent } = await import("@/lib/task-event-sync");
+    await deleteTaskDueEvent(id, session.user.id).catch((err) =>
+      console.error("deleteTaskDueEvent failed", err),
+    );
+  }
 
   await prisma.ticket.delete({ where: { id } });
 

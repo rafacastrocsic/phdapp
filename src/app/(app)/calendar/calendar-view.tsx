@@ -33,6 +33,16 @@ import { openCalendarUrl } from "@/components/google-calendar-picker";
 import { CalendarShareButton } from "../students/[id]/calendar-share-button";
 import { AlertCircle } from "lucide-react";
 
+const TASK_PRIORITY_COLOR: Record<string, string> = {
+  low: "#94a3b8",
+  medium: "#2196f3",
+  high: "#ff7a45",
+  urgent: "#e2445c",
+};
+function taskPriorityColor(p: string | null): string {
+  return (p && TASK_PRIORITY_COLOR[p]) || "#94a3b8";
+}
+
 interface Student {
   id: string;
   fullName: string;
@@ -51,6 +61,8 @@ interface Event {
   student: { id: string; fullName: string; alias: string | null; color: string } | null;
   googleEventId: string | null;
   googleCalendarId: string | null;
+  ticketId: string | null;
+  taskPriority: string | null;
 }
 
 export function CalendarView({
@@ -154,6 +166,15 @@ export function CalendarView({
     for (const e of filtered) {
       const key = format(new Date(e.startsAt), "yyyy-MM-dd");
       (map[key] ??= []).push(e);
+    }
+    // Within each day, surface task events at the top.
+    for (const key of Object.keys(map)) {
+      map[key]!.sort((a, b) => {
+        const aTask = a.ticketId ? 0 : 1;
+        const bTask = b.ticketId ? 0 : 1;
+        if (aTask !== bTask) return aTask - bTask;
+        return a.startsAt.localeCompare(b.startsAt);
+      });
     }
     return map;
   }, [filtered]);
@@ -352,6 +373,47 @@ export function CalendarView({
                       <div className="mt-1 space-y-1">
                         {evs.slice(0, 3).map((e) => {
                           const kind = effectiveKind(e.id);
+                          const isTask = !!e.ticketId;
+                          if (isTask) {
+                            const pColor = taskPriorityColor(e.taskPriority);
+                            const cleanTitle = e.title.replace(/^\[Task\]\s*/, "");
+                            return (
+                              <button
+                                key={e.id}
+                                onClick={(ev) => {
+                                  ev.stopPropagation();
+                                  dismissEvent(e.id);
+                                  router.push(`/kanban?ticket=${e.ticketId}`);
+                                }}
+                                className={cn(
+                                  "group flex w-full items-center gap-1 text-left text-[11px] truncate rounded border bg-white pl-0 pr-1.5 py-0.5 font-medium hover:bg-slate-50",
+                                  kind === "new" && "ring-2 ring-[var(--c-red)]",
+                                  kind === "updated" && "ring-2 ring-[var(--c-blue)]",
+                                )}
+                                title={`Task · ${cleanTitle}${e.student ? " · " + displayName(e.student) : ""}`}
+                              >
+                                <span
+                                  className="h-full w-1 self-stretch rounded-l-sm"
+                                  style={{ background: pColor }}
+                                />
+                                <span
+                                  className="inline-block h-2 w-2 shrink-0 rounded-full border-2"
+                                  style={{ borderColor: pColor }}
+                                />
+                                <span className="flex-1 truncate text-slate-700">
+                                  {cleanTitle}
+                                </span>
+                                {e.taskPriority && (
+                                  <span
+                                    className="rounded px-1 text-[9px] font-bold uppercase text-white"
+                                    style={{ background: pColor }}
+                                  >
+                                    {e.taskPriority[0]}
+                                  </span>
+                                )}
+                              </button>
+                            );
+                          }
                           return (
                             <button
                               key={e.id}
@@ -436,8 +498,12 @@ export function CalendarView({
                 <li
                   key={e.id}
                   onClick={() => {
-                    setOpenEventId(e.id);
                     dismissEvent(e.id);
+                    if (e.ticketId) {
+                      router.push(`/kanban?ticket=${e.ticketId}`);
+                    } else {
+                      setOpenEventId(e.id);
+                    }
                   }}
                   className={cn(
                     "cursor-pointer rounded-xl border p-3 hover:shadow-sm hover:border-slate-300 transition-shadow",

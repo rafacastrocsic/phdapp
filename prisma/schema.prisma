@@ -164,6 +164,7 @@ model Ticket {
   channel      Channel?  @relation(fields: [channelId], references: [id])
   comments     Comment[]
   tags         TicketTag[]
+  dueEvent     Event?    @relation("TaskDueEvent")
   order        Int       @default(0)
 
   createdAt    DateTime  @default(now())
@@ -207,6 +208,11 @@ model Event {
 
   studentId String?
   student   Student? @relation(fields: [studentId], references: [id], onDelete: SetNull)
+
+  // If this event mirrors a task's due date, point back to it. Null for
+  // regular events. We render task-events differently in the calendar.
+  ticketId  String?  @unique
+  ticket    Ticket?  @relation("TaskDueEvent", fields: [ticketId], references: [id], onDelete: Cascade)
 
   attendees EventAttendee[]
   createdAt DateTime @default(now())
