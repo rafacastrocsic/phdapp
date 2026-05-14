@@ -1,0 +1,149 @@
+# PhDapp — Student manual
+
+A short guide to using PhDapp as a PhD student. Read top to bottom the first time; later use the table of contents to jump around.
+
+- [Welcome](#welcome)
+- [Signing in](#signing-in)
+- [Your dashboard](#your-dashboard)
+- [Tasks](#tasks)
+- [Calendar](#calendar)
+- [Chat](#chat)
+- [Files](#files)
+- [Your profile](#your-profile)
+- [Notifications](#notifications)
+- [Tips](#tips)
+- [If something breaks](#if-something-breaks)
+
+---
+
+## Welcome
+
+PhDapp is your personal supervision workspace. Your supervisor uses it to track your work, share calendars, send you tasks and chat with you. You see only your own things — never other students' data.
+
+## Signing in
+
+1. Open the link your supervisor gave you (something like `https://phdapp.vercel.app`).
+2. Click **Sign in with Google**.
+3. Choose the Gmail account your supervisor added you with. If you see "Access blocked" your email isn't on the test users list yet — ask your supervisor to add it.
+4. The first time Google may show a warning: *"Te han dado acceso a una aplicación que aún se está probando"* / *"You've been given access to an app that's still being tested"*. This is expected — click **Continue** / **Continuar**.
+
+You're in. From here on the site remembers you on this browser.
+
+## Your dashboard
+
+The landing page (the house icon, top-left of the sidebar) shows:
+
+- **Open tasks** — how many tasks you have that are not yet done.
+- **Overdue** — tasks whose due date has passed.
+- **Upcoming events** — the next five things on your calendar.
+- **Recent activity** — what changed lately on your tasks.
+
+Click any card to drill in.
+
+## Tasks
+
+The **Tasks** module (orange icon, sidebar) is where most of the day-to-day work lives.
+
+### Two views
+
+- **Board** (default) — Kanban columns from "Backlog" to "Done". Drag cards left/right to change their status.
+- **List** — same tasks as a flat table grouped by student (you only see your own). Useful for scanning many tasks at once.
+
+Toggle between the two with the **Board / List** switch at the top right.
+
+### What's on a task
+
+- Title and description
+- **Status** — Backlog → To do → In progress → Review → Blocked → Done
+- **Priority** — Low / Medium / High / Urgent (a colored "L/M/H/U" tag)
+- **Category** — research, writing, experiment, reading… or **Other** with your own custom label
+- **Due date** — when you set one, an event automatically appears on your calendar
+- **Assignee** — usually you
+- **Subtasks** — a small checklist inside the task; tick items as you go. The card shows a `2/5` style progress badge.
+- **Comments** — threaded discussion at the bottom
+
+### Editing
+
+Click a task to open the detail dialog. Changes save automatically as you type/select (no "Save" button).
+
+### Creating a task
+
+Top-right **New task** button. Pick a title, optional description, priority/category, and a due date if you want. Press Enter or click **Create task**.
+
+### Deleting
+
+Inside a task dialog → red **Delete** button at the bottom-left. You'll be asked to confirm. If your supervisor deletes one of your tasks while you're looking at the board, a dashed-red placeholder appears with the title struck through — click the **X** on it to dismiss.
+
+## Calendar
+
+The **Calendar** module (teal icon) shows:
+
+- **Real events** — meetings, deadlines your supervisor created. Solid colored chip with a time.
+- **Task events** — every task with a due date appears as an outlined chip with a small circle icon and a single-letter priority tag (L/M/H/U). Click it to jump straight to the task.
+
+### Four views
+
+Top-right toggle: **Year / Month / Week / Day**.
+
+- **Year** — 12 mini-months with dots per day, useful for big-picture planning.
+- **Month** — the standard month grid.
+- **Week / Day** — hour-by-hour timetable with current-time line.
+
+### Creating an event
+
+You usually don't need to — your supervisor schedules things. But if you want to add something personal, click **New event** top-right.
+
+If the event has a Google Calendar push enabled, it lands on your supervisor's shared calendar too.
+
+## Chat
+
+The **Chat** module (green icon) is for direct messages with your supervisor and co-supervisors.
+
+- **Left column**: list of channels. Click one to open it.
+- **Top header**: who's in the channel.
+- **Message box at the bottom**: type, press Enter to send. Click the paperclip to attach a file (max 25 MB; chat attachments are auto-deleted after 7 days).
+- **Bold channel name + pink dot** in the sidebar = unread.
+
+You can collapse the channels column to icons-only with the small chevron at the top of that column. Same trick on the main left sidebar.
+
+## Files
+
+The **Files** module (blue icon) shows the Google Drive folder your supervisor shared with you. Click any file or folder to open it in Drive (a new tab).
+
+Star a file with the star icon to bookmark it. Starred files appear at the top.
+
+## Your profile
+
+Click your avatar at the top-right → **Edit profile**. You can change:
+
+- Your display name
+- Your color (used for your avatar and the stripe on your tasks)
+- Your photo
+
+You **cannot** change your role or your supervisor — ask your supervisor or the admin for that.
+
+## Notifications
+
+Three places show "you have new stuff":
+
+1. **Sidebar badges**: a pink dot/number on Chat for unread messages; orange on Tasks for new/updated tasks; teal on Calendar for new/updated events.
+2. **Task cards** with new/updated activity have a colored banner across the top until you open them.
+3. **Calendar events** with new/updated activity have a red/blue ring around them until you click them.
+
+Click an item to acknowledge — the badge clears next time you reload.
+
+## Tips
+
+- **Drag-and-drop** tasks across columns instead of opening them and switching status.
+- **Subtasks** are great for breaking "Write paper" into "draft intro / draft results / share / submit".
+- **Due dates auto-sync to your calendar** — if you want something on your calendar, give it a due date.
+- **Collapse the sidebars** when you want more room (chevron at the bottom of the main sidebar, or at the top of the chat channels column).
+- **Refresh the page** if anything looks stale — the live updates are good but not perfect.
+
+## If something breaks
+
+- **"Access blocked" on sign-in** → your Gmail isn't on the test list. Ask your supervisor.
+- **"This app isn't verified" warning** → click **Continue / Continuar**, it's expected.
+- **You uploaded a photo / file and it didn't appear** → reload the page once.
+- **Calendar event missing** → the calendar syncs from Google in the background; pull-to-refresh or click the refresh icon top-right.
+- **Anything else** → tell your supervisor and they'll forward it to the admin.
