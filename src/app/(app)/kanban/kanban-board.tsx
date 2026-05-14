@@ -140,6 +140,7 @@ export function KanbanBoard({
   const [draggingId, setDraggingId] = useState<string | null>(null);
   const [hoverStatus, setHoverStatus] = useState<string | null>(null);
   const [view, setView] = useState<"board" | "list">("board");
+  const [recentlyDeleted, setRecentlyDeleted] = useState<Ticket[]>([]);
   const router = useRouter();
   const [, startTransition] = useTransition();
 
@@ -186,7 +187,20 @@ export function KanbanBoard({
           );
           if (!cancelled && r.ok) {
             const j = await r.json();
-            setTickets(j.tickets);
+            // Diff local state against server to detect deletes done by others
+            // since our last poll. Keep the old objects around as "ghosts"
+            // until the user dismisses them.
+            setTickets((prev) => {
+              const newIds = new Set<string>(j.tickets.map((t: Ticket) => t.id));
+              const gone = prev.filter((t) => !newIds.has(t.id));
+              if (gone.length > 0) {
+                setRecentlyDeleted((rd) => {
+                  const have = new Set(rd.map((t) => t.id));
+                  return [...rd, ...gone.filter((t) => !have.has(t.id))];
+                });
+              }
+              return j.tickets;
+            });
             setHighlightByTicket(j.highlightByTicket ?? {});
           }
         } catch {
@@ -353,6 +367,19 @@ export function KanbanBoard({
                 </div>
               </div>
               <div className="flex-1 overflow-y-auto px-2 pb-3 space-y-2">
+                {recentlyDeleted
+                  .filter((t) => t.status === col.id)
+                  .map((t) => (
+                    <GhostTaskCard
+                      key={`deleted-${t.id}`}
+                      ticket={t}
+                      onDismiss={() =>
+                        setRecentlyDeleted((prev) =>
+                          prev.filter((r) => r.id !== t.id),
+                        )
+                      }
+                    />
+                  ))}
                 {(grouped[col.id] ?? []).map((t) => (
                   <TicketCard
                     key={t.id}
@@ -1294,6 +1321,44 @@ function SubtaskChecklist({
         <Button type="button" variant="outline" size="sm" onClick={add} disabled={!draft.trim()}>
           <Plus className="h-3.5 w-3.5" /> Add
         </Button>
+      </div>
+    </div>
+  );
+}
+
+function GhostTaskCard({
+  ticket,
+  onDismiss,
+}: {
+  ticket: Ticket;
+  onDismiss: () => void;
+}) {
+  return (
+    <div
+      className="relative rounded-xl border-2 border-dashed bg-slate-50 p-3 opacity-80"
+      style={{ borderColor: "var(--c-red)" }}
+    >
+      <button
+        type="button"
+        onClick={onDismiss}
+        title="Dismiss"
+        className="absolute right-2 top-2 rounded-md p-1 text-slate-400 hover:bg-white hover:text-slate-700"
+      >
+        <X className="h-3.5 w-3.5" />
+      </button>
+      <div className="flex items-center gap-1.5 mb-1">
+        <span
+          className="rounded-sm px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wide text-white"
+          style={{ background: "var(--c-red)" }}
+        >
+          Deleted
+        </span>
+        <span className="text-[10px] text-slate-500">
+          {displayName(ticket.student)}
+        </span>
+      </div>
+      <div className="text-sm font-medium text-slate-700 line-through pr-6">
+        {ticket.title}
       </div>
     </div>
   );

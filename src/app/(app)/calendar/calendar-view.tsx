@@ -17,7 +17,7 @@ import {
   subMonths,
   subWeeks,
 } from "date-fns";
-import { ChevronLeft, ChevronRight, Plus, RefreshCw, ExternalLink, MapPin, Video, Trash2, Clock, Users as UsersIcon } from "lucide-react";
+import { ChevronLeft, ChevronRight, Plus, RefreshCw, ExternalLink, MapPin, Video, Trash2, Clock, Users as UsersIcon, X as XIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -117,6 +117,7 @@ export function CalendarView({
   const [syncing, setSyncing] = useState(false);
   const [openEventId, setOpenEventId] = useState<string | null>(null);
   const [view, setView] = useState<"year" | "month" | "week" | "day">("month");
+  const [recentlyDeleted, setRecentlyDeleted] = useState<Event[]>([]);
   const router = useRouter();
   const openEvent = events.find((e) => e.id === openEventId) ?? null;
 
@@ -183,6 +184,15 @@ export function CalendarView({
     return map;
   }, [filtered]);
 
+  const deletedByDay = useMemo(() => {
+    const map: Record<string, Event[]> = {};
+    for (const e of recentlyDeleted) {
+      const key = format(new Date(e.startsAt), "yyyy-MM-dd");
+      (map[key] ??= []).push(e);
+    }
+    return map;
+  }, [recentlyDeleted]);
+
   // Poll for events + highlight changes so the calendar updates without
   // requiring the user to leave and come back. Skips while a dialog is open.
   useEffect(() => {
@@ -210,7 +220,17 @@ export function CalendarView({
           });
           if (!cancelled && r.ok) {
             const j = await r.json();
-            setEvents(j.events);
+            setEvents((prev) => {
+              const newIds = new Set<string>(j.events.map((e: Event) => e.id));
+              const gone = prev.filter((e) => !newIds.has(e.id));
+              if (gone.length > 0) {
+                setRecentlyDeleted((rd) => {
+                  const have = new Set(rd.map((e) => e.id));
+                  return [...rd, ...gone.filter((e) => !have.has(e.id))];
+                });
+              }
+              return j.events;
+            });
             setHighlightByEvent(j.highlightByEvent ?? {});
           }
         } catch {
@@ -358,6 +378,7 @@ export function CalendarView({
                 {days.map((day) => {
                   const key = format(day, "yyyy-MM-dd");
                   const evs = dayEvents[key] ?? [];
+                  const ghosts = deletedByDay[key] ?? [];
                   const inMonth = isSameMonth(day, cursor);
                   const today = isSameDay(day, new Date());
                   return (
@@ -481,6 +502,38 @@ export function CalendarView({
                             +{evs.length - 3} more
                           </div>
                         )}
+                        {ghosts.map((e) => {
+                          const cleanTitle = e.title.replace(/^\[Task\]\s*/, "");
+                          return (
+                            <div
+                              key={`del-${e.id}`}
+                              className="group flex items-center gap-1 rounded border-2 border-dashed bg-slate-50 px-1.5 py-0.5 text-[11px] line-through text-slate-500"
+                              style={{ borderColor: "var(--c-red)" }}
+                              title={`Deleted: ${cleanTitle}`}
+                            >
+                              <span
+                                className="rounded-sm px-1 text-[8px] font-bold uppercase text-white"
+                                style={{ background: "var(--c-red)" }}
+                              >
+                                del
+                              </span>
+                              <span className="flex-1 truncate">{cleanTitle}</span>
+                              <button
+                                type="button"
+                                onClick={(ev) => {
+                                  ev.stopPropagation();
+                                  setRecentlyDeleted((prev) =>
+                                    prev.filter((r) => r.id !== e.id),
+                                  );
+                                }}
+                                className="opacity-0 group-hover:opacity-100 text-slate-400 hover:text-slate-700"
+                                title="Dismiss"
+                              >
+                                <XIcon className="h-3 w-3" />
+                              </button>
+                            </div>
+                          );
+                        })}
                       </div>
                     </div>
                   );
