@@ -30,7 +30,7 @@ export default async function TeamPage() {
     orderBy: [{ role: "asc" }, { name: "asc" }],
     include: {
       supervisedStudents: { select: { id: true } },
-      coSupervisedStudents: { select: { id: true, role: true } },
+      coSupervisedStudents: { select: { id: true, studentId: true, role: true } },
       assignedTickets: { where: { status: { notIn: ["done"] } }, select: { id: true } },
     },
   });
@@ -104,24 +104,36 @@ export default async function TeamPage() {
             <p className="text-sm text-slate-500">Nobody yet.</p>
           ) : (
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-              {supervisorUsers.map((u) => (
-                <TeamUserCard
-                  key={u.id}
-                  user={{
-                    id: u.id,
-                    name: u.name,
-                    email: u.email,
-                    image: u.image,
-                    color: u.color,
-                    role: u.role,
-                  }}
-                  isMe={u.id === session.user.id}
-                  isAdmin={isAdmin}
-                  metric={`${u.supervisedStudents.length} student${u.supervisedStudents.length === 1 ? "" : "s"}`}
-                >
-                  <UserCardBody u={u} isMe={u.id === session.user.id} metric={`${u.supervisedStudents.length} students`} />
-                </TeamUserCard>
-              ))}
+              {supervisorUsers.map((u) => {
+                const supervisedCount = new Set([
+                  ...u.supervisedStudents.map((s) => s.id),
+                  ...u.coSupervisedStudents
+                    .filter((c) => c.role === "supervisor" || c.role === "co_supervisor")
+                    .map((c) => c.studentId),
+                ]).size;
+                return (
+                  <TeamUserCard
+                    key={u.id}
+                    user={{
+                      id: u.id,
+                      name: u.name,
+                      email: u.email,
+                      image: u.image,
+                      color: u.color,
+                      role: u.role,
+                    }}
+                    isMe={u.id === session.user.id}
+                    isAdmin={isAdmin}
+                    metric={`${supervisedCount} student${supervisedCount === 1 ? "" : "s"}`}
+                  >
+                    <UserCardBody
+                      u={u}
+                      isMe={u.id === session.user.id}
+                      metric={`${supervisedCount} student${supervisedCount === 1 ? "" : "s"}`}
+                    />
+                  </TeamUserCard>
+                );
+              })}
             </div>
           )}
         </CardContent>
