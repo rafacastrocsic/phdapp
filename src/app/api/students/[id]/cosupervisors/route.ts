@@ -107,6 +107,12 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
       { status: 409 },
     );
 
+  if (user.role === "student")
+    return NextResponse.json(
+      { error: "Students cannot be added to a supervision team." },
+      { status: 400 },
+    );
+
   try {
     const created = await prisma.coSupervisor.create({
       data: { studentId: id, userId: user.id, role: d.role },
@@ -114,13 +120,6 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
         user: { select: { id: true, name: true, email: true, image: true, color: true, role: true } },
       },
     });
-    // Promote a student to supervisor when they're added to a supervision team.
-    if (user.role === "student") {
-      await prisma.user.update({
-        where: { id: user.id },
-        data: { role: "supervisor" },
-      });
-    }
     // Best-effort: if the student already has a shared Google calendar, grant
     // the new team member writer access. Use the primary supervisor's token.
     try {
