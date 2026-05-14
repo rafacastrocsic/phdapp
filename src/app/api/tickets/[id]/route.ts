@@ -40,7 +40,7 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
   );
   if (!canWriteForStudent(access))
     return NextResponse.json(
-      { error: "Only the supervisors of this student can edit tickets" },
+      { error: "Only the supervisors of this student can edit tasks" },
       { status: 403 },
     );
 
@@ -74,8 +74,8 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
     entityId: id,
     summary:
       d.status && d.status !== t.status
-        ? `moved ticket “${t.title}” → ${d.status.replace("_", " ")}`
-        : `updated ticket “${t.title}” (${Object.keys(data).join(", ")})`,
+        ? `moved task “${t.title}” → ${d.status.replace("_", " ")}`
+        : `updated task “${t.title}” (${Object.keys(data).join(", ")})`,
     details: data,
   });
 
@@ -96,7 +96,7 @@ export async function DELETE(_req: Request, { params }: { params: Promise<{ id: 
   );
   if (!canWriteForStudent(access))
     return NextResponse.json(
-      { error: "You don't have permission to delete this ticket" },
+      { error: "You don't have permission to delete this task" },
       { status: 403 },
     );
 
@@ -109,7 +109,7 @@ export async function DELETE(_req: Request, { params }: { params: Promise<{ id: 
     action: "ticket.delete",
     entityType: "ticket",
     entityId: id,
-    summary: `deleted ticket “${t.title}”`,
+    summary: `deleted task “${t.title}”`,
   });
 
   return NextResponse.json({ ok: true });

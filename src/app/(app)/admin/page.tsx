@@ -137,7 +137,7 @@ export default async function AdminPage() {
                             <span><strong className="text-slate-900">{u._count.coSupervisedStudents}</strong> shared</span>
                           )}
                           {u._count.assignedTickets > 0 && (
-                            <span><strong className="text-slate-900">{u._count.assignedTickets}</strong> tickets</span>
+                            <span><strong className="text-slate-900">{u._count.assignedTickets}</strong> tasks</span>
                           )}
                         </div>
                         <span className="text-xs text-slate-400 ml-2">click to edit</span>

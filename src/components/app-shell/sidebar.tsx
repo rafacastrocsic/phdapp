@@ -155,7 +155,7 @@ export function Sidebar({
               {item.href === "/kanban" && unreadKanban > 0 && (
                 <span
                   className="ml-auto inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-[var(--c-orange)] px-1.5 text-[10px] font-bold text-white"
-                  title={`${unreadKanban} new ticket change${unreadKanban === 1 ? "" : "s"}`}
+                  title={`${unreadKanban} new task change${unreadKanban === 1 ? "" : "s"}`}
                 >
                   {unreadKanban > 99 ? "99+" : unreadKanban}
                 </span>

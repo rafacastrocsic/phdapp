@@ -34,7 +34,7 @@ export function Topbar({ user, studentId = null }: TopbarProps) {
         <div className="relative max-w-md flex-1">
           <Search className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
           <input
-            placeholder="Search students, tickets, files…"
+            placeholder="Search students, tasks, files…"
             className="h-9 w-full rounded-lg border bg-slate-50 pl-9 pr-3 text-sm placeholder:text-slate-400 focus:bg-white focus:outline-none focus:ring-2 focus:ring-[var(--ring)]/20"
           />
         </div>

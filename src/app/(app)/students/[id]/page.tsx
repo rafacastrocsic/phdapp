@@ -336,7 +336,7 @@ export default async function StudentDetail({
 
           <Card>
           <CardHeader className="flex flex-row items-center justify-between">
-            <CardTitle>Recent tickets</CardTitle>
+            <CardTitle>Recent tasks</CardTitle>
             <Link
               href={`/kanban?student=${student.id}`}
               className="text-xs font-semibold text-[var(--c-orange)] hover:underline"

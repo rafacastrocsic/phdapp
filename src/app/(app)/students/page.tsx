@@ -116,7 +116,7 @@ export default async function StudentsPage() {
               <div className="mt-4 flex items-center justify-between text-xs text-slate-500">
                 <div className="flex items-center gap-3">
                   <span>
-                    <strong className="text-slate-900">{s._count.tickets}</strong> tickets
+                    <strong className="text-slate-900">{s._count.tickets}</strong> tasks
                   </span>
                   <span>
                     <strong className="text-slate-900">{s._count.events}</strong> events

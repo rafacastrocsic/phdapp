@@ -4,7 +4,7 @@ import { Sparkles, KanbanSquare, CalendarDays, FolderOpen, MessagesSquare, Gradu
 
 const FEATURES = [
   { icon: GraduationCap, label: "Per-student profiles", color: "var(--c-pink)" },
-  { icon: KanbanSquare, label: "Kanban tickets", color: "var(--c-orange)" },
+  { icon: KanbanSquare, label: "Kanban tasks", color: "var(--c-orange)" },
   { icon: CalendarDays, label: "Shared calendars", color: "var(--c-teal)" },
   { icon: FolderOpen, label: "Drive folders", color: "var(--c-blue)" },
   { icon: MessagesSquare, label: "In-app chat", color: "var(--c-green)" },

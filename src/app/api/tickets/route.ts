@@ -35,7 +35,7 @@ export async function POST(req: Request) {
   );
   if (!canWriteForStudent(access))
     return NextResponse.json(
-      { error: "Only the supervisors of this student can create tickets" },
+      { error: "Only the supervisors of this student can create tasks" },
       { status: 403 },
     );
 
@@ -67,7 +67,7 @@ export async function POST(req: Request) {
     action: "ticket.create",
     entityType: "ticket",
     entityId: created.id,
-    summary: `created ticket “${created.title}”`,
+    summary: `created task “${created.title}”`,
   });
 
   return NextResponse.json({

@@ -123,7 +123,7 @@ export default async function DashboardPage() {
           />
         )}
         <StatCard
-          label="Open tickets"
+          label="Open tasks"
           value={openTickets}
           icon={KanbanSquare}
           color="var(--c-orange)"
@@ -159,8 +159,8 @@ export default async function DashboardPage() {
           <CardContent className="p-0">
             {recentTickets.length === 0 ? (
               <EmptyState
-                title="No tickets yet"
-                hint="Create your first ticket from the Kanban board."
+                title="No tasks yet"
+                hint="Create your first task from the Kanban board."
               />
             ) : (
               <ul className="divide-y">

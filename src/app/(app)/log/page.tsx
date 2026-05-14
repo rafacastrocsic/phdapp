@@ -20,9 +20,9 @@ import {
 } from "lucide-react";
 
 const ACTION_LABELS: Record<string, { label: string; color: string; icon: typeof KanbanSquare }> = {
-  "ticket.create": { label: "Created ticket", color: "#00ca72", icon: Plus },
-  "ticket.update": { label: "Updated ticket", color: "#2196f3", icon: Pencil },
-  "ticket.delete": { label: "Deleted ticket", color: "#e2445c", icon: Trash2 },
+  "ticket.create": { label: "Created task", color: "#00ca72", icon: Plus },
+  "ticket.update": { label: "Updated task", color: "#2196f3", icon: Pencil },
+  "ticket.delete": { label: "Deleted task", color: "#e2445c", icon: Trash2 },
   "event.create": { label: "Created event", color: "#00d1c1", icon: Plus },
   "event.update": { label: "Updated event", color: "#2196f3", icon: Pencil },
   "event.delete": { label: "Deleted event", color: "#e2445c", icon: Trash2 },
@@ -223,7 +223,7 @@ export default async function LogBookPage({
                                   href={`/kanban?ticket=${l.entityId}`}
                                   className="flex items-center gap-1 text-[var(--c-orange)] hover:underline"
                                 >
-                                  <KanbanSquare className="h-3 w-3" /> open ticket
+                                  <KanbanSquare className="h-3 w-3" /> open task
                                 </Link>
                               </>
                             )}

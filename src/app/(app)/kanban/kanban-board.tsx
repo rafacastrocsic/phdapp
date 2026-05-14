@@ -217,12 +217,12 @@ export function KanbanBoard({
           <div className="min-w-0">
             <h1 className="text-2xl font-bold text-slate-900">Kanban</h1>
             <p className="text-sm text-slate-500 mt-1">
-              {filtered.length} of {tickets.length} ticket
+              {filtered.length} of {tickets.length} task
               {tickets.length === 1 ? "" : "s"}
             </p>
           </div>
           <Button variant="brand" onClick={() => setNewOpen(true)} className="shrink-0">
-            <Plus className="h-4 w-4" /> New ticket
+            <Plus className="h-4 w-4" /> New task
           </Button>
         </div>
         <div className="flex flex-wrap gap-2">
@@ -451,7 +451,7 @@ function TicketCard({
         >
           <span className="flex items-center gap-1.5">
             <span className="h-1.5 w-1.5 rounded-full bg-white animate-pulse" />
-            {isNew ? "new ticket" : "updated"}
+            {isNew ? "new task" : "updated"}
           </span>
           <span
             className="h-1.5 w-1.5 rounded-full"
@@ -627,7 +627,7 @@ function NewTicketDialog({
     setSubmitting(false);
     if (!res.ok) {
       const j = await res.json().catch(() => ({}));
-      setError(j.error ?? "Could not create ticket");
+      setError(j.error ?? "Could not create task");
       return;
     }
     const { ticket } = await res.json();
@@ -638,7 +638,7 @@ function NewTicketDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>New ticket</DialogTitle>
+          <DialogTitle>New task</DialogTitle>
         </DialogHeader>
         <form onSubmit={onSubmit} className="space-y-3">
           <Field label="Title">
@@ -723,7 +723,7 @@ function NewTicketDialog({
           <div className="flex justify-end gap-2 pt-2">
             <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>Cancel</Button>
             <Button type="submit" variant="brand" disabled={submitting}>
-              {submitting ? "Creating…" : "Create ticket"}
+              {submitting ? "Creating…" : "Create task"}
             </Button>
           </div>
         </form>
@@ -782,7 +782,7 @@ function TicketDetailDialog({
 
   async function del() {
     if (!ticket) return;
-    if (!confirm("Delete this ticket?")) return;
+    if (!confirm("Delete this task?")) return;
     await fetch(`/api/tickets/${ticket.id}`, { method: "DELETE" });
     onDeleted(ticket.id);
   }

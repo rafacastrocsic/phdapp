@@ -84,7 +84,7 @@ export function EditStudentDialog({
     if (
       !confirm(
         `PERMANENTLY DELETE ${student.fullName}?\n\n` +
-          "This removes ALL of their tickets, events, channels, comments, " +
+          "This removes ALL of their tasks, events, channels, comments, " +
           "uploads and history.\n\n" +
           "This action CANNOT be undone. Continue?",
       )

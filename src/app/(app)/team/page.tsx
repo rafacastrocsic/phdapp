@@ -246,7 +246,7 @@ export default async function TeamPage() {
                     <div className="text-[10px] text-slate-500 mt-0.5 flex items-center gap-2">
                       <span>Year {s.programYear}</span>
                       <span>·</span>
-                      <span>{s._count.tickets} tickets</span>
+                      <span>{s._count.tickets} tasks</span>
                       {!s.userId && (
                         <Badge color="#94a3b8" className="!text-[9px]">
                           not signed in
