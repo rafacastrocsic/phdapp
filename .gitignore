@@ -32,9 +32,20 @@ yarn-error.log*
 
 # env files (can opt-in for committing if needed)
 .env*
+!.env.example
 
 # vercel
 .vercel
+
+# editor / local agent state
+.claude/
+.obsidian/
+
+# legacy local uploads (replaced by Vercel Blob)
+public/uploads
+
+# local sqlite (kept for offline dev only)
+prisma/dev.db*
 
 # typescript
 *.tsbuildinfo

@@ -1,0 +1,306 @@
+// PhDapp data model
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ───────── Auth (NextAuth + Google) ─────────
+
+model User {
+  id            String    @id @default(cuid())
+  name          String?
+  email         String    @unique
+  emailVerified DateTime?
+  image         String?
+  role          String    @default("student") // "admin" | "supervisor" | "student"
+  color         String    @default("#6366f1") // accent color in UI
+  kanbanLastSeenAt DateTime?
+  kanbanDismissedTicketIds String?  // JSON array of ticket ids dismissed since last /kanban visit
+  calendarLastSeenAt DateTime?
+  calendarDismissedEventIds String?  // JSON array of event ids dismissed since last /calendar visit
+
+  accounts Account[]
+  sessions Session[]
+
+  // Domain relations
+  studentProfile        Student?         @relation("StudentUser")
+  supervisedStudents    Student[]        @relation("SupervisorOfStudent")
+  coSupervisedStudents  CoSupervisor[]
+  assignedTickets       Ticket[]         @relation("TicketAssignee")
+  createdTickets        Ticket[]         @relation("TicketCreator")
+  comments              Comment[]
+  messages              Message[]
+  channelMemberships    ChannelMember[]
+  events                Event[]          @relation("EventOwner")
+  eventAttendances      EventAttendee[]
+  activityLogs          ActivityLog[]    @relation("ActivityActor")
+  favoritesStarred      FavoriteFile[]   @relation("FavoriteStarredBy")
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model Account {
+  id                String  @id @default(cuid())
+  userId            String
+  type              String
+  provider          String
+  providerAccountId String
+  refresh_token     String?
+  access_token      String?
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String?
+  session_state     String?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  @@unique([provider, providerAccountId])
+}
+
+model Session {
+  id           String   @id @default(cuid())
+  sessionToken String   @unique
+  userId       String
+  expires      DateTime
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model VerificationToken {
+  identifier String
+  token      String   @unique
+  expires    DateTime
+  @@unique([identifier, token])
+}
+
+// ───────── Domain ─────────
+
+model Student {
+  id              String    @id @default(cuid())
+  userId          String?   @unique
+  user            User?     @relation("StudentUser", fields: [userId], references: [id])
+  fullName        String
+  alias           String?
+  email           String    @unique
+  avatarUrl       String?
+  color           String    @default("#06b6d4")
+  programYear     Int       @default(1)
+  startDate       DateTime  @default(now())
+  expectedEndDate DateTime?
+  thesisTitle     String?
+  researchArea    String?
+  status          String    @default("active") // active | on_leave | submitted | graduated | withdrawn
+
+  // Google-linked resources
+  driveFolderId   String?
+  calendarId      String?
+  chatSpaceId     String?
+
+  // External profile links
+  linkedinUrl     String?
+  orcidId         String?
+  websiteUrl      String?
+
+  supervisorId    String
+  supervisor      User      @relation("SupervisorOfStudent", fields: [supervisorId], references: [id])
+
+  coSupervisors   CoSupervisor[]
+  tickets         Ticket[]
+  events          Event[]
+  channels        Channel[]
+  activityLogs    ActivityLog[]
+  favorites       FavoriteFile[]
+
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+}
+
+model CoSupervisor {
+  id        String  @id @default(cuid())
+  studentId String
+  userId    String
+  role      String  @default("co_supervisor") // co_supervisor | external_advisor | committee
+  student   Student @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  user      User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([studentId, userId])
+}
+
+model Ticket {
+  id           String    @id @default(cuid())
+  title        String
+  description  String?
+  status       String    @default("backlog") // backlog | todo | in_progress | review | blocked | done
+  priority     String    @default("medium")  // low | medium | high | urgent
+  category     String    @default("research") // research | writing | admin | reading | meeting | experiment | publication | conference | other
+  dueDate      DateTime?
+  startedAt    DateTime?
+  completedAt  DateTime?
+  estimateHours Float?
+  actualHours   Float?
+
+  // Linked resources
+  driveFolderUrl String?
+  channelId      String?
+
+  studentId    String
+  student      Student   @relation(fields: [studentId], references: [id], onDelete: Cascade)
+
+  assigneeId   String?
+  assignee     User?     @relation("TicketAssignee", fields: [assigneeId], references: [id])
+
+  createdById  String
+  createdBy    User      @relation("TicketCreator", fields: [createdById], references: [id])
+
+  channel      Channel?  @relation(fields: [channelId], references: [id])
+  comments     Comment[]
+  tags         TicketTag[]
+  order        Int       @default(0)
+
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+}
+
+model TicketTag {
+  id       String  @id @default(cuid())
+  ticketId String
+  label    String
+  color    String  @default("#94a3b8")
+  ticket   Ticket  @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+}
+
+model Comment {
+  id        String   @id @default(cuid())
+  body      String
+  ticketId  String
+  authorId  String
+  ticket    Ticket   @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+  author    User     @relation(fields: [authorId], references: [id])
+  createdAt DateTime @default(now())
+}
+
+// ───────── Calendar (mirrors Google Calendar) ─────────
+
+model Event {
+  id              String   @id @default(cuid())
+  title           String
+  description     String?
+  location        String?
+  startsAt        DateTime
+  endsAt          DateTime
+  allDay          Boolean  @default(false)
+  meetingUrl      String?
+  googleEventId   String?  @unique
+  googleCalendarId String?
+
+  ownerId   String
+  owner     User     @relation("EventOwner", fields: [ownerId], references: [id])
+
+  studentId String?
+  student   Student? @relation(fields: [studentId], references: [id], onDelete: SetNull)
+
+  attendees EventAttendee[]
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model EventAttendee {
+  id       String  @id @default(cuid())
+  eventId  String
+  userId   String
+  status   String  @default("invited") // invited | accepted | declined | tentative
+  event    Event   @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  user     User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([eventId, userId])
+}
+
+// ───────── In-app Chat ─────────
+
+model Channel {
+  id          String  @id @default(cuid())
+  name        String
+  description String?
+  kind        String  @default("student")  // student | cosupervisors | direct | general
+  color       String  @default("#8b5cf6")
+
+  studentId   String?
+  student     Student? @relation(fields: [studentId], references: [id], onDelete: Cascade)
+
+  members     ChannelMember[]
+  messages    Message[]
+  tickets     Ticket[]
+
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+model ChannelMember {
+  id        String   @id @default(cuid())
+  channelId String
+  userId    String
+  lastRead  DateTime @default(now())
+  channel   Channel  @relation(fields: [channelId], references: [id], onDelete: Cascade)
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([channelId, userId])
+}
+
+model Message {
+  id          String   @id @default(cuid())
+  channelId   String
+  authorId    String
+  body        String
+  attachments String?  // JSON: [{name, url}]
+  channel     Channel  @relation(fields: [channelId], references: [id], onDelete: Cascade)
+  author      User     @relation(fields: [authorId], references: [id])
+  createdAt   DateTime @default(now())
+}
+
+// ───────── Log book ─────────
+
+model FavoriteFile {
+  id          String   @id @default(cuid())
+  studentId   String
+  student     Student  @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  driveFileId String
+  name        String
+  mimeType    String
+  webViewLink String?
+  iconLink    String?
+  parentFolderId String?
+  starredById String
+  starredBy   User     @relation("FavoriteStarredBy", fields: [starredById], references: [id])
+  createdAt   DateTime @default(now())
+
+  @@unique([studentId, driveFileId])
+  @@index([studentId])
+}
+
+model ActivityLog {
+  id        String   @id @default(cuid())
+  actorId   String
+  actor     User     @relation("ActivityActor", fields: [actorId], references: [id])
+  actorRoleAtTime String  // snapshot: "student" | "co_supervisor" | "supervisor"
+
+  studentId String?
+  student   Student? @relation(fields: [studentId], references: [id], onDelete: SetNull)
+
+  action    String   // e.g. "ticket.create", "ticket.update", "ticket.delete", "event.create", "event.update", "event.delete"
+  entityType String? // "ticket" | "event" | "student" | "channel"
+  entityId   String?
+
+  summary   String   // human-readable, e.g. "created ticket 'Draft intro chapter'"
+  details   String?  // optional JSON payload of changed fields
+
+  readBy    String?  // JSON array of user ids who marked it read
+  createdAt DateTime @default(now())
+
+  @@index([studentId, createdAt])
+  @@index([actorId, createdAt])
+}

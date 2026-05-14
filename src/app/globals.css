@@ -1,26 +1,112 @@
 @import "tailwindcss";
 
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  --background: #f7f8fc;
+  --foreground: #0f172a;
+  --card: #ffffff;
+  --card-foreground: #0f172a;
+  --muted: #eef0f6;
+  --muted-foreground: #64748b;
+  --border: #e2e8f0;
+  --ring: #6366f1;
+
+  /* Brand palette — Monday-style vibrant accents */
+  --c-violet: #6f4cff;
+  --c-pink: #ff3d8b;
+  --c-orange: #ff7a45;
+  --c-yellow: #ffcc4d;
+  --c-green: #00ca72;
+  --c-teal: #00d1c1;
+  --c-blue: #2196f3;
+  --c-red: #e2445c;
+
+  /* Status colors for kanban */
+  --s-backlog: #94a3b8;
+  --s-todo: #2196f3;
+  --s-in_progress: #ff7a45;
+  --s-review: #a855f7;
+  --s-blocked: #e2445c;
+  --s-done: #00ca72;
+
+  /* Priority */
+  --p-low: #94a3b8;
+  --p-medium: #2196f3;
+  --p-high: #ff7a45;
+  --p-urgent: #e2445c;
 }
 
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-border: var(--border);
+  --color-ring: var(--ring);
+
+  --color-violet: var(--c-violet);
+  --color-pink: var(--c-pink);
+  --color-orange: var(--c-orange);
+  --color-yellow: var(--c-yellow);
+  --color-green: var(--c-green);
+  --color-teal: var(--c-teal);
+  --color-blue: var(--c-blue);
+  --color-red: var(--c-red);
+
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+* {
+  border-color: var(--border);
 }
 
-body {
+html, body {
   background: var(--background);
   color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  font-family: var(--font-sans), -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
 }
+
+::-webkit-scrollbar { width: 10px; height: 10px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 6px; }
+::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
+
+/* Utility: gradient brand text */
+.brand-gradient {
+  background: linear-gradient(90deg, var(--c-violet), var(--c-pink), var(--c-orange));
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
+.brand-bg {
+  background: linear-gradient(135deg, var(--c-violet) 0%, var(--c-pink) 50%, var(--c-orange) 100%);
+}
+
+.dotgrid {
+  background-image: radial-gradient(circle, #e2e8f0 1px, transparent 1px);
+  background-size: 18px 18px;
+}
+
+@keyframes shimmer {
+  0% { background-position: -400px 0; }
+  100% { background-position: 400px 0; }
+}
+.shimmer {
+  background: linear-gradient(90deg, #f1f5f9 0%, #e2e8f0 50%, #f1f5f9 100%);
+  background-size: 800px 100%;
+  animation: shimmer 1.4s infinite;
+}
+
+/* Attention-grabbing pulsing border for highlighted kanban cards */
+@keyframes pulse-red-ring {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(226, 68, 92, 0.6); }
+  50%      { box-shadow: 0 0 0 6px rgba(226, 68, 92, 0); }
+}
+@keyframes pulse-blue-ring {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(33, 150, 243, 0.6); }
+  50%      { box-shadow: 0 0 0 6px rgba(33, 150, 243, 0); }
+}
+.animate-pulse-red  { animation: pulse-red-ring 1.6s ease-in-out infinite; }
+.animate-pulse-blue { animation: pulse-blue-ring 1.6s ease-in-out infinite; }
