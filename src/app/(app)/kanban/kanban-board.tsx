@@ -139,6 +139,7 @@ export function KanbanBoard({
   const [newOpen, setNewOpen] = useState(autoOpenNew);
   const [draggingId, setDraggingId] = useState<string | null>(null);
   const [hoverStatus, setHoverStatus] = useState<string | null>(null);
+  const [view, setView] = useState<"board" | "list">("board");
   const router = useRouter();
   const [, startTransition] = useTransition();
 
@@ -230,9 +231,28 @@ export function KanbanBoard({
               {tickets.length === 1 ? "" : "s"}
             </p>
           </div>
-          <Button variant="brand" onClick={() => setNewOpen(true)} className="shrink-0">
-            <Plus className="h-4 w-4" /> New task
-          </Button>
+          <div className="flex items-center gap-2 shrink-0">
+            <div className="flex rounded-lg border bg-slate-50 p-0.5">
+              {(["board", "list"] as const).map((v) => (
+                <button
+                  key={v}
+                  type="button"
+                  onClick={() => setView(v)}
+                  className={cn(
+                    "px-3 py-1 text-xs font-semibold rounded-md transition-colors capitalize",
+                    view === v
+                      ? "bg-white text-slate-900 shadow-sm"
+                      : "text-slate-500 hover:text-slate-700",
+                  )}
+                >
+                  {v}
+                </button>
+              ))}
+            </div>
+            <Button variant="brand" onClick={() => setNewOpen(true)}>
+              <Plus className="h-4 w-4" /> New task
+            </Button>
+          </div>
         </div>
         <div className="flex flex-wrap gap-2">
           <div className="relative grow basis-44 max-w-xs">
@@ -283,6 +303,13 @@ export function KanbanBoard({
         </div>
       </div>
 
+      {view === "list" ? (
+        <TaskListView
+          tickets={filtered}
+          students={students}
+          onOpen={(id) => setOpenId(id)}
+        />
+      ) : (
       <div className="flex-1 min-w-0 overflow-x-auto">
         <div className="flex gap-4 p-6 lg:p-8 min-w-max h-full">
           {STATUSES.map((col) => (
@@ -374,6 +401,7 @@ export function KanbanBoard({
           ))}
         </div>
       </div>
+      )}
 
       <NewTicketDialog
         open={newOpen}
@@ -1267,6 +1295,147 @@ function SubtaskChecklist({
           <Plus className="h-3.5 w-3.5" /> Add
         </Button>
       </div>
+    </div>
+  );
+}
+
+function TaskListView({
+  tickets,
+  students,
+  onOpen,
+}: {
+  tickets: Ticket[];
+  students: Props["students"];
+  onOpen: (id: string) => void;
+}) {
+  const groups = useMemo(() => {
+    const byStudent: Record<string, Ticket[]> = {};
+    for (const t of tickets) {
+      (byStudent[t.student.id] ??= []).push(t);
+    }
+    // Keep student order from the students prop (alphabetical),
+    // and only include students that actually have tickets.
+    return students
+      .map((s) => ({ student: s, tickets: byStudent[s.id] ?? [] }))
+      .filter((g) => g.tickets.length > 0);
+  }, [tickets, students]);
+
+  if (groups.length === 0) {
+    return (
+      <div className="flex-1 flex items-center justify-center text-sm text-slate-400">
+        No tasks match the current filters.
+      </div>
+    );
+  }
+
+  return (
+    <div className="flex-1 min-w-0 overflow-auto p-6 lg:p-8 space-y-6">
+      {groups.map((g) => (
+        <section key={g.student.id} className="space-y-2">
+          <div className="flex items-center gap-2">
+            <span
+              className="h-3 w-3 rounded-full"
+              style={{ background: g.student.color }}
+            />
+            <h2 className="text-sm font-bold text-slate-900">
+              {displayName(g.student)}
+            </h2>
+            <span className="text-xs text-slate-500">
+              · {g.tickets.length} task{g.tickets.length === 1 ? "" : "s"}
+            </span>
+          </div>
+          <div className="overflow-hidden rounded-xl border bg-white">
+            <table className="w-full text-sm">
+              <thead className="bg-slate-50 text-[10px] uppercase tracking-wide text-slate-500">
+                <tr>
+                  <th className="px-3 py-2 text-left font-semibold">Task</th>
+                  <th className="px-3 py-2 text-left font-semibold">Status</th>
+                  <th className="px-3 py-2 text-left font-semibold">Priority</th>
+                  <th className="px-3 py-2 text-left font-semibold">Category</th>
+                  <th className="px-3 py-2 text-left font-semibold">Assignee</th>
+                  <th className="px-3 py-2 text-left font-semibold">Due date</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y">
+                {g.tickets.map((t) => {
+                  const due = t.dueDate ? new Date(t.dueDate) : null;
+                  const overdue = due && isBefore(due, new Date()) && t.status !== "done";
+                  return (
+                    <tr
+                      key={t.id}
+                      onClick={() => onOpen(t.id)}
+                      className="cursor-pointer hover:bg-slate-50"
+                    >
+                      <td className="px-3 py-2">
+                        <div className="font-medium text-slate-900 truncate">
+                          {t.title}
+                        </div>
+                        {t.subtasks.length > 0 && (
+                          <div className="text-[10px] text-slate-400 mt-0.5">
+                            {t.subtasks.filter((s) => s.done).length}/{t.subtasks.length} subtasks
+                          </div>
+                        )}
+                      </td>
+                      <td className="px-3 py-2">
+                        <Badge color={statusColor(t.status)}>
+                          {STATUSES.find((s) => s.id === t.status)?.label ?? t.status}
+                        </Badge>
+                      </td>
+                      <td className="px-3 py-2">
+                        <Badge color={priorityColor(t.priority)} variant="solid">
+                          {t.priority[0]!.toUpperCase()}
+                        </Badge>
+                      </td>
+                      <td className="px-3 py-2">
+                        <Badge color={categoryColor(t.category)}>
+                          {t.category}
+                        </Badge>
+                      </td>
+                      <td className="px-3 py-2">
+                        {t.assignee ? (
+                          <div className="flex items-center gap-1.5">
+                            <Avatar
+                              name={t.assignee.name}
+                              src={t.assignee.image}
+                              color={t.assignee.color}
+                              size="xs"
+                            />
+                            <span className="truncate text-xs text-slate-700">
+                              {t.assignee.name}
+                            </span>
+                          </div>
+                        ) : (
+                          <span className="text-xs text-slate-400">Unassigned</span>
+                        )}
+                      </td>
+                      <td className="px-3 py-2">
+                        {due ? (
+                          <span
+                            className={cn(
+                              "text-xs",
+                              overdue
+                                ? "text-[var(--c-red)] font-semibold"
+                                : "text-slate-600",
+                            )}
+                          >
+                            {isToday(due)
+                              ? "Today"
+                              : isTomorrow(due)
+                                ? "Tomorrow"
+                                : format(due, "MMM d")}
+                          </span>
+                        ) : (
+                          <span className="text-xs text-slate-300">—</span>
+                        )}
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        </section>
+      ))}
     </div>
   );
 }
