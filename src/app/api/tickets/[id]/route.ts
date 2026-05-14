@@ -5,6 +5,12 @@ import { prisma } from "@/lib/prisma";
 import { accessForStudent, canWriteForStudent, studentVisibilityWhereAllForAdmin, type Role } from "@/lib/access";
 import { logActivity } from "@/lib/activity-log";
 
+const SubtaskItem = z.object({
+  id: z.string(),
+  text: z.string(),
+  done: z.boolean(),
+});
+
 const Patch = z.object({
   title: z.string().optional(),
   description: z.string().nullable().optional(),
@@ -14,6 +20,7 @@ const Patch = z.object({
   assigneeId: z.string().nullable().optional(),
   dueDate: z.string().nullable().optional(),
   driveFolderUrl: z.string().nullable().optional(),
+  subtasks: z.array(SubtaskItem).optional(),
   assignee: z.any().optional(), // ignored — client field
 });
 
@@ -62,6 +69,7 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
   if (d.assigneeId !== undefined) data.assigneeId = d.assigneeId;
   if (d.dueDate !== undefined) data.dueDate = d.dueDate ? new Date(d.dueDate) : null;
   if (d.driveFolderUrl !== undefined) data.driveFolderUrl = d.driveFolderUrl;
+  if (d.subtasks !== undefined) data.subtasks = JSON.stringify(d.subtasks);
 
   await prisma.ticket.update({ where: { id }, data });
 

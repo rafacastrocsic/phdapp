@@ -148,6 +148,10 @@ model Ticket {
   driveFolderUrl String?
   channelId      String?
 
+  // JSON array of { id, text, done } — kept inline rather than in a child table
+  // because subtasks are always loaded/written with their parent task.
+  subtasks       String?
+
   studentId    String
   student      Student   @relation(fields: [studentId], references: [id], onDelete: Cascade)
 

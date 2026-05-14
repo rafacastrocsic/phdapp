@@ -3,6 +3,7 @@ import { useEffect, useMemo, useRef, useState, useTransition } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { format, isBefore, isToday, isTomorrow } from "date-fns";
+import { nanoid } from "nanoid";
 import {
   Plus,
   Filter,
@@ -10,6 +11,7 @@ import {
   FolderOpen,
   Calendar,
   AlertCircle,
+  CheckSquare,
   X,
 } from "lucide-react";
 import { Avatar } from "@/components/ui/avatar";
@@ -53,7 +55,14 @@ export interface Ticket {
   } | null;
   student: { id: string; fullName: string; alias: string | null; color: string };
   tags: { id: string; label: string; color: string }[];
+  subtasks: Subtask[];
   updatedAt: string;
+}
+
+export interface Subtask {
+  id: string;
+  text: string;
+  done: boolean;
 }
 
 interface Member {
@@ -562,6 +571,15 @@ function TicketCard({
               highlight ? "text-white/70" : "text-slate-400",
             )}
           >
+            {ticket.subtasks.length > 0 && (
+              <span
+                className="flex items-center gap-0.5"
+                title={`${ticket.subtasks.filter((s) => s.done).length} of ${ticket.subtasks.length} subtasks done`}
+              >
+                <CheckSquare className="h-3 w-3" />
+                {ticket.subtasks.filter((s) => s.done).length}/{ticket.subtasks.length}
+              </span>
+            )}
             {ticket.commentCount > 0 && (
               <span className="flex items-center gap-0.5">
                 <MessageSquare className="h-3 w-3" /> {ticket.commentCount}
@@ -926,6 +944,11 @@ function TicketDetailDialog({
             />
           </Field>
 
+          <SubtaskChecklist
+            subtasks={ticket.subtasks}
+            onChange={(next) => update({ subtasks: next } as Partial<Ticket>)}
+          />
+
           <Comments ticketId={ticket.id} initialCount={ticket.commentCount} />
 
           <TicketHistory ticketId={ticket.id} />
@@ -1153,5 +1176,97 @@ function Field({
       <span className="text-xs font-semibold text-slate-700">{label}</span>
       <div className="mt-1">{children}</div>
     </label>
+  );
+}
+
+function SubtaskChecklist({
+  subtasks,
+  onChange,
+}: {
+  subtasks: Subtask[];
+  onChange: (next: Subtask[]) => void;
+}) {
+  const [draft, setDraft] = useState("");
+  const done = subtasks.filter((s) => s.done).length;
+
+  function toggle(id: string) {
+    onChange(subtasks.map((s) => (s.id === id ? { ...s, done: !s.done } : s)));
+  }
+  function remove(id: string) {
+    onChange(subtasks.filter((s) => s.id !== id));
+  }
+  function rename(id: string, text: string) {
+    onChange(subtasks.map((s) => (s.id === id ? { ...s, text } : s)));
+  }
+  function add() {
+    const text = draft.trim();
+    if (!text) return;
+    onChange([
+      ...subtasks,
+      { id: nanoid(8), text, done: false },
+    ]);
+    setDraft("");
+  }
+
+  return (
+    <div className="space-y-2">
+      <div className="flex items-center justify-between">
+        <span className="text-xs font-semibold text-slate-700">Subtasks</span>
+        {subtasks.length > 0 && (
+          <span className="text-[10px] text-slate-500">
+            {done} / {subtasks.length} done
+          </span>
+        )}
+      </div>
+      {subtasks.length > 0 && (
+        <ul className="space-y-1">
+          {subtasks.map((s) => (
+            <li key={s.id} className="flex items-center gap-2 group">
+              <input
+                type="checkbox"
+                checked={s.done}
+                onChange={() => toggle(s.id)}
+                className="h-4 w-4 rounded border-slate-300 text-[var(--c-violet)] focus:ring-[var(--c-violet)]"
+              />
+              <input
+                type="text"
+                value={s.text}
+                onChange={(e) => rename(s.id, e.target.value)}
+                className={cn(
+                  "flex-1 bg-transparent text-sm focus:outline-none focus:bg-slate-50 rounded px-1",
+                  s.done && "line-through text-slate-400",
+                )}
+              />
+              <button
+                type="button"
+                onClick={() => remove(s.id)}
+                className="text-slate-300 hover:text-[var(--c-red)] opacity-0 group-hover:opacity-100 transition-opacity"
+                title="Remove subtask"
+              >
+                <X className="h-3.5 w-3.5" />
+              </button>
+            </li>
+          ))}
+        </ul>
+      )}
+      <div className="flex gap-2">
+        <input
+          type="text"
+          value={draft}
+          onChange={(e) => setDraft(e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key === "Enter") {
+              e.preventDefault();
+              add();
+            }
+          }}
+          placeholder="Add a subtask…"
+          className="flex-1 h-8 rounded-md border bg-white px-2 text-sm placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-[var(--ring)]/20"
+        />
+        <Button type="button" variant="outline" size="sm" onClick={add} disabled={!draft.trim()}>
+          <Plus className="h-3.5 w-3.5" /> Add
+        </Button>
+      </div>
+    </div>
   );
 }

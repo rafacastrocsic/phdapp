@@ -3,6 +3,7 @@ import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
 import { studentVisibilityWhere, type Role } from "@/lib/access";
 import { getDismissedTicketIds } from "@/lib/kanban-dismissed";
+import { parseSubtasks } from "@/lib/subtasks";
 
 /**
  * Polled by the Kanban board client to refresh tickets and highlights without
@@ -81,6 +82,7 @@ export async function GET(req: Request) {
       assignee: t.assignee,
       student: t.student,
       tags: t.tags,
+      subtasks: parseSubtasks(t.subtasks),
       updatedAt: t.updatedAt.toISOString(),
     })),
     highlightByTicket,

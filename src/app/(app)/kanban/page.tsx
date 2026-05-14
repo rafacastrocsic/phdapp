@@ -2,6 +2,7 @@ import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
 import { studentVisibilityWhere, type Role } from "@/lib/access";
 import { clearDismissedTicketIds } from "@/lib/kanban-dismissed";
+import { parseSubtasks } from "@/lib/subtasks";
 import { KanbanBoard } from "./kanban-board";
 
 export default async function KanbanPage({
@@ -119,6 +120,7 @@ export default async function KanbanPage({
         assignee: t.assignee,
         student: t.student,
         tags: t.tags,
+        subtasks: parseSubtasks(t.subtasks),
         updatedAt: t.updatedAt.toISOString(),
       }))}
       students={students}

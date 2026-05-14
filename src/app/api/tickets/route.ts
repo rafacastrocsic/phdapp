@@ -86,6 +86,7 @@ export async function POST(req: Request) {
       assignee: created.assignee,
       student: created.student,
       tags: created.tags,
+      subtasks: [] as { id: string; text: string; done: boolean }[],
       updatedAt: created.updatedAt.toISOString(),
     },
   });
