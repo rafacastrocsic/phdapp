@@ -28,6 +28,7 @@ export async function GET(req: Request) {
   const tickets = await prisma.ticket.findMany({
     where: {
       studentId: { in: studentIds },
+      archivedAt: null,
       ...(studentFilter ? { studentId: studentFilter } : {}),
     },
     include: {

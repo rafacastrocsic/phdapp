@@ -121,9 +121,8 @@ export async function DELETE(_req: Request, { params }: { params: Promise<{ id: 
       { status: 403 },
     );
 
-  // Delete the linked Google Calendar event first (the in-app Event row will
-  // also be cascaded away when the Ticket is deleted, but we need to read
-  // googleEventId before that happens).
+  // Remove the linked Google Calendar event (recreated on undo if it had a
+  // due date). The Ticket row itself is SOFT-deleted so it can be restored.
   {
     const { deleteTaskDueEvent } = await import("@/lib/task-event-sync");
     await deleteTaskDueEvent(id, session.user.id).catch((err) =>
@@ -131,7 +130,10 @@ export async function DELETE(_req: Request, { params }: { params: Promise<{ id: 
     );
   }
 
-  await prisma.ticket.delete({ where: { id } });
+  await prisma.ticket.update({
+    where: { id },
+    data: { archivedAt: new Date() },
+  });
 
   await logActivity({
     actorId: session.user.id,

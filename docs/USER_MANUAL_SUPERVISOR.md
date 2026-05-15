@@ -127,9 +127,9 @@ Click a task to open it. Every field saves on change (auto-save). What you can d
 - Add **subtasks** (a small checklist) — add, rename, tick off, remove. Useful for breaking complex work into discrete steps.
 - Drop comments. Every comment also marks the task as "updated" for the other team members (they'll see a blue ring around the card next time they visit Tasks).
 
-### Deleting
+### Deleting (with Undo)
 
-Inside a task dialog → red **Delete** at the bottom-left. Confirm. If a teammate deletes a task while you're on the board, a **dashed red placeholder** appears in its column with the title struck through. Click the **X** to dismiss it.
+Inside a task dialog → red **Delete** at the bottom-left. Confirm. A task delete is a **soft delete** — an **"Undo"** toast appears bottom-center for ~7 seconds; click it to restore the task (and its calendar event). Deleted tasks are archived, not erased, so accidental deletes are recoverable. If a teammate deletes a task while you're on the board, a **dashed red placeholder** appears in its column with the title struck through. Click the **X** to dismiss it.
 
 ### Highlights for new / updated tasks
 

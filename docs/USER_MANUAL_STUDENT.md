@@ -72,7 +72,7 @@ Top-right **New task** button. Pick a title, optional description, priority/cate
 
 ### Deleting
 
-Inside a task dialog → red **Delete** button at the bottom-left. You'll be asked to confirm. If your supervisor deletes one of your tasks while you're looking at the board, a dashed-red placeholder appears with the title struck through — click the **X** on it to dismiss.
+Inside a task dialog → red **Delete** button at the bottom-left. You'll be asked to confirm. After deleting, an **"Undo"** toast appears at the bottom for a few seconds — click it to bring the task back. (Deleted tasks are archived, not wiped, so an accidental delete is recoverable via Undo.) If your supervisor deletes one of your tasks while you're looking at the board, a dashed-red placeholder appears with the title struck through — click the **X** on it to dismiss.
 
 ## Calendar
 

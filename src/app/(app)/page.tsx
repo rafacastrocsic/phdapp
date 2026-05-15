@@ -60,7 +60,10 @@ export default async function DashboardPage() {
 
   const students = await prisma.student.findMany({
     where: studentWhere,
-    include: { supervisor: true, _count: { select: { tickets: true } } },
+    include: {
+      supervisor: true,
+      _count: { select: { tickets: { where: { archivedAt: null } } } },
+    },
     orderBy: { fullName: "asc" },
   });
   const studentIds = students.map((s) => s.id);
@@ -81,12 +84,17 @@ export default async function DashboardPage() {
 
   const [openTickets, overdueTickets, upcomingEvents, recentTickets] = await Promise.all([
     prisma.ticket.count({
-      where: { studentId: { in: studentIds }, status: { notIn: ["done"] } },
+      where: {
+        studentId: { in: studentIds },
+        status: { notIn: ["done"] },
+        archivedAt: null,
+      },
     }),
     prisma.ticket.count({
       where: {
         studentId: { in: studentIds },
         status: { notIn: ["done"] },
+        archivedAt: null,
         dueDate: { lt: new Date() },
       },
     }),
@@ -100,7 +108,7 @@ export default async function DashboardPage() {
       take: 5,
     }),
     prisma.ticket.findMany({
-      where: { studentId: { in: studentIds } },
+      where: { studentId: { in: studentIds }, archivedAt: null },
       include: { student: true, assignee: true },
       orderBy: { updatedAt: "desc" },
       take: 6,

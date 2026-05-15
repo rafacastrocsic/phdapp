@@ -141,7 +141,13 @@ export function KanbanBoard({
   const [hoverStatus, setHoverStatus] = useState<string | null>(null);
   const [view, setView] = useState<"board" | "list">("board");
   const [recentlyDeleted, setRecentlyDeleted] = useState<Ticket[]>([]);
+  const [undo, setUndo] = useState<{ id: string; title: string } | null>(null);
   const router = useRouter();
+  useEffect(() => {
+    if (!undo) return;
+    const t = setTimeout(() => setUndo(null), 7000);
+    return () => clearTimeout(t);
+  }, [undo]);
   const [, startTransition] = useTransition();
 
   const filtered = useMemo(() => {
@@ -460,10 +466,39 @@ export function KanbanBoard({
           setTickets((prev) => prev.map((t) => (t.id === updated.id ? updated : t)));
         }}
         onDeleted={(id) => {
+          const gone = tickets.find((t) => t.id === id);
           setTickets((prev) => prev.filter((t) => t.id !== id));
           setOpenId(null);
+          if (gone) setUndo({ id, title: gone.title });
         }}
       />
+
+      {undo && (
+        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 flex items-center gap-3 rounded-xl bg-slate-900 px-4 py-2.5 text-sm text-white shadow-lg">
+          <span className="truncate max-w-[40vw]">
+            Task deleted: “{undo.title}”
+          </span>
+          <button
+            type="button"
+            onClick={async () => {
+              const u = undo;
+              setUndo(null);
+              await fetch(`/api/tickets/${u.id}/restore`, { method: "POST" });
+              router.refresh();
+            }}
+            className="font-semibold text-[var(--c-orange)] hover:underline"
+          >
+            Undo
+          </button>
+          <button
+            type="button"
+            onClick={() => setUndo(null)}
+            className="text-slate-400 hover:text-white"
+          >
+            <X className="h-3.5 w-3.5" />
+          </button>
+        </div>
+      )}
     </div>
   );
 }

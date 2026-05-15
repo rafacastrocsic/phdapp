@@ -203,7 +203,7 @@ Per-user, per-type preferences (extend the Settings page; a `NotificationPref` m
 
 ---
 
-## 14. Undo for destructive actions (soft-delete + undo toast)
+## 14. Undo for destructive actions (soft-delete + undo toast)  ✅ COMPLETED (Tasks-scoped MVP; other models a follow-up)
 
 **What:** not a true universal multi-level undo (that needs a command/event-sourcing layer this CRUD app isn't built for). Instead, scoped undo for the only high-regret action — **deletion**. Soft-delete instead of hard `DELETE`, plus an "Undo" toast for ~5 s after any delete. Edits are low-stakes and already traceable via the activity log, so they're out of scope.
 
@@ -216,6 +216,8 @@ Per-user, per-type preferences (extend the Settings page; a `NotificationPref` m
 **UI:** after a delete, a toast: *"Task deleted · Undo"*. Clicking Undo calls the undo endpoint and restores it (pairs naturally with the existing ghost-card/optimistic patterns). No toast framework yet — small shared toast component needed.
 
 **Scope/risk:** medium. The migration is additive/low-risk; the real cost and risk is auditing **every** read query for the soft-delete filter (a missed filter = deleted data still showing). Prisma middleware mitigates this. **No hard deps**; best done after the data models from earlier items exist so it can cover them in one pass. Could also be done incrementally per-model.
+
+**Shipped (Tasks-scoped MVP):** `Ticket.archivedAt` (additive migration). Task DELETE now soft-deletes (sets `archivedAt`, removes the Google calendar mirror); new `/api/tickets/[id]/restore` clears it and re-syncs the due event. All task read sites audited and filtered (`/api/tickets/list`, kanban page, dashboard counts + recent, team workload + relation `_count`, student-profile recent tasks). An **Undo toast** appears bottom-center after deleting a task on the board (7 s, calls restore). **Deliberately scoped to Tasks** — the highest-regret deletion — done incrementally per the plan's own "could also be done incrementally per-model" note. Remaining models (Event, ThesisChapter, Publication, Comment, Channel, ReadingItem, …) + automated purge of old archived rows are a documented follow-up; not done to avoid a high-risk app-wide read-query sweep in one pass.
 
 **Why scoped, not global:** a true app-wide undo (reverse any mutation) would require recording inverse operations for every action — a large architectural change for marginal benefit over "you can't accidentally lose data on delete," which this covers.
 

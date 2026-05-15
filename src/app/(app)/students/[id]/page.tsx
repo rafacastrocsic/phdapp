@@ -95,6 +95,7 @@ export default async function StudentDetail({
       supervisor: true,
       coSupervisors: { include: { user: true } },
       tickets: {
+        where: { archivedAt: null },
         orderBy: { updatedAt: "desc" },
         take: 8,
         include: { assignee: true },

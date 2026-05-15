@@ -24,6 +24,7 @@ export default async function KanbanPage({
   const tickets = await prisma.ticket.findMany({
     where: {
       studentId: { in: studentIds },
+      archivedAt: null,
       ...(sp.student ? { studentId: sp.student } : {}),
     },
     include: {

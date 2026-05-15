@@ -36,7 +36,10 @@ export default async function TeamPage() {
     include: {
       supervisedStudents: { select: { id: true } },
       coSupervisedStudents: { select: { id: true, studentId: true, role: true } },
-      assignedTickets: { where: { status: { notIn: ["done"] } }, select: { id: true } },
+      assignedTickets: {
+        where: { status: { notIn: ["done"] }, archivedAt: null },
+        select: { id: true },
+      },
     },
   });
 
@@ -74,7 +77,7 @@ export default async function TeamPage() {
     where: studentVisibilityWhereAllForAdmin(session.user.id, role),
     include: {
       supervisor: { select: { id: true, name: true, email: true, color: true } },
-      _count: { select: { tickets: true } },
+      _count: { select: { tickets: { where: { archivedAt: null } } } },
     },
     orderBy: { fullName: "asc" },
   });
@@ -99,6 +102,7 @@ export default async function TeamPage() {
   const openTickets = await prisma.ticket.findMany({
     where: {
       status: { notIn: ["done"] },
+      archivedAt: null,
       student: studentVisibilityWhereAllForAdmin(session.user.id, role),
     },
     select: { studentId: true, dueDate: true },
