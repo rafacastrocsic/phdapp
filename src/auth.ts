@@ -60,20 +60,34 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
   events: {
     async signIn({ user }) {
       if (!user?.email) return;
-      const desired = roleFor(user.email);
+      const envRole = roleFor(user.email);
       const current = await prisma.user.findUnique({
         where: { email: user.email },
         select: { role: true },
       });
-      if (current && current.role !== desired) {
+      // The env allowlists (ADMIN_EMAIL / SUPERVISOR_EMAILS) can only PROMOTE.
+      // A role set deliberately in the DB (e.g. via the admin "add team
+      // member" panel) must never be downgraded just because the email isn't
+      // in an env var — otherwise pre-registered supervisors get reset to
+      // "student" on every login.
+      const rank: Record<AppRole, number> = {
+        student: 0,
+        supervisor: 1,
+        admin: 2,
+      };
+      const currentRole = (current?.role as AppRole | undefined) ?? "student";
+      const effectiveRole: AppRole =
+        current && rank[currentRole] > rank[envRole] ? currentRole : envRole;
+      if (current && current.role !== effectiveRole) {
         await prisma.user.update({
           where: { email: user.email },
-          data: { role: desired },
+          data: { role: effectiveRole },
         });
       }
       // Link to an existing Student record by email (supervisor added them already),
-      // or auto-create a shell record otherwise.
-      if (desired === "student" && user.id) {
+      // or auto-create a shell record otherwise. Keyed off the EFFECTIVE role so
+      // supervisors never get a spurious Student record.
+      if (effectiveRole === "student" && user.id) {
         const existing = await prisma.student.findFirst({
           where: { OR: [{ userId: user.id }, { email: user.email }] },
         });
