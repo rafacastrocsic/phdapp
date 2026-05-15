@@ -43,6 +43,54 @@ export default async function CalendarPage({
     orderBy: { startsAt: "asc" },
   });
 
+  // Supervisor availability: the supervisors/team of the visible students.
+  // Students see opaque "Unavailable" (no label); supervisors/admin see labels.
+  const teamLinks = await prisma.student.findMany({
+    where: { id: { in: studentIds } },
+    select: {
+      supervisorId: true,
+      coSupervisors: { select: { userId: true } },
+    },
+  });
+  const supervisorIds = Array.from(
+    new Set(
+      teamLinks.flatMap((s) => [
+        s.supervisorId,
+        ...s.coSupervisors.map((c) => c.userId),
+      ]),
+    ),
+  );
+  const showLabels = role !== "student";
+  const availabilityRows = await prisma.availability.findMany({
+    where: {
+      userId: { in: supervisorIds },
+      startsAt: { lte: to },
+      endsAt: { gte: from },
+    },
+    include: { user: { select: { id: true, name: true } } },
+    orderBy: { startsAt: "asc" },
+  });
+  const availability = availabilityRows.map((a) => ({
+    id: a.id,
+    startsAt: a.startsAt.toISOString(),
+    endsAt: a.endsAt.toISOString(),
+    who: a.user.name ?? "A supervisor",
+    label: showLabels ? a.label : null,
+    kind: a.kind,
+  }));
+  const myAvailability =
+    role === "student"
+      ? []
+      : availabilityRows
+          .filter((a) => a.userId === session.user.id)
+          .map((a) => ({
+            id: a.id,
+            startsAt: a.startsAt.toISOString(),
+            endsAt: a.endsAt.toISOString(),
+            label: a.label,
+            kind: a.kind,
+          }));
+
   // For student-role viewers, their own studentId so the new-event dialog can
   // hide the student picker and just attach the event to themselves.
   const viewerStudent =
@@ -109,6 +157,8 @@ export default async function CalendarPage({
         ticketId: e.ticketId,
         taskPriority: e.ticket?.priority ?? null,
       }))}
+      availability={availability}
+      myAvailability={myAvailability}
       initialStudent={sp.student ?? null}
       initialMonth={sp.month ?? null}
       highlightByEvent={highlightByEvent}

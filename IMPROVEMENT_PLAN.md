@@ -148,7 +148,7 @@ Pure addition, no migration, low risk. **Build first.**
 
 ---
 
-## 9. Supervisor free/busy availability (travel / leave / holidays)
+## 9. Supervisor free/busy availability (travel / leave / holidays)  ✅ COMPLETED
 
 **What:** *not* a weekly chore. Occasionally a supervisor marks a period they're **away/unavailable** (conference travel, medical leave, holidays) so their students know not to expect them / when they're back. Students see a human-labelled away block, not the supervisor's full calendar.
 

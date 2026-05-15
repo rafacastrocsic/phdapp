@@ -43,6 +43,7 @@ model User {
   supervisorNotes       SupervisorNote[] @relation("SupervisorNoteAuthor")
   readingItemsAdded     ReadingItem[]    @relation("ReadingItemAddedBy")
   readingDecisions      ReadingItem[]    @relation("ReadingItemDecisionBy")
+  availability          Availability[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -186,6 +187,18 @@ model ReadingItem {
   decisionNote     String?
   createdAt        DateTime @default(now())
   updatedAt        DateTime @updatedAt
+}
+
+model Availability {
+  id        String   @id @default(cuid())
+  userId    String // the supervisor who is away/busy
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  startsAt  DateTime
+  endsAt    DateTime
+  label     String? // supervisor's own reference (e.g. "Conference") — NEVER shown to students
+  kind      String   @default("away") // away | busy
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 }
 
 model CheckIn {

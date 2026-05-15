@@ -89,6 +89,10 @@ Top-right toggle: **Year / Month / Week / Day**.
 - **Month** — the standard month grid.
 - **Week / Day** — hour-by-hour timetable with current-time line.
 
+### Supervisors' availability
+
+On the calendar you may see grey **⊘ Unavailable** blocks on some days — that means one of your supervisors marked themselves away (travel, leave, holidays) so you know not to expect a reply or to drop by then. You only see "Unavailable" — never the reason.
+
 ### Creating an event
 
 You usually don't need to — your supervisor schedules things. But if you want to add something personal, click **New event** top-right.

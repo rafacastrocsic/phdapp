@@ -78,6 +78,8 @@ export function CalendarView({
   viewerStudentId,
   students,
   events: initial,
+  availability,
+  myAvailability,
   initialStudent,
   highlightByEvent: initialHighlights,
 }: {
@@ -85,6 +87,21 @@ export function CalendarView({
   viewerStudentId: string | null;
   students: Student[];
   events: Event[];
+  availability: {
+    id: string;
+    startsAt: string;
+    endsAt: string;
+    who: string;
+    label: string | null;
+    kind: string;
+  }[];
+  myAvailability: {
+    id: string;
+    startsAt: string;
+    endsAt: string;
+    label: string | null;
+    kind: string;
+  }[];
   initialStudent: string | null;
   initialMonth: string | null;
   highlightByEvent?: Record<string, "new" | "updated">;
@@ -121,6 +138,7 @@ export function CalendarView({
   const [studentFilter, setStudentFilter] = useState(initialStudent ?? "");
   const [events, setEvents] = useState<Event[]>(initial);
   const [newOpen, setNewOpen] = useState(false);
+  const [availOpen, setAvailOpen] = useState(false);
   const [selectedDay, setSelectedDay] = useState<Date | null>(null);
   const [syncing, setSyncing] = useState(false);
   const [openEventId, setOpenEventId] = useState<string | null>(null);
@@ -227,6 +245,23 @@ export function CalendarView({
     }
     return map;
   }, [recentlyDeleted]);
+
+  // Supervisor "Unavailable" spans, bucketed onto every day they cover.
+  const availabilityByDay = useMemo(() => {
+    const map: Record<string, { who: string; label: string | null }[]> = {};
+    for (const a of availability) {
+      const s = new Date(a.startsAt);
+      const e = new Date(a.endsAt);
+      const cur = new Date(s.getFullYear(), s.getMonth(), s.getDate());
+      let guard = 0;
+      while (cur <= e && guard++ < 400) {
+        const key = format(cur, "yyyy-MM-dd");
+        (map[key] ??= []).push({ who: a.who, label: a.label });
+        cur.setDate(cur.getDate() + 1);
+      }
+    }
+    return map;
+  }, [availability]);
 
   // Poll for events + highlight changes so the calendar updates without
   // requiring the user to leave and come back. Skips while a dialog is open.
@@ -360,11 +395,22 @@ export function CalendarView({
             <RefreshCw className={cn("h-4 w-4", syncing && "animate-spin")} />
             Sync Google
           </Button>
+          {!isStudent && (
+            <Button variant="outline" onClick={() => setAvailOpen(true)}>
+              ⊘ My availability
+            </Button>
+          )}
           <Button variant="brand" onClick={() => setNewOpen(true)}>
             <Plus className="h-4 w-4" /> New event
           </Button>
         </div>
       </div>
+
+      <MyAvailabilityDialog
+        open={availOpen}
+        onOpenChange={setAvailOpen}
+        initial={myAvailability}
+      />
 
       {noSharedCalendar && activeStudent && (
         <div className="border-b bg-amber-50 px-6 lg:px-8 py-3 flex items-start sm:items-center gap-3 flex-wrap">
@@ -450,6 +496,22 @@ export function CalendarView({
                         {format(day, "d")}
                       </div>
                       <div className="mt-1 space-y-1">
+                        {(availabilityByDay[key] ?? []).slice(0, 1).map((a, ai) => (
+                          <div
+                            key={`av-${ai}`}
+                            className="truncate rounded bg-slate-200 px-1.5 py-0.5 text-[10px] font-medium text-slate-600"
+                            title={
+                              a.label
+                                ? `${a.who} unavailable — ${a.label}`
+                                : `${a.who} unavailable`
+                            }
+                          >
+                            ⊘ Unavailable
+                            {(availabilityByDay[key]?.length ?? 0) > 1
+                              ? ` ×${availabilityByDay[key]!.length}`
+                              : ""}
+                          </div>
+                        ))}
                         {evs.slice(0, 3).map((e) => {
                           const kind = effectiveKind(e.id);
                           const isTask = !!e.ticketId;
@@ -1110,6 +1172,128 @@ function Field({ label, children }: { label: string; children: React.ReactNode }
       <span className="text-xs font-semibold text-slate-700">{label}</span>
       <div className="mt-1">{children}</div>
     </label>
+  );
+}
+
+function MyAvailabilityDialog({
+  open,
+  onOpenChange,
+  initial,
+}: {
+  open: boolean;
+  onOpenChange: (b: boolean) => void;
+  initial: { id: string; startsAt: string; endsAt: string; label: string | null; kind: string }[];
+}) {
+  const router = useRouter();
+  const [items, setItems] = useState(initial);
+  const [start, setStart] = useState("");
+  const [end, setEnd] = useState("");
+  const [label, setLabel] = useState("");
+  const [busy, setBusy] = useState(false);
+
+  async function add() {
+    if (!start || !end) return;
+    setBusy(true);
+    const r = await fetch("/api/availability", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        startsAt: new Date(start).toISOString(),
+        endsAt: new Date(end).toISOString(),
+        label: label.trim() || null,
+      }),
+    });
+    setBusy(false);
+    if (r.ok) {
+      const { item } = await r.json();
+      setItems((p) => [...p, item]);
+      setStart("");
+      setEnd("");
+      setLabel("");
+      router.refresh();
+    }
+  }
+  async function remove(id: string) {
+    setItems((p) => p.filter((i) => i.id !== id));
+    await fetch(`/api/availability/${id}`, { method: "DELETE" });
+    router.refresh();
+  }
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>My availability</DialogTitle>
+        </DialogHeader>
+        <p className="text-[11px] text-slate-500 mb-3">
+          Mark periods you&apos;re away (travel, leave, holidays). Your students
+          see an opaque <strong>&ldquo;Unavailable&rdquo;</strong> block on those
+          days — never your label. This isn&apos;t a weekly chore; just add
+          periods as they come up.
+        </p>
+        <div className="space-y-2">
+          <div className="grid grid-cols-2 gap-2">
+            <Field label="From">
+              <Input
+                type="date"
+                value={start}
+                onChange={(e) => setStart(e.target.value)}
+              />
+            </Field>
+            <Field label="To">
+              <Input
+                type="date"
+                value={end}
+                onChange={(e) => setEnd(e.target.value)}
+              />
+            </Field>
+          </div>
+          <Field label="Label (only you see this)">
+            <Input
+              value={label}
+              onChange={(e) => setLabel(e.target.value)}
+              placeholder="Conference, annual leave…"
+            />
+          </Field>
+          <div className="flex justify-end">
+            <Button
+              type="button"
+              variant="brand"
+              onClick={add}
+              disabled={busy || !start || !end}
+            >
+              <Plus className="h-4 w-4" /> Add period
+            </Button>
+          </div>
+        </div>
+        {items.length > 0 && (
+          <ul className="mt-4 space-y-1.5 border-t pt-3">
+            {items.map((i) => (
+              <li
+                key={i.id}
+                className="flex items-center justify-between gap-2 text-sm"
+              >
+                <span className="text-slate-700">
+                  {format(new Date(i.startsAt), "MMM d")} –{" "}
+                  {format(new Date(i.endsAt), "MMM d, yyyy")}
+                  {i.label ? (
+                    <span className="text-slate-400"> · {i.label}</span>
+                  ) : null}
+                </span>
+                <button
+                  type="button"
+                  onClick={() => remove(i.id)}
+                  className="text-slate-300 hover:text-[var(--c-red)]"
+                  title="Remove"
+                >
+                  <XIcon className="h-3.5 w-3.5" />
+                </button>
+              </li>
+            ))}
+          </ul>
+        )}
+      </DialogContent>
+    </Dialog>
   );
 }
 
