@@ -190,6 +190,24 @@ The **Files** module shows the Google Drive folder shared with each student. Cli
 
 If a student doesn't have a shared Drive folder yet, you (as primary supervisor) can create one from their profile page → **Share Drive**.
 
+## Thesis & publications
+
+Each student profile has a **Thesis & publications** card:
+
+- **Thesis chapters** — title + status pipeline (Planned → Drafting → In review → Revising → Done), reorderable with ▲/▼.
+- **Publications** — type (journal/conference/preprint/other), status (in prep → submitted → under review → major/minor revision → accepted/published/rejected), venue, authors.
+- **Drive link** — the **Drive** button opens a picker rooted at **that student's shared Drive folder**; pick a file or a (sub)folder to attach it. Open-in-Drive icon shows when linked.
+
+**Who can edit:** supervisors and the student. **External advisors and committee members see it read-only** (badges instead of editable controls).
+
+## Private supervisor notes
+
+The student profile has an amber **Private supervisor notes** panel — an internal thread for the supervisory team.
+
+- **Visible only to supervisors** (primary + co-supervisors with supervisor role) and the admin.
+- **Not visible to the student, external advisors, or committee members** — they don't see the panel at all, and the data is never sent to their browser.
+- Any supervisor-level member can post; the note's author (or the admin) can delete their own notes. Use it for candid internal observations you don't want the student to see.
+
 ## Activity log
 
 The **Log book** (red icon, sidebar) is a chronological record of everything that's happened in the workspace: tasks created/updated/deleted, events created/updated/deleted, profile changes, team changes. Useful when:

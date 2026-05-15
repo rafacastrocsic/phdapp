@@ -45,6 +45,13 @@ You can do everything any user can do, plus you are the **only** person who can:
 
 The app assumes one human admin who is also a developer. If you delegate development to someone else, give them the GitHub repo + Vercel collaborator access; keep the Google OAuth client to yourself.
 
+### Feature surfaces added since launch
+
+- **Thesis & publications tracker** (per student profile): `ThesisChapter` + `Publication` tables. Supervisors and the student edit; external advisors/committee read-only. Items can link a Drive file/folder via a picker rooted at the student's shared folder.
+- **Private supervisor notes** (per student profile): `SupervisorNote` table. Server-gated by `canSeeSupervisorPrivate(teamLevelForStudent())` — supervisors + admin only; the API returns 404 (not 403) to students/advisors/committee so the feature isn't even discoverable, and the page never sends the data to them. As admin you see and can delete notes on every student.
+- New permission helper `teamLevelForStudent()` in `src/lib/access.ts` distinguishes supervisor vs advisor vs committee vs self (the older `accessForStudent()` collapsed them). Use it for any future feature that must treat those roles differently.
+- All the above are additive Prisma migrations applied automatically on deploy. Roadmap & status: `IMPROVEMENT_PLAN.md`.
+
 ## Daily operations
 
 Routine things you do as admin:

@@ -112,6 +112,16 @@ The **Files** module (blue icon) shows the Google Drive folder your supervisor s
 
 Star a file with the star icon to bookmark it. Starred files appear at the top.
 
+## Thesis & publications
+
+On your profile page there's a **Thesis & publications** card. You and your supervisors can both edit it:
+
+- **Thesis chapters** — add each chapter, set its status (Planned → Drafting → In review → Revising → Done), and reorder them with the ▲/▼ buttons.
+- **Publications** — add papers with type (journal/conference/preprint), status (in prep → submitted → under review → revisions → accepted/published), and venue.
+- **Drive link** — click the **Drive** button on a chapter or publication to pick a file or folder **from your shared supervision Drive folder** (it browses *your* Drive folder, not anyone else's). An open-in-Drive icon appears once linked.
+
+Changes save automatically.
+
 ## Your profile
 
 Click your avatar at the top-right → **Edit profile**. You can change:
