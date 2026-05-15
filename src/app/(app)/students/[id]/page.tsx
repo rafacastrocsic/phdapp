@@ -22,6 +22,7 @@ import {
   CalendarDays,
   FolderOpen,
   MessagesSquare,
+  ScrollText,
   KanbanSquare,
   ExternalLink,
   Mail,
@@ -264,6 +265,12 @@ export default async function StudentDetail({
                 <Button variant="outline" size="sm">
                   <MessagesSquare className="h-4 w-4" />
                   Chat
+                </Button>
+              </Link>
+              <Link href={`/students/${student.id}/review`}>
+                <Button variant="outline" size="sm">
+                  <ScrollText className="h-4 w-4" />
+                  Annual review
                 </Button>
               </Link>
               {isSelfStudent && (

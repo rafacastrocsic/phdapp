@@ -146,6 +146,10 @@ On your **Dashboard** there's a **Weekly check-in** card (~2 minutes, once a wee
 
 Submit it; you can edit the same week's entry anytime. It saves one entry per week.
 
+## Annual review
+
+Your profile has an **Annual review** button — a printable summary of your progress over the year (thesis chapters, publications, tasks done, meetings, check-in highlights). Useful to prepare for your formal annual review. Your wellbeing scores and any private supervisor notes are **not** included.
+
 ## Your profile
 
 Click your avatar at the top-right → **Edit profile**. You can change:

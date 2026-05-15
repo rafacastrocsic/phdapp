@@ -162,7 +162,7 @@ Pure addition, no migration, low risk. **Build first.**
 
 ---
 
-## 10. Annual review export
+## 10. Annual review export  ✅ COMPLETED
 
 **What:** one-click formal progress packet per student for a date range.
 
