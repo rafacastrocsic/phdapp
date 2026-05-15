@@ -14,6 +14,7 @@ import {
   GraduationCap,
   ScrollText,
   Shield,
+  BookOpen,
   ChevronLeft,
   ChevronRight,
 } from "lucide-react";
@@ -34,6 +35,7 @@ const NAV: Nav[] = [
   { href: "/students", label: "Students", icon: GraduationCap, color: "var(--c-pink)", hideFor: ["student"] },
   { href: "/kanban", label: "Tasks", icon: KanbanSquare, color: "var(--c-orange)" },
   { href: "/calendar", label: "Calendar", icon: CalendarDays, color: "var(--c-teal)" },
+  { href: "/reading", label: "Reading", icon: BookOpen, color: "var(--c-violet)" },
   { href: "/files", label: "Files", icon: FolderOpen, color: "var(--c-blue)" },
   { href: "/chat", label: "Chat", icon: MessagesSquare, color: "var(--c-green)" },
   { href: "/log", label: "Log book", icon: ScrollText, color: "var(--c-red)" },

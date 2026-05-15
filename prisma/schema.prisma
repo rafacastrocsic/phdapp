@@ -41,6 +41,8 @@ model User {
   activityLogs          ActivityLog[]    @relation("ActivityActor")
   favoritesStarred      FavoriteFile[]   @relation("FavoriteStarredBy")
   supervisorNotes       SupervisorNote[] @relation("SupervisorNoteAuthor")
+  readingItemsAdded     ReadingItem[]    @relation("ReadingItemAddedBy")
+  readingDecisions      ReadingItem[]    @relation("ReadingItemDecisionBy")
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -119,6 +121,7 @@ model Student {
   thesisChapters  ThesisChapter[]
   publications    Publication[]
   supervisorNotes SupervisorNote[]
+  readingItems    ReadingItem[]
 
   createdAt       DateTime  @default(now())
   updatedAt       DateTime  @updatedAt
@@ -164,6 +167,24 @@ model SupervisorNote {
   body      String
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+}
+
+model ReadingItem {
+  id               String   @id @default(cuid())
+  studentId        String
+  student          Student  @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  title            String
+  authors          String?
+  url              String?
+  addedById        String
+  addedBy          User     @relation("ReadingItemAddedBy", fields: [addedById], references: [id])
+  proposedByStudent Boolean @default(false)
+  status           String   @default("approved") // proposed | approved | reading | done | rejected
+  decisionById     String?
+  decisionBy       User?    @relation("ReadingItemDecisionBy", fields: [decisionById], references: [id])
+  decisionNote     String?
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
 }
 
 model CoSupervisor {

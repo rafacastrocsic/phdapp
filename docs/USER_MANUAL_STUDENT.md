@@ -122,6 +122,13 @@ On your profile page there's a **Thesis & publications** card. You and your supe
 
 Changes save automatically.
 
+## Reading
+
+The **Reading** module (book icon, sidebar) is your paper reading list:
+
+- **To read / Reading / Read** — papers your supervisors added for you. Use **Start reading** then **Mark read** to track your progress.
+- **Propose a reading** — found a paper you think is relevant? Add it (title, authors, link). It shows as **Pending approval** until a supervisor clicks **Approve** ("OK, go ahead and read it") — or they may reject it. Approved ones move into your list.
+
 ## Your profile
 
 Click your avatar at the top-right → **Edit profile**. You can change:

@@ -208,6 +208,16 @@ The student profile has an amber **Private supervisor notes** panel — an inter
 - **Not visible to the student, external advisors, or committee members** — they don't see the panel at all, and the data is never sent to their browser.
 - Any supervisor-level member can post; the note's author (or the admin) can delete their own notes. Use it for candid internal observations you don't want the student to see.
 
+## Reading
+
+The **Reading** module (book icon, sidebar) is the paper reading list across your students:
+
+- **Filter by student** (top-right) or see all at once; each item shows which student it's for.
+- **Pending approval** — when a student proposes a paper it appears here; click **Approve** ("OK, go ahead") or **Reject**.
+- **Add a reading** — add a paper directly for a student (pick the student in the form); it's auto-approved.
+- Track progress (To read → Reading → Read). Items can be deleted by a supervisor or whoever added them.
+- External advisors / committee see the list read-only.
+
 ## Workload
 
 The **Team** page has two read-only workload tables:

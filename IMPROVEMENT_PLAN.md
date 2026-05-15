@@ -46,7 +46,7 @@ Pure addition, no migration, low risk. **Build first.**
 
 ---
 
-## 2. Reading list (with approval flow)
+## 2. Reading list (with approval flow)  ✅ COMPLETED
 
 **What:** per-student reading list. Supervisor adds (auto-approved) or student proposes → a supervisor must approve ("OK, go ahead").
 
@@ -54,9 +54,9 @@ Pure addition, no migration, low risk. **Build first.**
 
 **API:** `/api/students/[id]/reading` GET/POST; `/reading/[itemId]` PATCH/DELETE. Student POST forced `proposed`; supervisor POST `approved`; approve/reject PATCH only `teamLevelForStudent==="supervisor"`.
 
-**UI:** profile section. Student: list + "Propose a reading" + status badges. Supervisor: approve/reject on proposed items; optional pending-proposal count on the student card/dashboard.
+**UI (re-scoped on user request): a full top-level MODULE**, not a profile section — its own sidebar entry + `/reading` page, like Tasks/Calendar/Chat, to give it real prominence. Student view: their own list, propose new items, mark approved items reading/done. Supervisor/admin view: all their students' lists with a student filter, pending-proposal highlights, approve/reject, add directly (auto-approved).
 
-**Scope/risk:** small-medium. 1 model + migration. Low risk. **No deps.**
+**Scope/risk:** medium (model + migration + API + sidebar entry + module page). Low risk. **No deps.**
 
 ---
 
