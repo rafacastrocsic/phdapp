@@ -283,6 +283,10 @@ model Event {
   endsAt          DateTime
   allDay          Boolean  @default(false)
   meetingUrl      String?
+  // iCal RRULE body (without the "RRULE:" prefix), e.g.
+  // "FREQ=WEEKLY;INTERVAL=1;UNTIL=20261231T235959Z". Null = one-off.
+  // Editing/deleting a recurring event affects the whole series (MVP).
+  recurrenceRule  String?
   googleEventId   String?  @unique
   googleCalendarId String?
 

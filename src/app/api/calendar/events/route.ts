@@ -16,6 +16,7 @@ const Body = z.object({
   location: z.string().optional().nullable(),
   meetingUrl: z.string().optional().nullable(),
   description: z.string().optional().nullable(),
+  recurrenceRule: z.string().optional().nullable(),
   pushToGoogle: z.string().optional(),
 });
 
@@ -71,6 +72,7 @@ export async function POST(req: Request) {
         start: { dateTime: startsAt.toISOString() },
         end: { dateTime: endsAt.toISOString() },
         attendees: student ? [{ email: student.email }] : undefined,
+        recurrence: d.recurrenceRule ? [`RRULE:${d.recurrenceRule}`] : undefined,
       };
       try {
         const r = await cal.events.insert({
@@ -137,6 +139,7 @@ export async function POST(req: Request) {
       meetingUrl: d.meetingUrl || null,
       startsAt,
       endsAt,
+      recurrenceRule: d.recurrenceRule || null,
       ownerId: session.user.id,
       studentId: d.studentId || null,
       googleEventId,

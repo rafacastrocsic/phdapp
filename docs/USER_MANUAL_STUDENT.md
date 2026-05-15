@@ -93,7 +93,7 @@ Top-right toggle: **Year / Month / Week / Day**.
 
 You usually don't need to — your supervisor schedules things. But if you want to add something personal, click **New event** top-right.
 
-If the event has a Google Calendar push enabled, it lands on your supervisor's shared calendar too.
+If the event has a Google Calendar push enabled, it lands on your supervisor's shared calendar too. The **Repeats** option makes an event recur (daily/weekly/monthly until a date) — handy for a standing weekly slot.
 
 ## Chat
 

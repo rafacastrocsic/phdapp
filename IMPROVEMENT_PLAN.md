@@ -88,7 +88,7 @@ Pure addition, no migration, low risk. **Build first.**
 
 ---
 
-## 5. Recurring calendar events
+## 5. Recurring calendar events  ✅ COMPLETED (MVP)
 
 **What:** events that repeat (daily/weekly/monthly) with an interval and an end (until-date or count). Foundational calendar capability that §8 (meetings) and §9 (availability) can build on.
 

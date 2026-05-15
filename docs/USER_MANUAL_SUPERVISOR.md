@@ -147,6 +147,10 @@ Events come from two places:
 1. **Real events** you (or anyone with write access) create — meetings, deadlines.
 2. **Task due-date events** auto-generated when a task gets a due date. They have a different look: outlined chip with a circle icon and a priority-color stripe. Clicking one jumps to the task.
 
+### Recurring events
+
+When creating an event, the **Repeats** control lets you make it recur: *Daily / Weekly / Monthly*, every N days/weeks/months, until a chosen date. Recurring events expand across the calendar automatically and are pushed to Google Calendar as a proper recurring series. Opening any occurrence shows a *Repeats: …* note with a **Stop repeating** button. Note (current limitation): editing or deleting a repeating event affects the **whole series** — there's no per-occurrence exception yet; to change one occurrence, stop the series and recreate.
+
 ### Four views
 
 Top-right toggle: **Year / Month / Week / Day**.

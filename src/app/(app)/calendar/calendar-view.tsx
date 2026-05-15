@@ -28,6 +28,12 @@ import {
 import { Input, Select, Textarea } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { cn, displayName } from "@/lib/utils";
+import {
+  buildRRule,
+  parseRRule,
+  expandOccurrences,
+  type RecurFreq,
+} from "@/lib/recurrence";
 import { useRouter } from "next/navigation";
 import { openCalendarUrl } from "@/components/google-calendar-picker";
 import { CalendarShareButton } from "../students/[id]/calendar-share-button";
@@ -58,11 +64,13 @@ interface Event {
   startsAt: string;
   endsAt: string;
   meetingUrl: string | null;
+  recurrenceRule: string | null;
   student: { id: string; fullName: string; alias: string | null; color: string } | null;
   googleEventId: string | null;
   googleCalendarId: string | null;
   ticketId: string | null;
   taskPriority: string | null;
+  recurring?: boolean; // synthetic occurrence flag (client-only)
 }
 
 export function CalendarView({
@@ -161,10 +169,37 @@ export function CalendarView({
     return eachDayOfInterval({ start, end });
   }, [cursor]);
 
-  const filtered = useMemo(
-    () => events.filter((e) => !studentFilter || e.student?.id === studentFilter),
-    [events, studentFilter],
-  );
+  const filtered = useMemo(() => {
+    const base = events.filter(
+      (e) => !studentFilter || e.student?.id === studentFilter,
+    );
+    const span = view === "year" ? 13 : 3;
+    const rangeStart = startOfMonth(subMonths(cursor, span));
+    const rangeEnd = endOfMonth(addMonths(cursor, span));
+    const out: Event[] = [];
+    for (const e of base) {
+      if (!e.recurrenceRule) {
+        out.push(e);
+        continue;
+      }
+      const occ = expandOccurrences(
+        new Date(e.startsAt),
+        new Date(e.endsAt),
+        e.recurrenceRule,
+        rangeStart,
+        rangeEnd,
+      );
+      for (const o of occ) {
+        out.push({
+          ...e,
+          startsAt: o.start.toISOString(),
+          endsAt: o.end.toISOString(),
+          recurring: true,
+        });
+      }
+    }
+    return out;
+  }, [events, studentFilter, cursor, view]);
 
   const dayEvents = useMemo(() => {
     const map: Record<string, Event[]> = {};
@@ -721,9 +756,35 @@ function EventDetailDialog({
 }) {
   const [deleting, setDeleting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const router = useRouter();
 
   if (!event) return null;
   const linkedToGoogle = !!event.googleEventId;
+  const rec = parseRRule(event.recurrenceRule);
+  const recSummary =
+    rec.freq === "none"
+      ? null
+      : `Every ${rec.interval > 1 ? rec.interval + " " : ""}${
+          rec.freq === "daily"
+            ? "day"
+            : rec.freq === "weekly"
+              ? "week"
+              : "month"
+        }${rec.interval > 1 ? "s" : ""}${
+          rec.until ? ` until ${rec.until}` : ""
+        }`;
+
+  async function stopRepeating() {
+    if (!event) return;
+    if (!confirm("Stop this event repeating? Past occurrences stay; it won't recur again.")) return;
+    await fetch(`/api/calendar/events/${event.id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ recurrenceRule: null, pushToGoogle: true }),
+    });
+    onOpenChange(false);
+    router.refresh();
+  }
 
   async function del(alsoGoogle: boolean) {
     if (!event) return;
@@ -802,6 +863,19 @@ function EventDetailDialog({
             </div>
           )}
 
+          {recSummary && (
+            <div className="flex items-center justify-between gap-2 rounded-lg bg-violet-50 px-3 py-2 text-xs text-[var(--c-violet)]">
+              <span>↻ Repeats: {recSummary}</span>
+              <button
+                type="button"
+                onClick={stopRepeating}
+                className="font-semibold hover:underline"
+              >
+                Stop repeating
+              </button>
+            </div>
+          )}
+
           <div className="flex items-center gap-1 text-xs text-slate-500">
             <span
               className={cn(
@@ -875,6 +949,9 @@ function NewEventDialog({
   const [submitting, setSubmitting] = useState(false);
   const [pushGoogle, setPushGoogle] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [recurFreq, setRecurFreq] = useState<RecurFreq>("none");
+  const [recurInterval, setRecurInterval] = useState(1);
+  const [recurUntil, setRecurUntil] = useState("");
 
   const dateStr = defaultDate
     ? format(defaultDate, "yyyy-MM-dd")
@@ -888,6 +965,8 @@ function NewEventDialog({
     const payload = Object.fromEntries(fd.entries()) as Record<string, string>;
     if (isStudent && defaultStudentId) payload.studentId = defaultStudentId;
     payload.pushToGoogle = pushGoogle ? "1" : "";
+    const rrule = buildRRule(recurFreq, recurInterval, recurUntil || null);
+    if (rrule) payload.recurrenceRule = rrule;
     const r = await fetch("/api/calendar/events", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -951,6 +1030,53 @@ function NewEventDialog({
           </Field>
           <Field label="Description (optional)">
             <Textarea name="description" rows={2} />
+          </Field>
+          <Field label="Repeats">
+            <div className="flex flex-wrap items-center gap-2">
+              <Select
+                value={recurFreq}
+                onChange={(e) => setRecurFreq(e.target.value as RecurFreq)}
+                className="!w-auto"
+              >
+                <option value="none">Does not repeat</option>
+                <option value="daily">Daily</option>
+                <option value="weekly">Weekly</option>
+                <option value="monthly">Monthly</option>
+              </Select>
+              {recurFreq !== "none" && (
+                <>
+                  <span className="text-xs text-slate-500">every</span>
+                  <Input
+                    type="number"
+                    min={1}
+                    value={recurInterval}
+                    onChange={(e) =>
+                      setRecurInterval(parseInt(e.target.value, 10) || 1)
+                    }
+                    className="!w-16"
+                  />
+                  <span className="text-xs text-slate-500">
+                    {recurFreq === "daily"
+                      ? "day(s)"
+                      : recurFreq === "weekly"
+                        ? "week(s)"
+                        : "month(s)"}
+                    , until
+                  </span>
+                  <Input
+                    type="date"
+                    value={recurUntil}
+                    onChange={(e) => setRecurUntil(e.target.value)}
+                    className="!w-auto"
+                  />
+                </>
+              )}
+            </div>
+            {recurFreq !== "none" && (
+              <p className="text-[11px] text-slate-400 mt-1">
+                Editing or deleting a repeating event affects the whole series.
+              </p>
+            )}
           </Field>
           <label className="flex items-center gap-2 text-sm text-slate-700">
             <input

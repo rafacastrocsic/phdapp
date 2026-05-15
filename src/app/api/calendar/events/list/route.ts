@@ -36,10 +36,16 @@ export async function GET(req: Request) {
       : { studentId: { in: studentIds } }),
   };
   if (from || to) {
-    where.startsAt = {
-      ...(from ? { gte: new Date(from) } : {}),
-      ...(to ? { lte: new Date(to) } : {}),
-    };
+    // Recurring events always loaded (expanded client-side); one-offs windowed.
+    where.OR = [
+      {
+        startsAt: {
+          ...(from ? { gte: new Date(from) } : {}),
+          ...(to ? { lte: new Date(to) } : {}),
+        },
+      },
+      { recurrenceRule: { not: null } },
+    ];
   }
 
   const events = await prisma.event.findMany({
@@ -94,6 +100,7 @@ export async function GET(req: Request) {
       startsAt: e.startsAt.toISOString(),
       endsAt: e.endsAt.toISOString(),
       meetingUrl: e.meetingUrl,
+      recurrenceRule: e.recurrenceRule,
       student: e.student,
       googleEventId: e.googleEventId,
       googleCalendarId: e.googleCalendarId,

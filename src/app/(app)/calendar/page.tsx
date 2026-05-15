@@ -32,7 +32,9 @@ export default async function CalendarPage({
   const events = await prisma.event.findMany({
     where: {
       ...(sp.student ? { studentId: sp.student } : { studentId: { in: studentIds } }),
-      startsAt: { gte: from, lte: to },
+      // Recurring events are always loaded (their base startsAt may be far in
+      // the past) and expanded client-side; one-offs are windowed.
+      OR: [{ startsAt: { gte: from, lte: to } }, { recurrenceRule: { not: null } }],
     },
     include: {
       student: { select: { id: true, fullName: true, alias: true, color: true } },
@@ -100,6 +102,7 @@ export default async function CalendarPage({
         startsAt: e.startsAt.toISOString(),
         endsAt: e.endsAt.toISOString(),
         meetingUrl: e.meetingUrl,
+        recurrenceRule: e.recurrenceRule,
         student: e.student,
         googleEventId: e.googleEventId,
         googleCalendarId: e.googleCalendarId,
