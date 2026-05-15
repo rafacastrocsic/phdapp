@@ -1,6 +1,6 @@
 "use client";
 import { useState } from "react";
-import { ExternalLink, Plus, X } from "lucide-react";
+import { ExternalLink, Plus, X, ChevronUp, ChevronDown } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input, Select } from "@/components/ui/input";
@@ -101,6 +101,22 @@ export function ThesisPublications({
     setChapters((p) => p.filter((c) => c.id !== id));
     await fetch(`/api/students/${studentId}/thesis/${id}`, { method: "DELETE" });
   }
+  function moveChapter(index: number, dir: -1 | 1) {
+    const target = index + dir;
+    if (target < 0 || target >= chapters.length) return;
+    const next = [...chapters];
+    [next[index], next[target]] = [next[target]!, next[index]!];
+    setChapters(next);
+    // Persist the new positions for the two swapped chapters.
+    [index, target].forEach((i) => {
+      const c = next[i]!;
+      fetch(`/api/students/${studentId}/thesis/${c.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ order: i }),
+      });
+    });
+  }
 
   async function addPub() {
     const title = newPub.trim();
@@ -147,12 +163,34 @@ export function ThesisPublications({
             <p className="text-sm text-slate-400">No chapters yet.</p>
           )}
           <ul className="space-y-1.5">
-            {chapters.map((c) => (
+            {chapters.map((c, idx) => (
               <li
                 key={c.id}
                 className="rounded-lg border bg-white p-2 space-y-1"
               >
                 <div className="flex items-center gap-2">
+                {canWrite && (
+                  <div className="flex flex-col -my-1">
+                    <button
+                      type="button"
+                      onClick={() => moveChapter(idx, -1)}
+                      disabled={idx === 0}
+                      className="text-slate-300 hover:text-slate-600 disabled:opacity-30 disabled:hover:text-slate-300"
+                      title="Move up"
+                    >
+                      <ChevronUp className="h-3.5 w-3.5" />
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => moveChapter(idx, 1)}
+                      disabled={idx === chapters.length - 1}
+                      className="text-slate-300 hover:text-slate-600 disabled:opacity-30 disabled:hover:text-slate-300"
+                      title="Move down"
+                    >
+                      <ChevronDown className="h-3.5 w-3.5" />
+                    </button>
+                  </div>
+                )}
                 {canWrite ? (
                   <input
                     defaultValue={c.title}
