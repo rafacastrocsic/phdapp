@@ -4,13 +4,22 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Check, AlertTriangle, LogOut } from "lucide-react";
 import { ProfileEditor } from "@/components/profile-editor";
+import { DigestToggle } from "./digest-toggle";
 
 export default async function SettingsPage() {
   const session = (await auth())!;
 
   const me = await prisma.user.findUnique({
     where: { id: session.user.id },
-    select: { id: true, name: true, email: true, image: true, color: true, role: true },
+    select: {
+      id: true,
+      name: true,
+      email: true,
+      image: true,
+      color: true,
+      role: true,
+      emailDigest: true,
+    },
   });
 
   const account = await prisma.account.findFirst({
@@ -59,6 +68,17 @@ export default async function SettingsPage() {
           )}
         </CardContent>
       </Card>
+
+      {me && session.user.role !== "student" && (
+        <Card>
+          <CardHeader>
+            <CardTitle>Notifications</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <DigestToggle initial={me.emailDigest} />
+          </CardContent>
+        </Card>
+      )}
 
       <Card>
         <CardHeader>

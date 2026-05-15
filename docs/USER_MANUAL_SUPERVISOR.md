@@ -249,6 +249,10 @@ The **Team** page has two read-only workload tables:
 - **Workload** (per supervisor): students supervised (and how many active), open tasks, overdue (red if any), and tasks assigned directly to them — sorted by open-task count. Spot which *supervisor* is overloaded / for fair distribution.
 - **Student workload** (per student): supervisor, status, open tasks, overdue — sorted by load. Spot which *student* is drowning in tasks or has gone idle. Click a row to open that student.
 
+## Weekly email digest
+
+If enabled by the admin, you get a **Monday email** summarising what needs attention across your students: overdue tasks, reading proposals awaiting approval, new check-ins, and low-wellbeing flags. Turn it off anytime in **Settings → Notifications**. (Only sends when there's something worth reporting.)
+
 ## Annual review export
 
 A student profile has an **Annual review** button. It opens a clean, print-styled progress packet for a period (defaults to the last 12 months; override with `?from=&to=` in the URL): profile, thesis chapters, publications, tasks completed/overdue, supervision meetings + notes, and the weekly check-in text summary. Click **Print / Save as PDF** for the formal document. **Wellbeing scores and private supervisor notes are deliberately excluded.** External advisors/committee can view it read-only.

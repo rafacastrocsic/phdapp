@@ -176,7 +176,7 @@ Pure addition, no migration, low risk. **Build first.**
 
 ---
 
-## 11. Email digest
+## 11. Email digest  ✅ COMPLETED (needs RESEND_API_KEY + DIGEST_CRON_SECRET on Vercel to actually send)
 
 **What:** scheduled email (e.g. Mon 08:00) per supervisor: students with overdue tasks, pending reading approvals, new check-ins (esp. low wellbeing), milestones hit, comments awaiting reply.
 
