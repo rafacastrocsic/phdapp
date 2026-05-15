@@ -134,7 +134,7 @@ Pure addition, no migration, low risk. **Build first.**
 
 ---
 
-## 8. Structured 1:1 meetings
+## 8. Structured 1:1 meetings  ✅ COMPLETED
 
 **What:** turn a meeting from a bare calendar event into a workflow: agenda (before) → notes (during) → action items (after) that convert into Tasks.
 

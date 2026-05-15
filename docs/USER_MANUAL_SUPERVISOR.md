@@ -174,6 +174,14 @@ Top-right toggle: **Year / Month / Week / Day**.
 6. Description
 7. **Push to Google Calendar** checkbox — if checked, it lands on the student's shared Google Calendar too.
 
+### Structured 1:1 meetings
+
+When creating an event, tick **"This is a 1:1 meeting"**. Opening that event then shows a meeting panel:
+
+- **Agenda** — bullet points either party can add before the meeting.
+- **Notes** — free text written during the meeting (saves on blur).
+- **Action items → tasks** — list the follow-ups, then **Create tasks** turns each into a Task for the meeting's student (category "meeting", status To do). Closes the loop between "we discussed it" and tracked work.
+
 ### Editing / deleting
 
 Click an event to open it. Edit fields then **Save**. **Delete** removes both the in-app record and the Google Calendar event (if linked).

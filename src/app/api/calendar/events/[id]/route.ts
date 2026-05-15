@@ -35,6 +35,11 @@ const Patch = z.object({
   startTime: z.string().optional(),
   endTime: z.string().optional(),
   recurrenceRule: z.string().nullable().optional(),
+  isMeeting: z.boolean().optional(),
+  agenda: z
+    .array(z.object({ id: z.string(), text: z.string() }))
+    .optional(),
+  meetingNotes: z.string().nullable().optional(),
   pushToGoogle: z.boolean().optional(),
 });
 
@@ -68,6 +73,9 @@ export async function PATCH(
   if (d.location !== undefined) data.location = d.location;
   if (d.meetingUrl !== undefined) data.meetingUrl = d.meetingUrl;
   if (d.recurrenceRule !== undefined) data.recurrenceRule = d.recurrenceRule;
+  if (d.isMeeting !== undefined) data.isMeeting = d.isMeeting;
+  if (d.agenda !== undefined) data.agenda = JSON.stringify(d.agenda);
+  if (d.meetingNotes !== undefined) data.meetingNotes = d.meetingNotes;
 
   // If user changed date or times, recompute starts/ends.
   if (d.date || d.startTime || d.endTime) {

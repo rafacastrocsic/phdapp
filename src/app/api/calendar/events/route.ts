@@ -17,6 +17,7 @@ const Body = z.object({
   meetingUrl: z.string().optional().nullable(),
   description: z.string().optional().nullable(),
   recurrenceRule: z.string().optional().nullable(),
+  isMeeting: z.string().optional(),
   pushToGoogle: z.string().optional(),
 });
 
@@ -140,6 +141,7 @@ export async function POST(req: Request) {
       startsAt,
       endsAt,
       recurrenceRule: d.recurrenceRule || null,
+      isMeeting: d.isMeeting === "1",
       ownerId: session.user.id,
       studentId: d.studentId || null,
       googleEventId,

@@ -89,6 +89,10 @@ Top-right toggle: **Year / Month / Week / Day**.
 - **Month** — the standard month grid.
 - **Week / Day** — hour-by-hour timetable with current-time line.
 
+### 1:1 meetings
+
+If a calendar event is marked as a 1:1 meeting, opening it shows an **agenda** (you can add points before the meeting too), **notes**, and **action items**. Action items your supervisor creates become Tasks assigned to you.
+
 ### Supervisors' availability
 
 On the calendar you may see grey **⊘ Unavailable** blocks on some days — that means one of your supervisors marked themselves away (travel, leave, holidays) so you know not to expect a reply or to drop by then. You only see "Unavailable" — never the reason.

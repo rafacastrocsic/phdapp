@@ -65,6 +65,9 @@ interface Event {
   endsAt: string;
   meetingUrl: string | null;
   recurrenceRule: string | null;
+  isMeeting?: boolean;
+  agenda?: string | null;
+  meetingNotes?: string | null;
   student: { id: string; fullName: string; alias: string | null; color: string } | null;
   googleEventId: string | null;
   googleCalendarId: string | null;
@@ -925,6 +928,8 @@ function EventDetailDialog({
             </div>
           )}
 
+          {event.isMeeting && <MeetingPanel event={event} />}
+
           {recSummary && (
             <div className="flex items-center justify-between gap-2 rounded-lg bg-violet-50 px-3 py-2 text-xs text-[var(--c-violet)]">
               <span>↻ Repeats: {recSummary}</span>
@@ -1014,6 +1019,7 @@ function NewEventDialog({
   const [recurFreq, setRecurFreq] = useState<RecurFreq>("none");
   const [recurInterval, setRecurInterval] = useState(1);
   const [recurUntil, setRecurUntil] = useState("");
+  const [isMeeting, setIsMeeting] = useState(false);
 
   const dateStr = defaultDate
     ? format(defaultDate, "yyyy-MM-dd")
@@ -1029,6 +1035,7 @@ function NewEventDialog({
     payload.pushToGoogle = pushGoogle ? "1" : "";
     const rrule = buildRRule(recurFreq, recurInterval, recurUntil || null);
     if (rrule) payload.recurrenceRule = rrule;
+    payload.isMeeting = isMeeting ? "1" : "";
     const r = await fetch("/api/calendar/events", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -1143,6 +1150,15 @@ function NewEventDialog({
           <label className="flex items-center gap-2 text-sm text-slate-700">
             <input
               type="checkbox"
+              checked={isMeeting}
+              onChange={(e) => setIsMeeting(e.target.checked)}
+              className="h-4 w-4 rounded"
+            />
+            This is a 1:1 meeting (agenda, notes & action items)
+          </label>
+          <label className="flex items-center gap-2 text-sm text-slate-700">
+            <input
+              type="checkbox"
               checked={pushGoogle}
               onChange={(e) => setPushGoogle(e.target.checked)}
               className="h-4 w-4 rounded"
@@ -1172,6 +1188,182 @@ function Field({ label, children }: { label: string; children: React.ReactNode }
       <span className="text-xs font-semibold text-slate-700">{label}</span>
       <div className="mt-1">{children}</div>
     </label>
+  );
+}
+
+function MeetingPanel({ event }: { event: Event }) {
+  const router = useRouter();
+  type Bullet = { id: string; text: string };
+  const [agenda, setAgenda] = useState<Bullet[]>(() => {
+    try {
+      const a = event.agenda ? JSON.parse(event.agenda) : [];
+      return Array.isArray(a)
+        ? a.map((x: { id?: string; text?: string }) => ({
+            id: x.id ?? Math.random().toString(36).slice(2),
+            text: x.text ?? "",
+          }))
+        : [];
+    } catch {
+      return [];
+    }
+  });
+  const [agendaDraft, setAgendaDraft] = useState("");
+  const [notes, setNotes] = useState(event.meetingNotes ?? "");
+  const [actions, setActions] = useState<string[]>([]);
+  const [actionDraft, setActionDraft] = useState("");
+  const [savedMsg, setSavedMsg] = useState("");
+
+  async function patch(body: Record<string, unknown>) {
+    await fetch(`/api/calendar/events/${event.id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+    });
+    setSavedMsg("Saved");
+    setTimeout(() => setSavedMsg(""), 1500);
+    router.refresh();
+  }
+  function addBullet() {
+    const t = agendaDraft.trim();
+    if (!t) return;
+    const next = [...agenda, { id: Math.random().toString(36).slice(2), text: t }];
+    setAgenda(next);
+    setAgendaDraft("");
+    patch({ agenda: next });
+  }
+  function removeBullet(id: string) {
+    const next = agenda.filter((b) => b.id !== id);
+    setAgenda(next);
+    patch({ agenda: next });
+  }
+  async function createTasks() {
+    const items = actions.map((text) => ({ text }));
+    if (items.length === 0) return;
+    const r = await fetch(`/api/calendar/events/${event.id}/action-items`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ items }),
+    });
+    if (r.ok) {
+      setActions([]);
+      setSavedMsg("Tasks created");
+      setTimeout(() => setSavedMsg(""), 2000);
+      router.refresh();
+    } else {
+      const j = await r.json().catch(() => ({}));
+      alert(j.error ?? "Could not create tasks");
+    }
+  }
+
+  return (
+    <div className="rounded-lg border bg-white p-3 space-y-3">
+      <div className="flex items-center justify-between">
+        <span className="text-xs font-bold uppercase tracking-wide text-[var(--c-violet)]">
+          1:1 meeting
+        </span>
+        {savedMsg && (
+          <span className="text-[10px] text-[var(--c-green)]">{savedMsg}</span>
+        )}
+      </div>
+
+      <div>
+        <span className="text-xs font-semibold text-slate-700">Agenda</span>
+        <ul className="mt-1 space-y-1">
+          {agenda.map((b) => (
+            <li key={b.id} className="flex items-center gap-2 text-sm group">
+              <span className="text-slate-400">•</span>
+              <span className="flex-1">{b.text}</span>
+              <button
+                type="button"
+                onClick={() => removeBullet(b.id)}
+                className="text-slate-300 hover:text-[var(--c-red)] opacity-0 group-hover:opacity-100"
+              >
+                <XIcon className="h-3 w-3" />
+              </button>
+            </li>
+          ))}
+        </ul>
+        <div className="mt-1 flex gap-2">
+          <Input
+            value={agendaDraft}
+            onChange={(e) => setAgendaDraft(e.target.value)}
+            onKeyDown={(e) =>
+              e.key === "Enter" && (e.preventDefault(), addBullet())
+            }
+            placeholder="Add agenda point…"
+            className="!h-8 !text-sm"
+          />
+          <Button type="button" size="sm" variant="outline" onClick={addBullet}>
+            Add
+          </Button>
+        </div>
+      </div>
+
+      <div>
+        <span className="text-xs font-semibold text-slate-700">Notes</span>
+        <Textarea
+          value={notes}
+          onChange={(e) => setNotes(e.target.value)}
+          onBlur={() =>
+            notes !== (event.meetingNotes ?? "") &&
+            patch({ meetingNotes: notes })
+          }
+          rows={3}
+          className="mt-1"
+          placeholder="Decisions, discussion…"
+        />
+      </div>
+
+      <div>
+        <span className="text-xs font-semibold text-slate-700">
+          Action items → tasks
+        </span>
+        <ul className="mt-1 space-y-1">
+          {actions.map((a, i) => (
+            <li key={i} className="flex items-center gap-2 text-sm group">
+              <span className="text-slate-400">☐</span>
+              <span className="flex-1">{a}</span>
+              <button
+                type="button"
+                onClick={() => setActions((p) => p.filter((_, j) => j !== i))}
+                className="text-slate-300 hover:text-[var(--c-red)] opacity-0 group-hover:opacity-100"
+              >
+                <XIcon className="h-3 w-3" />
+              </button>
+            </li>
+          ))}
+        </ul>
+        <div className="mt-1 flex gap-2">
+          <Input
+            value={actionDraft}
+            onChange={(e) => setActionDraft(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === "Enter") {
+                e.preventDefault();
+                if (actionDraft.trim()) {
+                  setActions((p) => [...p, actionDraft.trim()]);
+                  setActionDraft("");
+                }
+              }
+            }}
+            placeholder="Add an action item…"
+            className="!h-8 !text-sm"
+          />
+          <Button
+            type="button"
+            size="sm"
+            variant="brand"
+            onClick={createTasks}
+            disabled={actions.length === 0}
+          >
+            Create {actions.length || ""} task{actions.length === 1 ? "" : "s"}
+          </Button>
+        </div>
+        <p className="text-[10px] text-slate-400 mt-1">
+          Creates tasks for this meeting&apos;s student (category “meeting”).
+        </p>
+      </div>
+    </div>
   );
 }
 

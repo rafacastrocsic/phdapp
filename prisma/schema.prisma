@@ -316,6 +316,9 @@ model Event {
   // "FREQ=WEEKLY;INTERVAL=1;UNTIL=20261231T235959Z". Null = one-off.
   // Editing/deleting a recurring event affects the whole series (MVP).
   recurrenceRule  String?
+  isMeeting       Boolean  @default(false)
+  agenda          String?  // JSON array of { id, text, addedById }
+  meetingNotes    String?
   googleEventId   String?  @unique
   googleCalendarId String?
 
