@@ -43,6 +43,11 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
     Google({
       clientId: process.env.AUTH_GOOGLE_ID,
       clientSecret: process.env.AUTH_GOOGLE_SECRET,
+      // Safe here: Google is the only provider and verifies email ownership,
+      // and the admin "add team member" flow pre-creates User rows (with no
+      // linked Account) on purpose. Without this, those users hit
+      // OAuthAccountNotLinked on their first sign-in.
+      allowDangerousEmailAccountLinking: true,
       authorization: {
         params: {
           scope: GOOGLE_SCOPES,
