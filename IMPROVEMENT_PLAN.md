@@ -9,7 +9,7 @@ Stack reminders that shape every item:
 
 ---
 
-## 0. Shared prerequisite — role-aware per-student access helper
+## 0. Shared prerequisite — role-aware per-student access helper  ✅ COMPLETED (4c4cba7)
 
 Needed by §3 and §7: "is this viewer a supervisor-level member of this student's team (admin / primary / co-sup role supervisor|co_supervisor) — NOT external_advisor, committee, or the student?"
 
@@ -30,7 +30,7 @@ Pure addition, no migration, low risk. **Build first.**
 
 ---
 
-## 1. Thesis & publication tracker
+## 1. Thesis & publication tracker  ✅ COMPLETED (92ecdf1)
 
 **What:** structured tracking of thesis chapters and publications per student — the PhD-native backbone the app lacks.
 
