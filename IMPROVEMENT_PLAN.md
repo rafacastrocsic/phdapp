@@ -60,7 +60,7 @@ Pure addition, no migration, low risk. **Build first.**
 
 ---
 
-## 3. Private supervisor notes per student
+## 3. Private supervisor notes per student  ✅ COMPLETED
 
 **What:** internal notes thread per student — visible to supervisor-level team only; hidden from the student, external advisors, committee.
 

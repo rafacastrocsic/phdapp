@@ -9,9 +9,11 @@ import {
   canManageTeam,
   studentVisibilityWhereAllForAdmin,
   teamLevelForStudent,
+  canSeeSupervisorPrivate,
   type Role,
 } from "@/lib/access";
 import { ThesisPublications } from "./thesis-publications";
+import { SupervisorNotes } from "./supervisor-notes";
 import { Avatar } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -116,6 +118,20 @@ export default async function StudentDetail({
 
   const teamLevel = await teamLevelForStudent(id, session.user.id, role);
   const canWriteThesis = teamLevel === "supervisor" || teamLevel === "self";
+
+  // Private supervisor notes: only fetched/sent to supervisor-level viewers.
+  // Non-supervisors (student, external advisors, committee) never receive
+  // this data in props at all.
+  const canSeePrivate = canSeeSupervisorPrivate(teamLevel);
+  const supervisorNotes = canSeePrivate
+    ? await prisma.supervisorNote.findMany({
+        where: { studentId: id },
+        orderBy: { createdAt: "desc" },
+        include: {
+          author: { select: { id: true, name: true, image: true, color: true } },
+        },
+      })
+    : [];
 
   const driveUrl = student.driveFolderId
     ? `https://drive.google.com/drive/folders/${student.driveFolderId}`
@@ -416,6 +432,20 @@ export default async function StudentDetail({
             notes: p.notes,
           }))}
         />
+
+        {canSeePrivate && (
+          <SupervisorNotes
+            studentId={student.id}
+            viewerId={session.user.id}
+            isAdmin={role === "admin"}
+            initialNotes={supervisorNotes.map((n) => ({
+              id: n.id,
+              body: n.body,
+              createdAt: n.createdAt.toISOString(),
+              author: n.author,
+            }))}
+          />
+        )}
         </div>
 
         <div className="space-y-6">

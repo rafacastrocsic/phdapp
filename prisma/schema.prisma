@@ -40,6 +40,7 @@ model User {
   eventAttendances      EventAttendee[]
   activityLogs          ActivityLog[]    @relation("ActivityActor")
   favoritesStarred      FavoriteFile[]   @relation("FavoriteStarredBy")
+  supervisorNotes       SupervisorNote[] @relation("SupervisorNoteAuthor")
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -117,6 +118,7 @@ model Student {
   favorites       FavoriteFile[]
   thesisChapters  ThesisChapter[]
   publications    Publication[]
+  supervisorNotes SupervisorNote[]
 
   createdAt       DateTime  @default(now())
   updatedAt       DateTime  @updatedAt
@@ -151,6 +153,17 @@ model Publication {
   notes       String?
   createdAt   DateTime  @default(now())
   updatedAt   DateTime  @updatedAt
+}
+
+model SupervisorNote {
+  id        String   @id @default(cuid())
+  studentId String
+  student   Student  @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  authorId  String
+  author    User     @relation("SupervisorNoteAuthor", fields: [authorId], references: [id])
+  body      String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 }
 
 model CoSupervisor {
