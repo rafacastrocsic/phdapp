@@ -8,8 +8,10 @@ import {
   canEditStudentProfile,
   canManageTeam,
   studentVisibilityWhereAllForAdmin,
+  teamLevelForStudent,
   type Role,
 } from "@/lib/access";
+import { ThesisPublications } from "./thesis-publications";
 import { Avatar } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -106,9 +108,14 @@ export default async function StudentDetail({
           starredBy: { select: { id: true, name: true, image: true, color: true } },
         },
       },
+      thesisChapters: { orderBy: [{ order: "asc" }, { createdAt: "asc" }] },
+      publications: { orderBy: [{ submittedAt: "desc" }, { createdAt: "desc" }] },
     },
   });
   if (!student) notFound();
+
+  const teamLevel = await teamLevelForStudent(id, session.user.id, role);
+  const canWriteThesis = teamLevel === "supervisor" || teamLevel === "self";
 
   const driveUrl = student.driveFolderId
     ? `https://drive.google.com/drive/folders/${student.driveFolderId}`
@@ -384,6 +391,30 @@ export default async function StudentDetail({
             )}
           </CardContent>
         </Card>
+
+        <ThesisPublications
+          studentId={student.id}
+          canWrite={canWriteThesis}
+          initialChapters={student.thesisChapters.map((c) => ({
+            id: c.id,
+            title: c.title,
+            status: c.status,
+            driveUrl: c.driveUrl,
+            notes: c.notes,
+          }))}
+          initialPublications={student.publications.map((p) => ({
+            id: p.id,
+            title: p.title,
+            venue: p.venue,
+            type: p.type,
+            status: p.status,
+            authors: p.authors,
+            url: p.url,
+            submittedAt: p.submittedAt?.toISOString() ?? null,
+            decisionAt: p.decisionAt?.toISOString() ?? null,
+            notes: p.notes,
+          }))}
+        />
         </div>
 
         <div className="space-y-6">

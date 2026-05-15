@@ -115,9 +115,41 @@ model Student {
   channels        Channel[]
   activityLogs    ActivityLog[]
   favorites       FavoriteFile[]
+  thesisChapters  ThesisChapter[]
+  publications    Publication[]
 
   createdAt       DateTime  @default(now())
   updatedAt       DateTime  @updatedAt
+}
+
+model ThesisChapter {
+  id        String   @id @default(cuid())
+  studentId String
+  student   Student  @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  title     String
+  status    String   @default("planned") // planned | drafting | in_review | revising | done
+  order     Int      @default(0)
+  driveUrl  String?
+  notes     String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model Publication {
+  id          String    @id @default(cuid())
+  studentId   String
+  student     Student   @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  title       String
+  venue       String?
+  type        String    @default("journal") // journal | conference | preprint | other
+  status      String    @default("in_prep") // in_prep | submitted | under_review | major_rev | minor_rev | accepted | published | rejected
+  authors     String?
+  url         String?
+  submittedAt DateTime?
+  decisionAt  DateTime?
+  notes       String?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
 }
 
 model CoSupervisor {
