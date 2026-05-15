@@ -44,6 +44,7 @@ model User {
   readingItemsAdded     ReadingItem[]    @relation("ReadingItemAddedBy")
   readingDecisions      ReadingItem[]    @relation("ReadingItemDecisionBy")
   availability          Availability[]
+  teamNotes             TeamNote[]       @relation("TeamNoteAuthor")
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -187,6 +188,21 @@ model ReadingItem {
   decisionNote     String?
   createdAt        DateTime @default(now())
   updatedAt        DateTime @updatedAt
+}
+
+model TeamNote {
+  id        String   @id @default(cuid())
+  authorId  String
+  author    User     @relation("TeamNoteAuthor", fields: [authorId], references: [id])
+  body      String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model Setting {
+  key       String   @id
+  value     String
+  updatedAt DateTime @updatedAt
 }
 
 model Availability {

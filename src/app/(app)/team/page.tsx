@@ -6,8 +6,13 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { displayName } from "@/lib/utils";
-import { studentVisibilityWhereAllForAdmin, type Role } from "@/lib/access";
+import {
+  studentVisibilityWhereAllForAdmin,
+  isSupervisingUser,
+  type Role,
+} from "@/lib/access";
 import { TeamUserCard } from "./user-edit-dialog";
+import { TeamWorkspace } from "./team-workspace";
 import { Shield } from "lucide-react";
 
 const ROLE_COLOR: Record<string, string> = {
@@ -73,6 +78,21 @@ export default async function TeamPage() {
     },
     orderBy: { fullName: "asc" },
   });
+
+  // ---- Supervisor team workspace (group-level, supervisors+admin only) ----
+  const canWorkspace = await isSupervisingUser(session.user.id, role);
+  const teamNotes = canWorkspace
+    ? await prisma.teamNote.findMany({
+        orderBy: { createdAt: "desc" },
+        include: {
+          author: { select: { id: true, name: true, image: true, color: true } },
+        },
+      })
+    : [];
+  const teamFolder = canWorkspace
+    ? (await prisma.setting.findUnique({ where: { key: "teamDriveFolderUrl" } }))
+        ?.value ?? null
+    : null;
 
   // ---- Workload aggregation (read-only) ----
   const studentStatus = new Map(studentRows.map((s) => [s.id, s.status]));
@@ -144,6 +164,20 @@ export default async function TeamPage() {
           </Link>
         )}
       </div>
+
+      {canWorkspace && (
+        <TeamWorkspace
+          viewerId={session.user.id}
+          isAdmin={isAdmin}
+          initialFolder={teamFolder}
+          initialNotes={teamNotes.map((n) => ({
+            id: n.id,
+            body: n.body,
+            createdAt: n.createdAt.toISOString(),
+            author: n.author,
+          }))}
+        />
+      )}
 
       <Card>
         <CardHeader>

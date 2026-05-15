@@ -120,7 +120,7 @@ Pure addition, no migration, low risk. **Build first.**
 
 ---
 
-## 7. Supervisor team workspace (group-level)
+## 7. Supervisor team workspace (group-level)  ✅ COMPLETED
 
 **What:** a group-level space for the supervisory team — a **shared Drive folder** + **group notes** (not tied to a specific student): templates, group policy, inter-supervisor minutes. Hidden from students, external advisors, committee.
 

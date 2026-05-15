@@ -230,6 +230,10 @@ The **Reading** module (book icon, sidebar) is the paper reading list across you
 - Track progress (To read → Reading → Read). Items can be deleted by a supervisor or whoever added them.
 - External advisors / committee see the list read-only.
 
+## Supervisor team workspace
+
+At the top of the **Team** page (visible to supervisors and the admin only — hidden from students, external advisors, and committee members) is the **Supervisor team workspace**: a shared Drive-folder link (the admin sets it) plus an internal group-notes thread for the supervisory team — templates, group policy, inter-supervisor minutes. Anyone supervisor-level can post; the author or admin can delete a note.
+
 ## Workload
 
 The **Team** page has two read-only workload tables:
