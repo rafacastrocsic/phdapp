@@ -266,6 +266,10 @@ The **Log book** (red icon, sidebar) is a chronological record of everything tha
 
 Each entry shows: actor, action, timestamp, student involved, and a link back to the entity (if it still exists).
 
+## Notifications
+
+The **🔔 bell** in the top bar carries a red **unread count badge** and lists recent notifications — a task assigned to you, a new comment on a task you own, etc. Click an item to jump to it, or "Mark all read". This is in addition to the weekly email digest and the sidebar/board highlight badges. (Per-event emails also go out if the admin configured Resend.)
+
 ## Your profile
 
 Top-right avatar → **Edit profile**. You can change name, color, photo. Your role and permissions are managed by the admin.

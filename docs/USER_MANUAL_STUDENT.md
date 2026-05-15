@@ -162,7 +162,9 @@ You **cannot** change your role or your supervisor — ask your supervisor or th
 
 ## Notifications
 
-Three places show "you have new stuff":
+There's a **🔔 bell** in the top bar with a red **count badge** when you have unread notifications — e.g. you were assigned a task, or someone commented on one of your tasks. Click it for the list; click an item to jump to it (and mark it read), or "Mark all read". If the admin has email set up, you also get an email for these.
+
+Other places that show "you have new stuff":
 
 1. **Sidebar badges**: a pink dot/number on Chat for unread messages; orange on Tasks for new/updated tasks; teal on Calendar for new/updated events.
 2. **Task cards** with new/updated activity have a colored banner across the top until you open them.

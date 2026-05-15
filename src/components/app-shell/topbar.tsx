@@ -4,6 +4,7 @@ import { Avatar } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { UserMenu } from "./user-menu";
+import { NotificationBell } from "./notification-bell";
 
 interface TopbarProps {
   user: {
@@ -48,6 +49,7 @@ export function Topbar({ user, studentId = null }: TopbarProps) {
             </Button>
           </Link>
         )}
+        <NotificationBell />
         <UserMenu
           profileHref={profileHref}
           profileLabel={isStudent ? "Edit my profile" : "Settings"}

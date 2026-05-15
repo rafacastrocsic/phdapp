@@ -67,6 +67,16 @@ export async function POST(req: Request) {
     );
   }
 
+  if (created.assigneeId) {
+    const { notify } = await import("@/lib/notify");
+    await notify([created.assigneeId], {
+      type: "task.assigned",
+      message: `You were assigned the task “${created.title}”`,
+      link: `/kanban?ticket=${created.id}`,
+      actorId: session.user.id,
+    }).catch(() => {});
+  }
+
   await logActivity({
     actorId: session.user.id,
     actorRole: session.user.role,

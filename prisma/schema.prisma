@@ -46,6 +46,7 @@ model User {
   readingDecisions      ReadingItem[]    @relation("ReadingItemDecisionBy")
   availability          Availability[]
   teamNotes             TeamNote[]       @relation("TeamNoteAuthor")
+  notifications         Notification[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -189,6 +190,19 @@ model ReadingItem {
   decisionNote     String?
   createdAt        DateTime @default(now())
   updatedAt        DateTime @updatedAt
+}
+
+model Notification {
+  id        String    @id @default(cuid())
+  userId    String
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  type      String // task.assigned | task.comment | reading.proposed | reading.decided | meeting.tasks
+  message   String
+  link      String?
+  readAt    DateTime?
+  createdAt DateTime  @default(now())
+
+  @@index([userId, readAt])
 }
 
 model TeamNote {

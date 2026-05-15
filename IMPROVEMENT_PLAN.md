@@ -186,7 +186,7 @@ Pure addition, no migration, low risk. **Build first.**
 
 ---
 
-## 12. Real notifications
+## 12. Real notifications  ✅ COMPLETED (in-app bell + best-effort email; web push deferred)
 
 **What:** event-triggered, immediate alerts (vs. §11's scheduled summary): a task assigned to you was created, a task you own is due tomorrow, an @mention, a meeting in 1 hour, a reading-list decision, a new check-in for your student.
 

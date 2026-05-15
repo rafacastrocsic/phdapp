@@ -10,7 +10,13 @@ const Body = z.object({ body: z.string().min(1) });
 async function authorize(id: string, userId: string, role: Role) {
   return prisma.ticket.findFirst({
     where: { id, student: studentVisibilityWhereAllForAdmin(userId, role) },
-    select: { id: true, studentId: true, title: true },
+    select: {
+      id: true,
+      studentId: true,
+      title: true,
+      assigneeId: true,
+      createdById: true,
+    },
   });
 }
 
@@ -51,6 +57,16 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
     data: { ticketId: id, body: parsed.data.body, authorId: session.user.id },
     include: { author: { select: { name: true, image: true, color: true } } },
   });
+
+  {
+    const { notify } = await import("@/lib/notify");
+    await notify([ok.assigneeId, ok.createdById], {
+      type: "task.comment",
+      message: `New comment on “${ok.title}”`,
+      link: `/kanban?ticket=${id}`,
+      actorId: session.user.id,
+    }).catch(() => {});
+  }
 
   // Mirror this as a ticket.update so the Tasks board highlights the task
   // for other team members until they next visit /kanban.
