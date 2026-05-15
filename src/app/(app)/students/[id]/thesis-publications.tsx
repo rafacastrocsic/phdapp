@@ -5,6 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input, Select } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
+import { DriveItemPicker } from "@/components/drive-item-picker";
 
 interface Chapter {
   id: string;
@@ -244,14 +245,10 @@ export function ThesisPublications({
                 )}
                 </div>
                 {canWrite && (
-                  <input
-                    defaultValue={c.driveUrl ?? ""}
-                    onBlur={(e) =>
-                      e.target.value !== (c.driveUrl ?? "") &&
-                      patchChapter(c.id, { driveUrl: e.target.value || null })
-                    }
-                    placeholder="Drive file/folder URL…"
-                    className="w-full h-7 rounded border bg-white px-2 text-xs text-slate-600 placeholder:text-slate-400 focus:outline-none"
+                  <DriveItemPicker
+                    value={c.driveUrl}
+                    onChange={(url) => patchChapter(c.id, { driveUrl: url })}
+                    triggerLabel="Drive"
                   />
                 )}
               </li>
@@ -373,15 +370,13 @@ export function ThesisPublications({
                         placeholder="venue"
                         className="h-7 flex-1 min-w-[8rem] rounded border bg-white px-2 text-xs focus:outline-none"
                       />
-                      <input
-                        defaultValue={p.driveUrl ?? ""}
-                        onBlur={(e) =>
-                          e.target.value !== (p.driveUrl ?? "") &&
-                          patchPub(p.id, { driveUrl: e.target.value || null })
-                        }
-                        placeholder="Drive URL"
-                        className="h-7 flex-1 min-w-[8rem] rounded border bg-white px-2 text-xs focus:outline-none"
-                      />
+                      <div className="w-full">
+                        <DriveItemPicker
+                          value={p.driveUrl}
+                          onChange={(url) => patchPub(p.id, { driveUrl: url })}
+                          triggerLabel="Drive"
+                        />
+                      </div>
                     </>
                   ) : (
                     <>
