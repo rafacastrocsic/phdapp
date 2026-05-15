@@ -58,11 +58,13 @@ function color(list: { id: string; color: string }[], id: string) {
 
 export function ThesisPublications({
   studentId,
+  studentDriveFolderId,
   canWrite,
   initialChapters,
   initialPublications,
 }: {
   studentId: string;
+  studentDriveFolderId: string | null;
   canWrite: boolean;
   initialChapters: Chapter[];
   initialPublications: Publication[];
@@ -246,6 +248,7 @@ export function ThesisPublications({
                 </div>
                 {canWrite && (
                   <DriveItemPicker
+                    rootFolderId={studentDriveFolderId}
                     value={c.driveUrl}
                     onChange={(url) => patchChapter(c.id, { driveUrl: url })}
                     triggerLabel="Drive"
@@ -372,6 +375,7 @@ export function ThesisPublications({
                       />
                       <div className="w-full">
                         <DriveItemPicker
+                          rootFolderId={studentDriveFolderId}
                           value={p.driveUrl}
                           onChange={(url) => patchPub(p.id, { driveUrl: url })}
                           triggerLabel="Drive"

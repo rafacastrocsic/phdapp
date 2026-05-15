@@ -3,12 +3,10 @@ import { useEffect, useState } from "react";
 import {
   Folder,
   FileText,
-  Home,
   ChevronRight,
   ChevronLeft,
   Check,
   Search,
-  Users,
   ExternalLink,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -43,41 +41,46 @@ interface Item {
 }
 
 /**
- * Pick EITHER a folder or a file from Google Drive (the student's shared
- * supervision drive shows under "Shared with me"). Returns a Drive URL string
- * via onChange — a folder URL for folders, the file's webViewLink for files.
+ * Pick EITHER a folder or a file from THE STUDENT'S shared Drive folder
+ * (rooted at `rootFolderId` — the student's supervision folder, not the
+ * viewer's own Drive). Returns a Drive URL string via onChange — a folder
+ * URL for folders, the file's webViewLink for files.
  */
 export function DriveItemPicker({
+  rootFolderId,
   value,
   onChange,
   triggerLabel = "Pick from Drive",
 }: {
+  rootFolderId: string | null;
   value: string | null;
   onChange: (url: string | null) => void;
   triggerLabel?: string;
 }) {
   const [open, setOpen] = useState(false);
-  const [path, setPath] = useState<DriveNode[]>([{ id: "root", name: "My Drive" }]);
+  const [path, setPath] = useState<DriveNode[]>([
+    { id: rootFolderId ?? "root", name: "Student's Drive" },
+  ]);
   const [items, setItems] = useState<Item[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [search, setSearch] = useState("");
-  const [mode, setMode] = useState<"my" | "shared">("my");
 
   const current = path[path.length - 1]!;
 
+  // Reset to the student's root whenever the dialog opens.
   useEffect(() => {
-    if (!open) return;
+    if (open && rootFolderId)
+      setPath([{ id: rootFolderId, name: "Student's Drive" }]);
+  }, [open, rootFolderId]);
+
+  useEffect(() => {
+    if (!open || !rootFolderId) return;
     let cancelled = false;
     (async () => {
       setLoading(true);
       setError(null);
-      const params = new URLSearchParams();
-      if (mode === "shared" && path.length === 1) {
-        params.set("sharedWithMe", "1");
-      } else {
-        params.set("folderId", current.id);
-      }
+      const params = new URLSearchParams({ folderId: current.id });
       // NOTE: no foldersOnly → list files AND folders.
       const r = await fetch(`/api/drive/list?${params.toString()}`);
       if (cancelled) return;
@@ -115,18 +118,9 @@ export function DriveItemPicker({
     return () => {
       cancelled = true;
     };
-  }, [current, mode, open, path.length]);
+  }, [current, open, rootFolderId]);
 
-  function reset(newMode: "my" | "shared") {
-    setMode(newMode);
-    setPath([
-      newMode === "my"
-        ? { id: "root", name: "My Drive" }
-        : { id: "shared", name: "Shared with me" },
-    ]);
-  }
   function pickCurrentFolder() {
-    if (path.length <= 1) return;
     onChange(`https://drive.google.com/drive/folders/${current.id}`);
     setOpen(false);
   }
@@ -156,9 +150,20 @@ export function DriveItemPicker({
           </span>
         )}
       </div>
-      <Button type="button" variant="outline" size="sm" onClick={() => setOpen(true)}>
-        <Folder className="h-3.5 w-3.5" /> {triggerLabel}
-      </Button>
+      {rootFolderId ? (
+        <Button
+          type="button"
+          variant="outline"
+          size="sm"
+          onClick={() => setOpen(true)}
+        >
+          <Folder className="h-3.5 w-3.5" /> {triggerLabel}
+        </Button>
+      ) : (
+        <span className="text-[11px] text-slate-400 italic">
+          Student has no shared Drive folder yet
+        </span>
+      )}
       {value && (
         <Button
           type="button"
@@ -175,23 +180,6 @@ export function DriveItemPicker({
           <DialogHeader>
             <DialogTitle>Pick a Drive file or folder</DialogTitle>
           </DialogHeader>
-
-          <div className="flex gap-1 border-b mb-3">
-            <TabButton
-              active={mode === "my"}
-              onClick={() => reset("my")}
-              icon={<Home className="h-3.5 w-3.5" />}
-            >
-              My Drive
-            </TabButton>
-            <TabButton
-              active={mode === "shared"}
-              onClick={() => reset("shared")}
-              icon={<Users className="h-3.5 w-3.5" />}
-            >
-              Shared with me
-            </TabButton>
-          </div>
 
           <div className="flex items-center gap-2 text-sm flex-wrap mb-3">
             {path.length > 1 && (
@@ -300,7 +288,7 @@ export function DriveItemPicker({
               type="button"
               variant="brand"
               onClick={pickCurrentFolder}
-              disabled={path.length <= 1}
+              disabled={!rootFolderId}
             >
               <Check className="h-4 w-4" /> Select this folder
             </Button>
@@ -311,30 +299,3 @@ export function DriveItemPicker({
   );
 }
 
-function TabButton({
-  active,
-  onClick,
-  icon,
-  children,
-}: {
-  active: boolean;
-  onClick: () => void;
-  icon: React.ReactNode;
-  children: React.ReactNode;
-}) {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      className={cn(
-        "flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium border-b-2 -mb-px",
-        active
-          ? "border-[var(--c-blue)] text-[var(--c-blue)]"
-          : "border-transparent text-slate-500 hover:text-slate-900",
-      )}
-    >
-      {icon}
-      {children}
-    </button>
-  );
-}

@@ -410,6 +410,7 @@ export default async function StudentDetail({
 
         <ThesisPublications
           studentId={student.id}
+          studentDriveFolderId={student.driveFolderId}
           canWrite={canWriteThesis}
           initialChapters={student.thesisChapters.map((c) => ({
             id: c.id,
