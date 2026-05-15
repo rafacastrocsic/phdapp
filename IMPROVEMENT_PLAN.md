@@ -82,6 +82,8 @@ Pure addition, no migration, low risk. **Build first.**
 
 **UI:** new "Workload" table/tab in `src/app/(app)/team/page.tsx`. Per supervisor: # active students (reuse the dedup logic already in the Team page), # open tasks, # overdue, # tasks assigned to them. Sortable. Team page already excludes students.
 
+**Shipped:** two tables on the Team page — *Workload* per supervisor (students supervised/active, open tasks, overdue, assigned to them) **and** *Student workload* per student (supervisor, status, open, overdue, click-through to the student). The student-load angle was added on user request so supervisors can spot which students are overloaded/idle, not just which supervisors are.
+
 **Scope/risk:** small, read-only, no migration. Low risk. **No deps** (richer once §1 milestones exist).
 
 ---

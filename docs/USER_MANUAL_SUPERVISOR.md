@@ -210,7 +210,10 @@ The student profile has an amber **Private supervisor notes** panel — an inter
 
 ## Workload
 
-At the top of the **Team** page there's a **Workload** table — one row per supervisor showing: students supervised (and how many are active), open tasks, overdue tasks (red if any), and tasks assigned directly to them. Rows are sorted by open-task count so the most-loaded supervisor is at the top. It's read-only — a quick way to spot who's overloaded or whose students are slipping.
+The **Team** page has two read-only workload tables:
+
+- **Workload** (per supervisor): students supervised (and how many active), open tasks, overdue (red if any), and tasks assigned directly to them — sorted by open-task count. Spot which *supervisor* is overloaded / for fair distribution.
+- **Student workload** (per student): supervisor, status, open tasks, overdue — sorted by load. Spot which *student* is drowning in tasks or has gone idle. Click a row to open that student.
 
 ## Activity log
 

@@ -109,6 +109,24 @@ export default async function TeamPage() {
     })
     .sort((a, b) => b.openTasks - a.openTasks);
 
+  // Per-student load — who's drowning, who's idle.
+  const studentWorkload = studentRows
+    .map((s) => {
+      const open = openTickets.filter((t) => t.studentId === s.id);
+      return {
+        id: s.id,
+        name: displayName(s),
+        color: s.color,
+        avatarUrl: s.avatarUrl,
+        supervisorName:
+          s.supervisor?.name ?? s.supervisor?.email ?? "—",
+        status: s.status,
+        open: open.length,
+        overdue: open.filter((t) => t.dueDate && t.dueDate < now).length,
+      };
+    })
+    .sort((a, b) => b.open - a.open);
+
   return (
     <div className="p-6 lg:p-8 space-y-6">
       <div className="flex items-end justify-between gap-3 flex-wrap">
@@ -182,6 +200,78 @@ export default async function TeamPage() {
                       )}
                     </td>
                     <td className="px-4 py-2 text-right tabular-nums">{w.assigned}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          )}
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Student workload</CardTitle>
+          <p className="text-xs text-slate-500 mt-1">
+            Open task load per student — spot who&apos;s overloaded or idle.
+          </p>
+        </CardHeader>
+        <CardContent className="p-0 overflow-x-auto">
+          {studentWorkload.length === 0 ? (
+            <p className="p-6 text-sm text-slate-500">No students yet.</p>
+          ) : (
+            <table className="w-full text-sm">
+              <thead className="bg-slate-50 text-[10px] uppercase tracking-wide text-slate-500">
+                <tr>
+                  <th className="px-4 py-2 text-left font-semibold">Student</th>
+                  <th className="px-4 py-2 text-left font-semibold">Supervisor</th>
+                  <th className="px-4 py-2 text-left font-semibold">Status</th>
+                  <th className="px-4 py-2 text-right font-semibold">Open tasks</th>
+                  <th className="px-4 py-2 text-right font-semibold">Overdue</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y">
+                {studentWorkload.map((s) => (
+                  <tr key={s.id} className="hover:bg-slate-50">
+                    <td className="px-4 py-2">
+                      <Link
+                        href={`/students/${s.id}`}
+                        className="flex items-center gap-2 hover:underline"
+                      >
+                        <Avatar
+                          name={s.name}
+                          src={s.avatarUrl}
+                          color={s.color}
+                          size="xs"
+                        />
+                        <span className="font-medium text-slate-900 truncate">
+                          {s.name}
+                        </span>
+                      </Link>
+                    </td>
+                    <td className="px-4 py-2 text-slate-600 truncate">
+                      {s.supervisorName}
+                    </td>
+                    <td className="px-4 py-2">
+                      <Badge
+                        color={
+                          s.status === "active" ? "#00ca72" : "#94a3b8"
+                        }
+                      >
+                        {s.status.replace("_", " ")}
+                      </Badge>
+                    </td>
+                    <td className="px-4 py-2 text-right tabular-nums">
+                      {s.open}
+                    </td>
+                    <td className="px-4 py-2 text-right tabular-nums">
+                      {s.overdue > 0 ? (
+                        <span className="font-semibold text-[var(--c-red)]">
+                          {s.overdue}
+                        </span>
+                      ) : (
+                        <span className="text-slate-400">0</span>
+                      )}
+                    </td>
                   </tr>
                 ))}
               </tbody>
