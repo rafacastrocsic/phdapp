@@ -110,6 +110,63 @@ export function canDeleteStudent(a: StudentAccess) {
   return a === "supervisor";
 }
 
+export type TeamLevel = "supervisor" | "advisor" | "committee" | "self" | null;
+
+/**
+ * Finer-grained than `accessForStudent`: distinguishes the viewer's actual
+ * relationship to a student so features that must treat external advisors /
+ * committee members differently from supervisors can do so.
+ *
+ *  admin / Student.supervisorId / CoSupervisor.role ∈ {supervisor, co_supervisor} → "supervisor"
+ *  CoSupervisor.role === "external_advisor" → "advisor"
+ *  CoSupervisor.role === "committee"        → "committee"
+ *  Student.userId === userId                → "self"
+ *  otherwise                                → null
+ *
+ * A user has at most one CoSupervisor row per student (`@@unique`), and the
+ * primary-supervisor check wins over it, so precedence is unambiguous.
+ */
+export async function teamLevelForStudent(
+  studentId: string,
+  userId: string,
+  role: Role,
+): Promise<TeamLevel> {
+  if (role === "admin") return "supervisor";
+
+  const student = await prisma.student.findFirst({
+    where: { id: studentId },
+    select: {
+      supervisorId: true,
+      userId: true,
+      coSupervisors: {
+        where: { userId },
+        select: { role: true },
+      },
+    },
+  });
+  if (!student) return null;
+
+  if (student.supervisorId === userId) return "supervisor";
+
+  const coRoles = new Set(student.coSupervisors.map((c) => c.role));
+  if (coRoles.has("supervisor") || coRoles.has("co_supervisor"))
+    return "supervisor";
+  if (coRoles.has("external_advisor")) return "advisor";
+  if (coRoles.has("committee")) return "committee";
+
+  if (student.userId === userId) return "self";
+  return null;
+}
+
+/**
+ * True if the viewer may see supervisor-private material for this student
+ * (private supervisor notes, wellbeing scores). Excludes external advisors,
+ * committee members, the student themselves, and unrelated users.
+ */
+export function canSeeSupervisorPrivate(t: TeamLevel): boolean {
+  return t === "supervisor";
+}
+
 /**
  * True if the user is a "real" supervisor — admin, or a supervisor who has at
  * least one supervised student (as primary or with CoSupervisor.role=supervisor).
