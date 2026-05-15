@@ -410,6 +410,7 @@ export default async function StudentDetail({
             status: p.status,
             authors: p.authors,
             url: p.url,
+            driveUrl: p.driveUrl,
             submittedAt: p.submittedAt?.toISOString() ?? null,
             decisionAt: p.decisionAt?.toISOString() ?? null,
             notes: p.notes,

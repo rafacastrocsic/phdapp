@@ -42,6 +42,8 @@ Pure addition, no migration, low risk. **Build first.**
 
 **Scope/risk:** medium. 2 models + migration, 2 routes, 1 profile section. Low risk. **No deps.**
 
+**Enhancement (shipped):** chapters and publications can each point at a Google Drive file *or* folder via a `driveUrl` field (paste a Drive URL; an open-in-Drive icon shows when set). Added `Publication.driveUrl` (additive migration). Chose paste-a-link over extending the shared folders-only `DriveFolderPicker` — that component is reused elsewhere and is folder-only, so a link field works for files+folders at lower risk. A richer in-app file picker is a possible future polish.
+
 ---
 
 ## 2. Reading list (with approval flow)
@@ -199,6 +201,24 @@ Per-user, per-type preferences (extend the Settings page; a `NotificationPref` m
 
 ---
 
+## 14. Undo for destructive actions (soft-delete + undo toast)
+
+**What:** not a true universal multi-level undo (that needs a command/event-sourcing layer this CRUD app isn't built for). Instead, scoped undo for the only high-regret action — **deletion**. Soft-delete instead of hard `DELETE`, plus an "Undo" toast for ~5 s after any delete. Edits are low-stakes and already traceable via the activity log, so they're out of scope.
+
+**Data model:** add a nullable `archivedAt DateTime?` (or `deletedAt`) to every user-deletable model — `Ticket`, `Event`, `ThesisChapter`, `Publication`, `Comment`, `Channel`, `CoSupervisor`, plus future §3/§6/§9 models. Additive migration.
+
+**API:** delete endpoints set `archivedAt = now()` instead of removing the row; an `undo` endpoint clears it (allowed for a short window). A periodic job (reuse the chat-cleanup cron pattern) hard-purges rows archived > N days so the DB doesn't grow unbounded.
+
+**Read paths:** every list/detail query must exclude `archivedAt != null`. This is the bulk of the work — mechanical but touches many queries. A Prisma middleware/extension that auto-filters soft-deleted rows reduces the per-query churn and the risk of leaking archived data.
+
+**UI:** after a delete, a toast: *"Task deleted · Undo"*. Clicking Undo calls the undo endpoint and restores it (pairs naturally with the existing ghost-card/optimistic patterns). No toast framework yet — small shared toast component needed.
+
+**Scope/risk:** medium. The migration is additive/low-risk; the real cost and risk is auditing **every** read query for the soft-delete filter (a missed filter = deleted data still showing). Prisma middleware mitigates this. **No hard deps**; best done after the data models from earlier items exist so it can cover them in one pass. Could also be done incrementally per-model.
+
+**Why scoped, not global:** a true app-wide undo (reverse any mutation) would require recording inverse operations for every action — a large architectural change for marginal benefit over "you can't accidentally lose data on delete," which this covers.
+
+---
+
 ## Recommended sequence
 
 1. **§0** access helper — tiny, unblocks §3/§7/§10.
@@ -214,6 +234,7 @@ Per-user, per-type preferences (extend the Settings page; a `NotificationPref` m
 11. **§10** Annual review export — composes §1/§6/§8.
 12. **§11** Email digest — introduces email/cron infra.
 13. **§12** Real notifications — reuses §11 infra; last.
+14. **§14** Undo / soft-delete — best after the data models from earlier items exist so one pass covers them all; can also be done incrementally per-model.
 
 Each ships as its own commit + deploy, verified before moving on.
 

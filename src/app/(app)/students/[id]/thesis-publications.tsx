@@ -21,6 +21,7 @@ interface Publication {
   status: string;
   authors: string | null;
   url: string | null;
+  driveUrl: string | null;
   submittedAt: string | null;
   decisionAt: string | null;
   notes: string | null;
@@ -149,8 +150,9 @@ export function ThesisPublications({
             {chapters.map((c) => (
               <li
                 key={c.id}
-                className="flex items-center gap-2 rounded-lg border bg-white p-2"
+                className="rounded-lg border bg-white p-2 space-y-1"
               >
+                <div className="flex items-center gap-2">
                 {canWrite ? (
                   <input
                     defaultValue={c.title}
@@ -201,6 +203,18 @@ export function ThesisPublications({
                   >
                     <X className="h-3.5 w-3.5" />
                   </button>
+                )}
+                </div>
+                {canWrite && (
+                  <input
+                    defaultValue={c.driveUrl ?? ""}
+                    onBlur={(e) =>
+                      e.target.value !== (c.driveUrl ?? "") &&
+                      patchChapter(c.id, { driveUrl: e.target.value || null })
+                    }
+                    placeholder="Drive file/folder URL…"
+                    className="w-full h-7 rounded border bg-white px-2 text-xs text-slate-600 placeholder:text-slate-400 focus:outline-none"
+                  />
                 )}
               </li>
             ))}
@@ -265,6 +279,17 @@ export function ThesisPublications({
                       <ExternalLink className="h-3.5 w-3.5" />
                     </a>
                   )}
+                  {p.driveUrl && (
+                    <a
+                      href={p.driveUrl}
+                      target="_blank"
+                      rel="noopener"
+                      className="text-slate-400 hover:text-[var(--c-blue)]"
+                      title="Open in Drive"
+                    >
+                      <ExternalLink className="h-3.5 w-3.5" />
+                    </a>
+                  )}
                   {canWrite && (
                     <button
                       type="button"
@@ -308,6 +333,15 @@ export function ThesisPublications({
                           patchPub(p.id, { venue: e.target.value || null })
                         }
                         placeholder="venue"
+                        className="h-7 flex-1 min-w-[8rem] rounded border bg-white px-2 text-xs focus:outline-none"
+                      />
+                      <input
+                        defaultValue={p.driveUrl ?? ""}
+                        onBlur={(e) =>
+                          e.target.value !== (p.driveUrl ?? "") &&
+                          patchPub(p.id, { driveUrl: e.target.value || null })
+                        }
+                        placeholder="Drive URL"
                         className="h-7 flex-1 min-w-[8rem] rounded border bg-white px-2 text-xs focus:outline-none"
                       />
                     </>

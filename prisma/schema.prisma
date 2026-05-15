@@ -145,6 +145,7 @@ model Publication {
   status      String    @default("in_prep") // in_prep | submitted | under_review | major_rev | minor_rev | accepted | published | rejected
   authors     String?
   url         String?
+  driveUrl    String?
   submittedAt DateTime?
   decisionAt  DateTime?
   notes       String?

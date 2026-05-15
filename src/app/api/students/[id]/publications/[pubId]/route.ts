@@ -11,6 +11,7 @@ const Patch = z.object({
   status: z.string().optional(),
   authors: z.string().nullable().optional(),
   url: z.string().nullable().optional(),
+  driveUrl: z.string().nullable().optional(),
   submittedAt: z.string().nullable().optional(),
   decisionAt: z.string().nullable().optional(),
   notes: z.string().nullable().optional(),
@@ -49,6 +50,7 @@ export async function PATCH(
   if (d.status !== undefined) data.status = d.status;
   if (d.authors !== undefined) data.authors = d.authors;
   if (d.url !== undefined) data.url = d.url;
+  if (d.driveUrl !== undefined) data.driveUrl = d.driveUrl;
   if (d.submittedAt !== undefined)
     data.submittedAt = d.submittedAt ? new Date(d.submittedAt) : null;
   if (d.decisionAt !== undefined)
