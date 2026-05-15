@@ -74,7 +74,7 @@ Pure addition, no migration, low risk. **Build first.**
 
 ---
 
-## 4. Workload view
+## 4. Workload view  ✅ COMPLETED
 
 **What:** supervisor/admin overview: per supervisor, active-student count and task load — to spot imbalance/overload.
 

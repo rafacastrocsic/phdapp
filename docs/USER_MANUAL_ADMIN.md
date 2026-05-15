@@ -50,7 +50,8 @@ The app assumes one human admin who is also a developer. If you delegate develop
 - **Thesis & publications tracker** (per student profile): `ThesisChapter` + `Publication` tables. Supervisors and the student edit; external advisors/committee read-only. Items can link a Drive file/folder via a picker rooted at the student's shared folder.
 - **Private supervisor notes** (per student profile): `SupervisorNote` table. Server-gated by `canSeeSupervisorPrivate(teamLevelForStudent())` — supervisors + admin only; the API returns 404 (not 403) to students/advisors/committee so the feature isn't even discoverable, and the page never sends the data to them. As admin you see and can delete notes on every student.
 - New permission helper `teamLevelForStudent()` in `src/lib/access.ts` distinguishes supervisor vs advisor vs committee vs self (the older `accessForStudent()` collapsed them). Use it for any future feature that must treat those roles differently.
-- All the above are additive Prisma migrations applied automatically on deploy. Roadmap & status: `IMPROVEMENT_PLAN.md`.
+- **Workload view** (top of the Team page): read-only aggregate — per supervisor, students supervised/active, open tasks, overdue, tasks assigned to them; sorted by load. No new tables (pure aggregation). Visible to supervisors + admin only (the Team page already redirects students).
+- All the above are additive Prisma migrations applied automatically on deploy (Workload adds no migration). Roadmap & status: `IMPROVEMENT_PLAN.md`.
 
 ## Daily operations
 

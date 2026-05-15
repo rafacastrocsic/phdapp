@@ -74,6 +74,41 @@ export default async function TeamPage() {
     orderBy: { fullName: "asc" },
   });
 
+  // ---- Workload aggregation (read-only) ----
+  const studentStatus = new Map(studentRows.map((s) => [s.id, s.status]));
+  const openTickets = await prisma.ticket.findMany({
+    where: {
+      status: { notIn: ["done"] },
+      student: studentVisibilityWhereAllForAdmin(session.user.id, role),
+    },
+    select: { studentId: true, dueDate: true },
+  });
+  const now = new Date();
+  const workload = supervisorUsers
+    .map((u) => {
+      const studentIds = new Set<string>([
+        ...u.supervisedStudents.map((s) => s.id),
+        ...u.coSupervisedStudents
+          .filter((c) => c.role === "supervisor" || c.role === "co_supervisor")
+          .map((c) => c.studentId),
+      ]);
+      const open = openTickets.filter((t) => studentIds.has(t.studentId));
+      return {
+        id: u.id,
+        name: u.name ?? u.email,
+        color: u.color,
+        isAdmin: u.role === "admin",
+        total: studentIds.size,
+        active: [...studentIds].filter(
+          (sid) => studentStatus.get(sid) === "active",
+        ).length,
+        openTasks: open.length,
+        overdue: open.filter((t) => t.dueDate && t.dueDate < now).length,
+        assigned: u.assignedTickets.length,
+      };
+    })
+    .sort((a, b) => b.openTasks - a.openTasks);
+
   return (
     <div className="p-6 lg:p-8 space-y-6">
       <div className="flex items-end justify-between gap-3 flex-wrap">
@@ -91,6 +126,69 @@ export default async function TeamPage() {
           </Link>
         )}
       </div>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Workload</CardTitle>
+          <p className="text-xs text-slate-500 mt-1">
+            Supervision load per supervisor — spot imbalance at a glance.
+          </p>
+        </CardHeader>
+        <CardContent className="p-0 overflow-x-auto">
+          {workload.length === 0 ? (
+            <p className="p-6 text-sm text-slate-500">No supervisors yet.</p>
+          ) : (
+            <table className="w-full text-sm">
+              <thead className="bg-slate-50 text-[10px] uppercase tracking-wide text-slate-500">
+                <tr>
+                  <th className="px-4 py-2 text-left font-semibold">Supervisor</th>
+                  <th className="px-4 py-2 text-right font-semibold">Students (active)</th>
+                  <th className="px-4 py-2 text-right font-semibold">Open tasks</th>
+                  <th className="px-4 py-2 text-right font-semibold">Overdue</th>
+                  <th className="px-4 py-2 text-right font-semibold">Assigned to them</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y">
+                {workload.map((w) => (
+                  <tr key={w.id} className="hover:bg-slate-50">
+                    <td className="px-4 py-2">
+                      <div className="flex items-center gap-2">
+                        <span
+                          className="h-2.5 w-2.5 rounded-full shrink-0"
+                          style={{ background: w.color }}
+                        />
+                        <span className="font-medium text-slate-900 truncate">
+                          {w.name}
+                        </span>
+                        {w.isAdmin && (
+                          <Badge color="#e2445c" variant="solid" className="!text-[9px] !py-0 !px-1.5">
+                            admin
+                          </Badge>
+                        )}
+                      </div>
+                    </td>
+                    <td className="px-4 py-2 text-right tabular-nums">
+                      {w.total}{" "}
+                      <span className="text-slate-400">({w.active} active)</span>
+                    </td>
+                    <td className="px-4 py-2 text-right tabular-nums">{w.openTasks}</td>
+                    <td className="px-4 py-2 text-right tabular-nums">
+                      {w.overdue > 0 ? (
+                        <span className="font-semibold text-[var(--c-red)]">
+                          {w.overdue}
+                        </span>
+                      ) : (
+                        <span className="text-slate-400">0</span>
+                      )}
+                    </td>
+                    <td className="px-4 py-2 text-right tabular-nums">{w.assigned}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          )}
+        </CardContent>
+      </Card>
 
       <Card>
         <CardHeader className="flex flex-row items-center justify-between">

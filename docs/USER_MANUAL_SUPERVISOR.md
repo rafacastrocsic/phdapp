@@ -208,6 +208,10 @@ The student profile has an amber **Private supervisor notes** panel — an inter
 - **Not visible to the student, external advisors, or committee members** — they don't see the panel at all, and the data is never sent to their browser.
 - Any supervisor-level member can post; the note's author (or the admin) can delete their own notes. Use it for candid internal observations you don't want the student to see.
 
+## Workload
+
+At the top of the **Team** page there's a **Workload** table — one row per supervisor showing: students supervised (and how many are active), open tasks, overdue tasks (red if any), and tasks assigned directly to them. Rows are sorted by open-task count so the most-loaded supervisor is at the top. It's read-only — a quick way to spot who's overloaded or whose students are slipping.
+
 ## Activity log
 
 The **Log book** (red icon, sidebar) is a chronological record of everything that's happened in the workspace: tasks created/updated/deleted, events created/updated/deleted, profile changes, team changes. Useful when:
