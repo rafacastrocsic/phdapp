@@ -186,11 +186,16 @@ Pure addition, no migration, low risk. **Build first.**
 
 **What:** event-triggered, immediate alerts (vs. §11's scheduled summary): a task assigned to you was created, a task you own is due tomorrow, an @mention, a meeting in 1 hour, a reading-list decision, a new check-in for your student.
 
-**Implementation (this wave = email-only, decided):** reuse the §11 Resend infra. Fire-and-forget transactional email on key events, hooked into the existing API routes that already `logActivity`. Per-user, per-type preferences (extend the Settings page; a `NotificationPref` model or JSON on `User`).
+**Implementation (this wave = email + in-app, decided):** two delivery channels off the same event hooks (the API routes that already `logActivity`):
 
-**Deferred to a later wave:** an in-app notification center (a `Notification` model + a 🔔 bell/inbox with read-state); browser/web push (service worker + VAPID).
+- **Email**: reuse the §11 Resend infra — fire-and-forget transactional email on key events.
+- **In-app notification center**: new `Notification` model (`userId`, `type`, `message`, `link`, `readAt?`, `createdAt`); a 🔔 bell in the topbar with an unread count and a dropdown list; endpoints to list and mark-read (single + all). The bell polls like the existing sidebar badges, or reuses that polling cycle.
 
-**Scope/risk:** medium. **Depends on §11 infra.** Do **last**.
+Per-user, per-type preferences (extend the Settings page; a `NotificationPref` model or JSON on `User`) covering both channels.
+
+**Deferred to a later wave:** browser/web push (service worker + VAPID) — separate infra, not needed for in-app + email.
+
+**Scope/risk:** medium-high (two channels + bell UI + read-state). **Depends on §11 infra.** Do **last**.
 
 ---
 
@@ -219,7 +224,7 @@ Each ships as its own commit + deploy, verified before moving on.
 - **Mobile** — tracked in `docs/MOBILE_SUPPORT_PLAN.md`.
 - **Calendar/Files ownership rework** — dropped; students always own/share their dedicated folder & calendar.
 - **Per-instance recurring-event exceptions / "this and following"** — explicitly out of the §5 MVP (accepted).
-- **In-app notification center / web push** — deferred; §12 is email-only this wave.
+- **Browser / web push** (service worker + VAPID) — deferred; §12 ships email + in-app only this wave.
 
 ## Decisions (confirmed)
 
@@ -227,4 +232,4 @@ Each ships as its own commit + deploy, verified before moving on.
 - **§6**: wellbeing score is **supervisor-level only**; the did/blockers/next text is team-readable.
 - **§9**: students see only an opaque **"Unavailable"** block — never the supervisor's label/reason.
 - **§10**: review packet **never** includes private supervisor notes or wellbeing scores (no toggle). External advisors and committee **may view the packet read-only**.
-- **§12**: **email-only** this wave; in-app notification center and web push deferred to a later wave.
+- **§12**: ships **email + in-app notification center** (🔔 bell, unread count, mark-read) this wave; only browser/web push is deferred.
