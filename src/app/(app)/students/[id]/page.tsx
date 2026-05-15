@@ -133,6 +133,15 @@ export default async function StudentDetail({
       })
     : [];
 
+  // Weekly check-ins: text visible to the team; wellbeing only to
+  // supervisor-level (or the student themselves).
+  const showWellbeing = canSeePrivate || teamLevel === "self";
+  const checkins = await prisma.checkIn.findMany({
+    where: { studentId: id },
+    orderBy: { weekOf: "desc" },
+    take: 12,
+  });
+
   const driveUrl = student.driveFolderId
     ? `https://drive.google.com/drive/folders/${student.driveFolderId}`
     : null;
@@ -447,6 +456,71 @@ export default async function StudentDetail({
             }))}
           />
         )}
+
+        <Card>
+          <CardHeader>
+            <CardTitle>Weekly check-ins</CardTitle>
+          </CardHeader>
+          <CardContent>
+            {checkins.length === 0 ? (
+              <p className="text-sm text-slate-400">
+                No check-ins submitted yet.
+              </p>
+            ) : (
+              <ul className="space-y-3">
+                {checkins.map((c) => (
+                  <li key={c.id} className="rounded-lg border bg-white p-3">
+                    <div className="flex items-center justify-between mb-1">
+                      <span className="text-xs font-semibold text-slate-700">
+                        Week of {format(c.weekOf, "MMM d, yyyy")}
+                      </span>
+                      {showWellbeing && c.wellbeing != null && (
+                        <span className="text-[10px] text-slate-500">
+                          wellbeing{" "}
+                          <span
+                            className="font-bold"
+                            style={{
+                              color:
+                                c.wellbeing <= 2
+                                  ? "var(--c-red)"
+                                  : c.wellbeing === 3
+                                    ? "#f59e0b"
+                                    : "var(--c-green)",
+                            }}
+                          >
+                            {c.wellbeing}/5
+                          </span>
+                        </span>
+                      )}
+                    </div>
+                    {c.did && (
+                      <p className="text-xs text-slate-600">
+                        <span className="font-medium text-slate-500">Did: </span>
+                        {c.did}
+                      </p>
+                    )}
+                    {c.blockers && (
+                      <p className="text-xs text-slate-600 mt-0.5">
+                        <span className="font-medium text-slate-500">
+                          Blockers:{" "}
+                        </span>
+                        {c.blockers}
+                      </p>
+                    )}
+                    {c.next && (
+                      <p className="text-xs text-slate-600 mt-0.5">
+                        <span className="font-medium text-slate-500">
+                          Next:{" "}
+                        </span>
+                        {c.next}
+                      </p>
+                    )}
+                  </li>
+                ))}
+              </ul>
+            )}
+          </CardContent>
+        </Card>
         </div>
 
         <div className="space-y-6">

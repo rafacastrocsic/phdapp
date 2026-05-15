@@ -208,6 +208,10 @@ The student profile has an amber **Private supervisor notes** panel — an inter
 - **Not visible to the student, external advisors, or committee members** — they don't see the panel at all, and the data is never sent to their browser.
 - Any supervisor-level member can post; the note's author (or the admin) can delete their own notes. Use it for candid internal observations you don't want the student to see.
 
+## Weekly check-ins
+
+Each student profile has a **Weekly check-ins** panel — their short weekly self-reports (what they did, blockers, plan, and a 1–5 wellbeing dial). The text is readable by the whole team; the **wellbeing score is visible to supervisors only** (and the student) — external advisors and committee members don't see the number. Use the wellbeing trend as an early-warning signal: a dip for a couple of weeks is worth a conversation. Students submit/edit theirs from their own Dashboard.
+
 ## Reading
 
 The **Reading** module (book icon, sidebar) is the paper reading list across your students:

@@ -104,7 +104,7 @@ Pure addition, no migration, low risk. **Build first.**
 
 ---
 
-## 6. Weekly async check-in
+## 6. Weekly async check-in  ✅ COMPLETED
 
 **What:** 2-minute weekly student update: did / blockers / next / wellbeing 1–5. Async; wellbeing trend is an early-warning signal.
 

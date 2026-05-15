@@ -129,6 +129,15 @@ The **Reading** module (book icon, sidebar) is your paper reading list:
 - **To read / Reading / Read** — papers your supervisors added for you. Use **Start reading** then **Mark read** to track your progress.
 - **Propose a reading** — found a paper you think is relevant? Add it (title, authors, link). It shows as **Pending approval** until a supervisor clicks **Approve** ("OK, go ahead and read it") — or they may reject it. Approved ones move into your list.
 
+## Weekly check-in
+
+On your **Dashboard** there's a **Weekly check-in** card (~2 minutes, once a week):
+
+- *What did you get done* / *Anything blocking you* / *Plan for next week* — your supervisors read these.
+- *How are you doing? (1–5)* — a wellbeing dial. **Only supervisors see this number**, not external advisors or committee members. It's there so a supervisor can notice early if you're struggling.
+
+Submit it; you can edit the same week's entry anytime. It saves one entry per week.
+
 ## Your profile
 
 Click your avatar at the top-right → **Edit profile**. You can change:

@@ -2,6 +2,8 @@ import Link from "next/link";
 import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
 import { StatCard } from "@/components/stat-card";
+import { currentWeekStart } from "@/lib/checkin";
+import { WeeklyCheckinCard } from "./weekly-checkin-card";
 import { Avatar } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -63,6 +65,20 @@ export default async function DashboardPage() {
   });
   const studentIds = students.map((s) => s.id);
 
+  // Student viewers get a weekly check-in prompt on the dashboard.
+  const myStudent =
+    role === "student" ? students.find((s) => s.userId === userId) ?? null : null;
+  const thisWeekCheckin = myStudent
+    ? await prisma.checkIn.findUnique({
+        where: {
+          studentId_weekOf: {
+            studentId: myStudent.id,
+            weekOf: currentWeekStart(),
+          },
+        },
+      })
+    : null;
+
   const [openTickets, overdueTickets, upcomingEvents, recentTickets] = await Promise.all([
     prisma.ticket.count({
       where: { studentId: { in: studentIds }, status: { notIn: ["done"] } },
@@ -105,6 +121,22 @@ export default async function DashboardPage() {
           </p>
         </div>
       </div>
+
+      {myStudent && (
+        <WeeklyCheckinCard
+          studentId={myStudent.id}
+          initial={
+            thisWeekCheckin
+              ? {
+                  did: thisWeekCheckin.did,
+                  blockers: thisWeekCheckin.blockers,
+                  next: thisWeekCheckin.next,
+                  wellbeing: thisWeekCheckin.wellbeing,
+                }
+              : null
+          }
+        />
+      )}
 
       <div
         className={

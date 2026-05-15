@@ -122,6 +122,7 @@ model Student {
   publications    Publication[]
   supervisorNotes SupervisorNote[]
   readingItems    ReadingItem[]
+  checkIns        CheckIn[]
 
   createdAt       DateTime  @default(now())
   updatedAt       DateTime  @updatedAt
@@ -185,6 +186,21 @@ model ReadingItem {
   decisionNote     String?
   createdAt        DateTime @default(now())
   updatedAt        DateTime @updatedAt
+}
+
+model CheckIn {
+  id        String   @id @default(cuid())
+  studentId String
+  student   Student  @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  weekOf    DateTime // Monday 00:00 UTC of the ISO week
+  did       String?
+  blockers  String?
+  next      String?
+  wellbeing Int?     // 1..5 — supervisor-level visibility only
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([studentId, weekOf])
 }
 
 model CoSupervisor {
