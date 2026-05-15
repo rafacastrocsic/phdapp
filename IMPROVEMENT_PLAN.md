@@ -1,6 +1,6 @@
 # PhDapp — improvement plan
 
-Concrete implementation plan for the next wave of features. Each item lists: what it is, data-model changes, API surface, UI surface, permission rules, scope/risk, and dependencies. AI integration is explicitly **out of scope** for this wave (see `IMPROVEMENTS.md` → FUTURE).
+Concrete implementation plan for the next wave of features. Each item lists: what it is, data-model changes, API surface, UI surface, permission rules, scope/risk, and dependencies. AI integration is explicitly **out of scope** for this wave (see the [FUTURE](#future-deferred-beyond-this-wave) section at the bottom).
 
 Stack reminders that shape every item:
 - Next.js (App Router) + Prisma + Postgres (Neon, Frankfurt) + Vercel (fra1) + Vercel Blob + Google APIs.
@@ -219,7 +219,7 @@ Each ships as its own commit + deploy, verified before moving on.
 
 ## Non-goals for this wave
 
-- **AI integration** — deferred (no shared team key). See `IMPROVEMENTS.md` FUTURE.
+- **AI integration** — deferred (no shared team key). See the FUTURE section below.
 - **Browser/web push** — email is the stepping stone (§11/§12); push is a later wave.
 - **Mobile** — tracked in `docs/MOBILE_SUPPORT_PLAN.md`.
 - **Calendar/Files ownership rework** — dropped; students always own/share their dedicated folder & calendar.
@@ -233,3 +233,7 @@ Each ships as its own commit + deploy, verified before moving on.
 - **§9**: students see only an opaque **"Unavailable"** block — never the supervisor's label/reason.
 - **§10**: review packet **never** includes private supervisor notes or wellbeing scores (no toggle). External advisors and committee **may view the packet read-only**.
 - **§12**: ships **email + in-app notification center** (🔔 bell, unread count, mark-read) this wave; only browser/web push is deferred.
+
+## FUTURE (deferred beyond this wave)
+
+- **AI integration** — summaries, meeting-agenda drafting, freeform→tasks, thread digests. Deferred: the supervisor team has no single shared API key, and BYOK adds too much per-user setup friction for now. Revisit if/when an org key or budget exists. Must be strictly grounded in DB data (no hallucinated progress) when built.
