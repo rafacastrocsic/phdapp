@@ -68,6 +68,33 @@ export default async function KanbanPage({
     }
   }
 
+  // Server-backed ghost cards: tasks deleted by others since the user's last
+  // /kanban visit (soft-deleted rows still exist). Survives reload until the
+  // user visits /kanban (which bumps kanbanLastSeenAt below).
+  const deleteLogs = await prisma.activityLog.findMany({
+    where: {
+      studentId: { in: studentIds },
+      actorId: { not: session.user.id },
+      action: "ticket.delete",
+      createdAt: { gt: since },
+    },
+    select: { entityId: true },
+  });
+  const deletedIds = Array.from(
+    new Set(deleteLogs.map((l) => l.entityId).filter((x): x is string => !!x)),
+  );
+  const deletedTickets = deletedIds.length
+    ? await prisma.ticket.findMany({
+        where: { id: { in: deletedIds }, archivedAt: { not: null } },
+        include: {
+          assignee: { select: { id: true, name: true, image: true, color: true } },
+          student: { select: { id: true, fullName: true, alias: true, color: true } },
+          tags: true,
+          _count: { select: { comments: true } },
+        },
+      })
+    : [];
+
   // Mark as seen now so the sidebar badge resets on next poll. (Local
   // highlights remain visible since they're a snapshot computed before this.)
   await prisma.user.update({
@@ -134,6 +161,24 @@ export default async function KanbanPage({
       viewerStudentId={viewerStudent?.id ?? null}
       viewerTeamMembers={viewerTeamMembers}
       highlightByTicket={highlightByTicket}
+      initialDeleted={deletedTickets.map((t) => ({
+        id: t.id,
+        title: t.title,
+        description: t.description,
+        status: t.status,
+        priority: t.priority,
+        category: t.category,
+        dueDate: t.dueDate?.toISOString() ?? null,
+        driveFolderUrl: t.driveFolderUrl,
+        channelId: t.channelId,
+        order: t.order,
+        commentCount: t._count.comments,
+        assignee: t.assignee,
+        student: t.student,
+        tags: t.tags,
+        subtasks: parseSubtasks(t.subtasks),
+        updatedAt: t.updatedAt.toISOString(),
+      }))}
     />
   );
 }

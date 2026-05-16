@@ -129,7 +129,7 @@ Click a task to open it. Every field saves on change (auto-save). What you can d
 
 ### Deleting (with Undo)
 
-Inside a task dialog → red **Delete** at the bottom-left. Confirm. A task delete is a **soft delete** — an **"Undo"** toast appears bottom-center for ~7 seconds; click it to restore the task (and its calendar event). Deleted tasks are archived, not erased, so accidental deletes are recoverable. If a teammate deletes a task while you're on the board, a **dashed red placeholder** appears in its column with the title struck through. Click the **X** to dismiss it.
+Inside a task dialog → red **Delete** at the bottom-left. Confirm. A task delete is a **soft delete** — an **"Undo"** toast appears bottom-center for ~7 seconds; click it to restore the task (and its calendar event). Deleted tasks are archived, not erased, so accidental deletes are recoverable. When a *teammate* deletes a task, a **dashed red "Deleted" placeholder** appears in its column with the title struck through — this now **persists across reloads** until you next open the Tasks board (and the Tasks sidebar shows an unread count). Click the **X** to dismiss a placeholder.
 
 ### Highlights for new / updated tasks
 

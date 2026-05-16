@@ -85,6 +85,7 @@ interface Props {
   viewerStudentId: string | null;
   viewerTeamMembers: Member[];
   highlightByTicket: Record<string, "new" | "updated">;
+  initialDeleted?: Ticket[];
 }
 
 export function KanbanBoard({
@@ -99,6 +100,7 @@ export function KanbanBoard({
   viewerStudentId,
   viewerTeamMembers,
   highlightByTicket: initialHighlights,
+  initialDeleted = [],
 }: Props) {
   const isStudent = viewerRole === "student";
   const [highlightByTicket, setHighlightByTicket] = useState<Record<string, "new" | "updated">>(initialHighlights);
@@ -140,7 +142,8 @@ export function KanbanBoard({
   const [draggingId, setDraggingId] = useState<string | null>(null);
   const [hoverStatus, setHoverStatus] = useState<string | null>(null);
   const [view, setView] = useState<"board" | "list">("board");
-  const [recentlyDeleted, setRecentlyDeleted] = useState<Ticket[]>([]);
+  const [recentlyDeleted, setRecentlyDeleted] =
+    useState<Ticket[]>(initialDeleted);
   const [undo, setUndo] = useState<{ id: string; title: string } | null>(null);
   const router = useRouter();
   useEffect(() => {
