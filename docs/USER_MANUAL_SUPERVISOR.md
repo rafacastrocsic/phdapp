@@ -260,7 +260,14 @@ The **Team** page has two read-only workload tables:
 
 ## Weekly email digest
 
-If enabled by the admin, you get a **Monday email** summarising what needs attention across your students: overdue tasks, reading proposals awaiting approval, new check-ins, and low-wellbeing flags. Turn it off anytime in **Settings → Notifications**. (Only sends when there's something worth reporting.)
+If the admin has set it up, you get a **Monday morning email** summarising what needs attention across **the students you supervise**: overdue tasks, reading proposals awaiting your approval, new weekly check-ins, and low-wellbeing flags (a check-in scoring ≤ 2 this week). It's a once-a-week roll-up — distinct from the instant 🔔 bell and any per-event emails.
+
+Details worth knowing:
+
+- **Scope = students you actually supervise** — primary supervisor, or co-supervisor. Students you only **team-advise** (or external-advise / sit on the committee for) are **not** in your digest. A person whose only role is *team advisor* doesn't receive a digest at all (they're read-only observers).
+- **Only sends when there's something to report** — if every counter is zero that week you get no email (no empty digests).
+- **Opt out anytime** in **Settings → Notifications** (the "weekly digest" toggle, per-person).
+- **Timing**: sent Mondays ~07:00 UTC. It only actually goes out once the admin has configured the email provider (see the admin manual); until then nothing is sent and nothing breaks.
 
 ## Annual review export
 
