@@ -24,12 +24,8 @@ export async function GET() {
 export async function POST(req: Request) {
   const session = await auth();
   if (!session?.user) return NextResponse.json({ error: "unauth" }, { status: 401 });
-  // Only supervisors/admins mark availability. Students don't, and Team
-  // Advisors are read-only observers (no availability of their own to share).
-  if (
-    session.user.role === "student" ||
-    session.user.role === "team_advisor"
-  )
+  // Only supervisors/admins mark availability (students don't).
+  if (session.user.role === "student")
     return NextResponse.json({ error: "forbidden" }, { status: 403 });
 
   const parsed = Body.safeParse(await req.json().catch(() => null));

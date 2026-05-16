@@ -17,7 +17,7 @@ const legacyCoSupervisorEmails = (process.env.CO_SUPERVISOR_EMAILS ?? "")
   .map((s) => s.trim().toLowerCase())
   .filter(Boolean);
 
-export type AppRole = "admin" | "supervisor" | "student" | "team_advisor";
+export type AppRole = "admin" | "supervisor" | "student";
 
 function roleFor(email?: string | null): AppRole {
   const e = (email ?? "").toLowerCase();
@@ -70,14 +70,9 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
       // member" panel) must never be downgraded just because the email isn't
       // in an env var — otherwise pre-registered supervisors get reset to
       // "student" on every login.
-      // team_advisor is DB-only (set via the admin panel, never from an env
-      // allowlist). Rank it above student/supervisor so a login with no
-      // matching env entry can't downgrade it. Only the real ADMIN_EMAIL
-      // resolves to envRole "admin", so it's never wrongly promoted either.
       const rank: Record<AppRole, number> = {
         student: 0,
         supervisor: 1,
-        team_advisor: 2,
         admin: 2,
       };
       const currentRole = (current?.role as AppRole | undefined) ?? "student";

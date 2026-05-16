@@ -15,6 +15,7 @@ interface StudentOpt {
 
 const TEAM_ROLES = [
   { id: "supervisor", label: "Supervisor", color: "#6f4cff" },
+  { id: "team_advisor", label: "Team advisor", color: "#0ea5e9" },
   { id: "external_advisor", label: "External advisor", color: "#00d1c1" },
   { id: "committee", label: "Committee member", color: "#a855f7" },
 ];
@@ -29,7 +30,10 @@ export function AddTeamMember({ students }: { students: StudentOpt[] }) {
   const [submitting, setSubmitting] = useState(false);
   const [msg, setMsg] = useState<{ type: "ok" | "err"; text: string } | null>(null);
 
-  const needsStudent = teamRole === "external_advisor" || teamRole === "committee";
+  const needsStudent =
+    teamRole === "external_advisor" ||
+    teamRole === "committee" ||
+    teamRole === "team_advisor";
 
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -39,7 +43,7 @@ export function AddTeamMember({ students }: { students: StudentOpt[] }) {
       setSubmitting(false);
       setMsg({
         type: "err",
-        text: "Pick a student — external advisors and committee members are tied to a specific student.",
+        text: "Pick a student — team advisors, external advisors and committee members are tied to specific students.",
       });
       return;
     }
@@ -157,6 +161,15 @@ export function AddTeamMember({ students }: { students: StudentOpt[] }) {
             {teamRole === "supervisor" && (
               <span>
                 Global role: supervisor. Can edit/manage students they are linked to.
+              </span>
+            )}
+            {teamRole === "team_advisor" && (
+              <span>
+                Read-only <em>team advisor</em> for the chosen student — sees
+                everything (incl. private notes &amp; wellbeing) but can only
+                send suggestions to the supervisors. Add the same person to
+                other students too; the same user can be a supervisor of one
+                and a team advisor of another.
               </span>
             )}
             {teamRole === "external_advisor" && (

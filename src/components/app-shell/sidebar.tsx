@@ -27,7 +27,7 @@ type Nav = {
   label: string;
   icon: typeof LayoutDashboard;
   color: string;
-  hideFor?: ("admin" | "supervisor" | "student" | "team_advisor")[];
+  hideFor?: ("admin" | "supervisor" | "student")[];
 };
 
 const NAV: Nav[] = [

@@ -1,25 +1,26 @@
 import { auth } from "@/auth";
 import { prisma } from "./prisma";
 
-export type Role = "admin" | "supervisor" | "student" | "team_advisor";
+export type Role = "admin" | "supervisor" | "student";
 
 export function isAdmin(role: string | undefined | null): boolean {
   return role === "admin";
 }
 
 /**
- * A Team Advisor is a senior internal member who follows ALL students
- * read-only. They see everything (incl. supervisor-private notes and
+ * Team Advisor is a PER-STUDENT relationship (a `CoSupervisor.role` value,
+ * like external_advisor / committee), NOT a global User.role — so one person
+ * can be a supervisor of student A and a team advisor of student B. A team
+ * advisor sees their advised student fully (incl. supervisor-private notes &
  * wellbeing) but can never write — their only action is posting to the
- * Advisor-suggestions thread. No student can hold this role.
+ * Advisor-suggestions thread. No student can be a team advisor.
  */
-export function isTeamAdvisor(role: string | undefined | null): boolean {
-  return role === "team_advisor";
-}
-
-/** Roles that get a global, read-only view of every student. */
-export function hasGlobalReadAccess(role: string | undefined | null): boolean {
-  return role === "admin" || role === "team_advisor";
+export async function isTeamAdvisorAnywhere(userId: string): Promise<boolean> {
+  const link = await prisma.coSupervisor.findFirst({
+    where: { userId, role: "team_advisor" },
+    select: { id: true },
+  });
+  return !!link;
 }
 
 export async function requireSession() {
@@ -40,12 +41,12 @@ export async function requireSession() {
  * groups in their portfolio. (Admins still get a global view via
  * `studentVisibilityWhereAllForAdmin`.)
  */
-export function studentVisibilityWhere(userId: string, role: Role) {
-  // Team Advisors follow every student (read-only).
-  if (role === "team_advisor") return {};
+export function studentVisibilityWhere(userId: string, _role: Role) {
   return {
     OR: [
       { supervisorId: userId },
+      // includes team_advisor links → a team advisor sees the students they
+      // advise (read-only; write is blocked separately).
       { coSupervisors: { some: { userId } } },
       { userId },
     ],
@@ -57,7 +58,7 @@ export function studentVisibilityWhere(userId: string, role: Role) {
  * other supervisor-management pages where admin should oversee everything).
  */
 export function studentVisibilityWhereAllForAdmin(userId: string, role: Role) {
-  if (hasGlobalReadAccess(role)) return {};
+  if (role === "admin") return {};
   return studentVisibilityWhere(userId, role);
 }
 
@@ -83,8 +84,6 @@ export async function assertCanSeeStudent(studentId: string) {
  * "co-supervisor" no longer exists in the UI).
  */
 export async function accessForStudent(studentId: string, userId: string, role: Role) {
-  // Team Advisors are read-only — never any write access to a student.
-  if (role === "team_advisor") return null;
   // Admin has supervisor-level access on every student.
   if (role === "admin") return "supervisor" as const;
   const sup = await prisma.student.findFirst({
@@ -92,7 +91,10 @@ export async function accessForStudent(studentId: string, userId: string, role: 
       id: studentId,
       OR: [
         { supervisorId: userId },
-        { coSupervisors: { some: { userId } } },
+        // team_advisor links are READ-ONLY — they must NOT grant write access,
+        // so exclude them here (external_advisor / committee still do, which
+        // is the pre-existing behaviour).
+        { coSupervisors: { some: { userId, role: { not: "team_advisor" } } } },
       ],
     },
     select: { id: true },
@@ -156,10 +158,6 @@ export async function teamLevelForStudent(
   userId: string,
   role: Role,
 ): Promise<TeamLevel> {
-  // Team Advisor: global observer — non-null so detail/review pages render
-  // and private material is visible, but never "supervisor" so no write
-  // gate (which all check for "supervisor"/"self") ever lets them through.
-  if (role === "team_advisor") return "observer";
   if (role === "admin") return "supervisor";
 
   const student = await prisma.student.findFirst({
@@ -180,6 +178,10 @@ export async function teamLevelForStudent(
   const coRoles = new Set(student.coSupervisors.map((c) => c.role));
   if (coRoles.has("supervisor") || coRoles.has("co_supervisor"))
     return "supervisor";
+  // Team Advisor: "observer" — non-null so detail/review pages render and
+  // private material is visible, but never "supervisor" so no write gate
+  // (which all check for "supervisor"/"self") ever lets them through.
+  if (coRoles.has("team_advisor")) return "observer";
   if (coRoles.has("external_advisor")) return "advisor";
   if (coRoles.has("committee")) return "committee";
 

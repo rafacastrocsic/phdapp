@@ -79,10 +79,7 @@ export default async function AppLayout({
     session.user.id,
     session.user.role as Role,
   );
-  const showLog =
-    session.user.role === "student" ||
-    session.user.role === "team_advisor" ||
-    isSupervising;
+  const showLog = session.user.role === "student" || isSupervising;
 
   return (
     <div className="flex h-screen overflow-hidden">

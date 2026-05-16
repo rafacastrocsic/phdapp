@@ -2,7 +2,12 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
-import { isSupervisingUser, isTeamAdvisor, isAdmin, type Role } from "@/lib/access";
+import {
+  isSupervisingUser,
+  isTeamAdvisorAnywhere,
+  isAdmin,
+  type Role,
+} from "@/lib/access";
 
 const Body = z.object({
   body: z.string().min(1),
@@ -13,16 +18,18 @@ const authorSel = { select: { id: true, name: true, image: true, color: true } }
 
 // The advisor-suggestions thread is the channel a Team Advisor uses to send
 // suggestions to the supervisors. Visible to supervising users, the admin,
-// and Team Advisors themselves; only Team Advisors (and the admin) can post.
+// and team advisors themselves; only team advisors (and the admin) can post.
+// "Team advisor" is now a per-student CoSupervisor link, so the gate is
+// "is a team advisor of ≥1 student" rather than a global role.
 async function canRead(userId: string, role: Role) {
   return (
-    isTeamAdvisor(role) ||
     isAdmin(role) ||
-    (await isSupervisingUser(userId, role))
+    (await isSupervisingUser(userId, role)) ||
+    (await isTeamAdvisorAnywhere(userId))
   );
 }
-function canPost(role: Role) {
-  return isTeamAdvisor(role) || isAdmin(role);
+async function canPost(userId: string, role: Role) {
+  return isAdmin(role) || (await isTeamAdvisorAnywhere(userId));
 }
 
 export async function GET() {
@@ -50,7 +57,7 @@ export async function GET() {
 
   return NextResponse.json({
     viewerId: session.user.id,
-    canPost: canPost(role),
+    canPost: await canPost(session.user.id, role),
     isAdmin: isAdmin(role),
     suggestions: rows.map((r) => ({
       id: r.id,
@@ -73,7 +80,7 @@ export async function POST(req: Request) {
   const session = await auth();
   if (!session?.user) return NextResponse.json({ error: "unauth" }, { status: 401 });
   const role = session.user.role as Role;
-  if (!canPost(role))
+  if (!(await canPost(session.user.id, role)))
     return NextResponse.json(
       { error: "Only Team Advisors can post suggestions" },
       { status: 403 },

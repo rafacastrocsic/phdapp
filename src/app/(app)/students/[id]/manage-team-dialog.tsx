@@ -31,6 +31,7 @@ interface CoSup {
 
 const ROLE_OPTIONS = [
   { id: "supervisor", label: "Supervisor" },
+  { id: "team_advisor", label: "Team advisor" },
   { id: "external_advisor", label: "External advisor" },
   { id: "committee", label: "Committee member" },
 ];
@@ -338,6 +339,7 @@ function teamRoleLabel(role: string): string {
     {
       supervisor: "Supervisor",
       co_supervisor: "Supervisor",
+      team_advisor: "Team advisor",
       external_advisor: "External advisor",
       committee: "Committee member",
     } as Record<string, string>
@@ -349,6 +351,7 @@ function teamRoleColor(role: string): string {
     {
       supervisor: "#6f4cff",
       co_supervisor: "#6f4cff",
+      team_advisor: "#0ea5e9",
       external_advisor: "#00d1c1",
       committee: "#a855f7",
     } as Record<string, string>

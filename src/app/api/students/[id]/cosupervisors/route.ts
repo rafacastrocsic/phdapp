@@ -7,7 +7,14 @@ const Body = z
   .object({
     email: z.string().email().optional(),
     userId: z.string().optional(),
-    role: z.string().default("supervisor"),
+    role: z
+      .enum([
+        "supervisor",
+        "external_advisor",
+        "committee",
+        "team_advisor",
+      ])
+      .default("supervisor"),
   })
   .refine((d) => d.email || d.userId, {
     message: "email or userId required",
@@ -25,7 +32,9 @@ async function loadOwned(id: string, userId: string, role: string) {
       id,
       OR: [
         { supervisorId: userId },
-        { coSupervisors: { some: { userId } } },
+        // team_advisor links are read-only and must NOT confer the right to
+        // manage this student's team.
+        { coSupervisors: { some: { userId, role: { not: "team_advisor" } } } },
       ],
     },
     select: { id: true, supervisorId: true },
@@ -110,15 +119,6 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
   if (user.role === "student")
     return NextResponse.json(
       { error: "Students cannot be added to a supervision team." },
-      { status: 400 },
-    );
-
-  if (user.role === "team_advisor")
-    return NextResponse.json(
-      {
-        error:
-          "Team advisors follow every student globally — they aren't added per student.",
-      },
       { status: 400 },
     );
 

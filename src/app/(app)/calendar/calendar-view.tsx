@@ -112,8 +112,6 @@ export function CalendarView({
 }) {
   const hideStudentFilter = viewerRole === "student";
   const isStudent = viewerRole === "student";
-  // Team Advisors are read-only observers — no event creation.
-  const isObserver = viewerRole === "team_advisor";
   const [highlightByEvent, setHighlightByEvent] = useState<Record<string, "new" | "updated">>(
     initialHighlights ?? {},
   );
@@ -402,16 +400,14 @@ export function CalendarView({
             <RefreshCw className={cn("h-4 w-4", syncing && "animate-spin")} />
             Sync Google
           </Button>
-          {!isStudent && !isObserver && (
+          {!isStudent && (
             <Button variant="outline" onClick={() => setAvailOpen(true)}>
               ⊘ My availability
             </Button>
           )}
-          {!isObserver && (
-            <Button variant="brand" onClick={() => setNewOpen(true)}>
-              <Plus className="h-4 w-4" /> New event
-            </Button>
-          )}
+          <Button variant="brand" onClick={() => setNewOpen(true)}>
+            <Plus className="h-4 w-4" /> New event
+          </Button>
         </div>
       </div>
 

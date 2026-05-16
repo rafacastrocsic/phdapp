@@ -9,17 +9,15 @@ import { Shield, Info } from "lucide-react";
 import { AddTeamMember } from "./add-team-member";
 import { MaintenanceTools } from "./maintenance";
 
-const ROLE_GROUPS = ["admin", "supervisor", "team_advisor", "student"] as const;
+const ROLE_GROUPS = ["admin", "supervisor", "student"] as const;
 const ROLE_LABEL: Record<string, string> = {
   admin: "Administrators",
   supervisor: "Supervisors",
-  team_advisor: "Team advisors",
   student: "Students",
 };
 const ROLE_COLOR: Record<string, string> = {
   admin: "#e2445c",
   supervisor: "#6f4cff",
-  team_advisor: "#0ea5e9",
   student: "#ff7a45",
 };
 

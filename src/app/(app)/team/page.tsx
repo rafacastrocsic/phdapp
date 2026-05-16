@@ -9,7 +9,7 @@ import { displayName } from "@/lib/utils";
 import {
   studentVisibilityWhereAllForAdmin,
   isSupervisingUser,
-  isTeamAdvisor,
+  isTeamAdvisorAnywhere,
   type Role,
 } from "@/lib/access";
 import { TeamUserCard } from "./user-edit-dialog";
@@ -46,36 +46,26 @@ export default async function TeamPage() {
     },
   });
 
-  // Categorize each user by their effective relationship roles across all students.
-  // A user is a Supervisor if they primary-supervise anyone, OR have any CoSupervisor
-  // row with role=supervisor. Otherwise they're classified by their additional roles
-  // (external_advisor / committee) — falling back to Supervisor for plain global
-  // role=supervisor with no links yet.
+  // Every non-student user is shown in one unified "Team members" list with a
+  // per-student role breakdown (one person can supervise A and team-advise B).
+  // `supervisorUsers` is still derived for the Workload table — only people
+  // who actually carry supervision load (primary, or CoSupervisor.role
+  // supervisor/co_supervisor, or a plain global supervisor not yet linked).
+  const memberUsers = users.filter((u) => u.role !== "student");
   const supervisorUsers: typeof users = [];
-  const teamAdvisors: typeof users = [];
-  const externalAdvisors: typeof users = [];
-  const committee: typeof users = [];
-
-  for (const u of users) {
-    if (u.role === "student") continue;
-    if (u.role === "team_advisor") {
-      teamAdvisors.push(u);
-      continue;
-    }
+  for (const u of memberUsers) {
     const cosupRoles = new Set(u.coSupervisedStudents.map((c) => c.role));
     const primarySupervises = u.supervisedStudents.length > 0;
-    const hasSupervisorLink = cosupRoles.has("supervisor") || cosupRoles.has("co_supervisor");
-    const hasExternalLink = cosupRoles.has("external_advisor");
-    const hasCommitteeLink = cosupRoles.has("committee");
-
-    if (u.role === "admin" || primarySupervises || hasSupervisorLink) {
-      supervisorUsers.push(u);
-    } else if (hasExternalLink) {
-      externalAdvisors.push(u);
-    } else if (hasCommitteeLink) {
-      committee.push(u);
-    } else {
-      // No links anywhere yet → bucket by global role
+    const hasSupervisorLink =
+      cosupRoles.has("supervisor") || cosupRoles.has("co_supervisor");
+    const hasAnyLink =
+      primarySupervises || u.coSupervisedStudents.length > 0;
+    if (
+      u.role === "admin" ||
+      primarySupervises ||
+      hasSupervisorLink ||
+      !hasAnyLink // brand-new global supervisor with no links yet
+    ) {
       supervisorUsers.push(u);
     }
   }
@@ -89,6 +79,57 @@ export default async function TeamPage() {
     },
     orderBy: { fullName: "asc" },
   });
+  const studentNameById = new Map(
+    studentRows.map((s) => [s.id, displayName(s)]),
+  );
+
+  // Per-member relationship breakdown across students, by role. Resolve to
+  // names the viewer can see (admins see all); unknown ids are summarised as
+  // "+N more" so a non-admin supervisor doesn't learn names outside their view.
+  function resolveNames(ids: string[]) {
+    const named: string[] = [];
+    let unknown = 0;
+    for (const id of [...new Set(ids)]) {
+      const n = studentNameById.get(id);
+      if (n) named.push(n);
+      else unknown++;
+    }
+    named.sort((a, b) => a.localeCompare(b));
+    return { named, unknown };
+  }
+  const memberRelations = memberUsers.map((u) => {
+    const supIds = [
+      ...u.supervisedStudents.map((s) => s.id),
+      ...u.coSupervisedStudents
+        .filter((c) => c.role === "supervisor" || c.role === "co_supervisor")
+        .map((c) => c.studentId),
+    ];
+    const taIds = u.coSupervisedStudents
+      .filter((c) => c.role === "team_advisor")
+      .map((c) => c.studentId);
+    const extIds = u.coSupervisedStudents
+      .filter((c) => c.role === "external_advisor")
+      .map((c) => c.studentId);
+    const commIds = u.coSupervisedStudents
+      .filter((c) => c.role === "committee")
+      .map((c) => c.studentId);
+    return {
+      userId: u.id,
+      supervising: resolveNames(supIds),
+      teamAdvising: resolveNames(taIds),
+      externalAdvising: resolveNames(extIds),
+      committee: resolveNames(commIds),
+      counts: {
+        supervising: new Set(supIds).size,
+        teamAdvising: new Set(taIds).size,
+        externalAdvising: new Set(extIds).size,
+        committee: new Set(commIds).size,
+      },
+    };
+  });
+  const relationsByUser = new Map(
+    memberRelations.map((r) => [r.userId, r]),
+  );
 
   // ---- Supervisor team workspace (group-level, supervisors+admin only) ----
   const canWorkspace = await isSupervisingUser(session.user.id, role);
@@ -106,8 +147,9 @@ export default async function TeamPage() {
     : null;
 
   // ---- Advisor suggestions thread (advisors → supervisors) ----
-  const canSeeSuggestions = canWorkspace || isTeamAdvisor(role);
-  const canPostSuggestions = isTeamAdvisor(role) || isAdmin;
+  const viewerIsTeamAdvisor = await isTeamAdvisorAnywhere(session.user.id);
+  const canSeeSuggestions = canWorkspace || viewerIsTeamAdvisor || isAdmin;
+  const canPostSuggestions = viewerIsTeamAdvisor || isAdmin;
   const suggestionRows = canSeeSuggestions
     ? await prisma.advisorSuggestion.findMany({
         orderBy: { createdAt: "desc" },
@@ -385,23 +427,37 @@ export default async function TeamPage() {
 
       <Card>
         <CardHeader className="flex flex-row items-center justify-between">
-          <CardTitle>Supervisors</CardTitle>
+          <CardTitle>Team members</CardTitle>
           <Badge color={ROLE_COLOR.supervisor} variant="solid">
-            {supervisorUsers.length}
+            {memberUsers.length}
           </Badge>
         </CardHeader>
         <CardContent>
-          {supervisorUsers.length === 0 ? (
+          <p className="text-xs text-slate-500 mb-3">
+            Everyone with a role on at least one student. The same person can
+            be a <span className="text-[var(--c-violet)]">supervisor</span> of
+            one student and a{" "}
+            <span className="text-sky-600">team advisor</span> of another —
+            each row shows exactly who, for whom.
+          </p>
+          {memberUsers.length === 0 ? (
             <p className="text-sm text-slate-500">Nobody yet.</p>
           ) : (
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-              {supervisorUsers.map((u) => {
-                const supervisedCount = new Set([
-                  ...u.supervisedStudents.map((s) => s.id),
-                  ...u.coSupervisedStudents
-                    .filter((c) => c.role === "supervisor" || c.role === "co_supervisor")
-                    .map((c) => c.studentId),
-                ]).size;
+              {memberUsers.map((u) => {
+                const rel = relationsByUser.get(u.id)!;
+                const parts: string[] = [];
+                if (rel.counts.supervising)
+                  parts.push(`supervising ${rel.counts.supervising}`);
+                if (rel.counts.teamAdvising)
+                  parts.push(`team-advising ${rel.counts.teamAdvising}`);
+                if (rel.counts.externalAdvising)
+                  parts.push(`ext-advising ${rel.counts.externalAdvising}`);
+                if (rel.counts.committee)
+                  parts.push(`committee ${rel.counts.committee}`);
+                const metric = parts.length
+                  ? parts.join(" · ")
+                  : "no students linked yet";
                 return (
                   <TeamUserCard
                     key={u.id}
@@ -415,12 +471,12 @@ export default async function TeamPage() {
                     }}
                     isMe={u.id === session.user.id}
                     isAdmin={isAdmin}
-                    metric={`${supervisedCount} student${supervisedCount === 1 ? "" : "s"}`}
+                    metric={metric}
                   >
-                    <UserCardBody
+                    <MemberBody
                       u={u}
                       isMe={u.id === session.user.id}
-                      metric={`${supervisedCount} student${supervisedCount === 1 ? "" : "s"}`}
+                      rel={rel}
                     />
                   </TeamUserCard>
                 );
@@ -429,122 +485,6 @@ export default async function TeamPage() {
           )}
         </CardContent>
       </Card>
-
-
-      {teamAdvisors.length > 0 && (
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between">
-            <CardTitle>Team advisors</CardTitle>
-            <Badge color={ROLE_COLOR.team_advisor} variant="solid">
-              {teamAdvisors.length}
-            </Badge>
-          </CardHeader>
-          <CardContent>
-            <p className="text-xs text-slate-500 mb-3">
-              Senior internal members who follow every student read-only and
-              send suggestions to the supervisors.
-            </p>
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-              {teamAdvisors.map((u) => (
-                <TeamUserCard
-                  key={u.id}
-                  user={{
-                    id: u.id,
-                    name: u.name,
-                    email: u.email,
-                    image: u.image,
-                    color: u.color,
-                    role: u.role,
-                  }}
-                  isMe={u.id === session.user.id}
-                  isAdmin={isAdmin}
-                  metric="follows all students"
-                >
-                  <UserCardBody
-                    u={u}
-                    isMe={u.id === session.user.id}
-                    metric="follows all students"
-                  />
-                </TeamUserCard>
-              ))}
-            </div>
-          </CardContent>
-        </Card>
-      )}
-
-      {externalAdvisors.length > 0 && (
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between">
-            <CardTitle>External advisors</CardTitle>
-            <Badge color={ROLE_COLOR.external_advisor} variant="solid">
-              {externalAdvisors.length}
-            </Badge>
-          </CardHeader>
-          <CardContent>
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-              {externalAdvisors.map((u) => (
-                <TeamUserCard
-                  key={u.id}
-                  user={{
-                    id: u.id,
-                    name: u.name,
-                    email: u.email,
-                    image: u.image,
-                    color: u.color,
-                    role: u.role,
-                  }}
-                  isMe={u.id === session.user.id}
-                  isAdmin={isAdmin}
-                  metric={`advising ${u.coSupervisedStudents.filter((c) => c.role === "external_advisor").length} student${u.coSupervisedStudents.filter((c) => c.role === "external_advisor").length === 1 ? "" : "s"}`}
-                >
-                  <UserCardBody
-                    u={u}
-                    isMe={u.id === session.user.id}
-                    metric={`advising ${u.coSupervisedStudents.filter((c) => c.role === "external_advisor").length}`}
-                  />
-                </TeamUserCard>
-              ))}
-            </div>
-          </CardContent>
-        </Card>
-      )}
-
-      {committee.length > 0 && (
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between">
-            <CardTitle>Committee members</CardTitle>
-            <Badge color={ROLE_COLOR.committee} variant="solid">
-              {committee.length}
-            </Badge>
-          </CardHeader>
-          <CardContent>
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-              {committee.map((u) => (
-                <TeamUserCard
-                  key={u.id}
-                  user={{
-                    id: u.id,
-                    name: u.name,
-                    email: u.email,
-                    image: u.image,
-                    color: u.color,
-                    role: u.role,
-                  }}
-                  isMe={u.id === session.user.id}
-                  isAdmin={isAdmin}
-                  metric={`on ${u.coSupervisedStudents.filter((c) => c.role === "committee").length} committee${u.coSupervisedStudents.filter((c) => c.role === "committee").length === 1 ? "" : "s"}`}
-                >
-                  <UserCardBody
-                    u={u}
-                    isMe={u.id === session.user.id}
-                    metric={`on ${u.coSupervisedStudents.filter((c) => c.role === "committee").length} committees`}
-                  />
-                </TeamUserCard>
-              ))}
-            </div>
-          </CardContent>
-        </Card>
-      )}
 
       <Card>
         <CardHeader className="flex flex-row items-center justify-between">
@@ -596,10 +536,46 @@ export default async function TeamPage() {
   );
 }
 
-function UserCardBody({
+type Resolved = { named: string[]; unknown: number };
+type Rel = {
+  userId: string;
+  supervising: Resolved;
+  teamAdvising: Resolved;
+  externalAdvising: Resolved;
+  committee: Resolved;
+  counts: Record<string, number>;
+};
+
+function RelLine({
+  label,
+  color,
+  r,
+}: {
+  label: string;
+  color: string;
+  r: Resolved;
+}) {
+  if (r.named.length === 0 && r.unknown === 0) return null;
+  const names = r.named.join(", ");
+  const more =
+    r.unknown > 0 ? (names ? ` +${r.unknown} more` : `${r.unknown} student(s)`) : "";
+  return (
+    <div className="text-[10px] leading-snug">
+      <span className="font-semibold" style={{ color }}>
+        {label}:
+      </span>{" "}
+      <span className="text-slate-600">
+        {names}
+        {more}
+      </span>
+    </div>
+  );
+}
+
+function MemberBody({
   u,
-  metric,
   isMe,
+  rel,
 }: {
   u: {
     id: string;
@@ -609,9 +585,18 @@ function UserCardBody({
     color: string;
     role: string;
   };
-  metric: string;
   isMe: boolean;
+  rel: Rel;
 }) {
+  const none =
+    rel.supervising.named.length === 0 &&
+    rel.supervising.unknown === 0 &&
+    rel.teamAdvising.named.length === 0 &&
+    rel.teamAdvising.unknown === 0 &&
+    rel.externalAdvising.named.length === 0 &&
+    rel.externalAdvising.unknown === 0 &&
+    rel.committee.named.length === 0 &&
+    rel.committee.unknown === 0;
   return (
     <>
       <Avatar name={u.name} src={u.image} color={u.color} size="md" />
@@ -626,7 +611,21 @@ function UserCardBody({
           {isMe && <span className="text-xs text-slate-400">(you)</span>}
         </div>
         <div className="text-xs text-slate-500 truncate">{u.email}</div>
-        <div className="text-[10px] text-slate-500 mt-0.5">{metric}</div>
+        <div className="mt-1 space-y-0.5">
+          <RelLine label="Supervisor of" color="#6f4cff" r={rel.supervising} />
+          <RelLine label="Team advisor of" color="#0ea5e9" r={rel.teamAdvising} />
+          <RelLine
+            label="External advisor of"
+            color="#00d1c1"
+            r={rel.externalAdvising}
+          />
+          <RelLine label="Committee for" color="#a855f7" r={rel.committee} />
+          {none && (
+            <div className="text-[10px] text-slate-400">
+              No students linked yet
+            </div>
+          )}
+        </div>
       </div>
     </>
   );

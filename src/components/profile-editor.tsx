@@ -19,7 +19,6 @@ interface UserRow {
 const ROLE_OPTIONS = [
   { id: "admin", label: "Admin" },
   { id: "supervisor", label: "Supervisor" },
-  { id: "team_advisor", label: "Team advisor" },
   { id: "student", label: "Student" },
 ];
 

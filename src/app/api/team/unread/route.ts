@@ -1,7 +1,12 @@
 import { NextResponse } from "next/server";
 import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
-import { isSupervisingUser, isTeamAdvisor, isAdmin, type Role } from "@/lib/access";
+import {
+  isSupervisingUser,
+  isTeamAdvisorAnywhere,
+  isAdmin,
+  type Role,
+} from "@/lib/access";
 
 // Drives the violet bubble on the Team sidebar entry: new advisor
 // suggestions (by someone else) since the viewer last opened /team.
@@ -11,9 +16,9 @@ export async function GET() {
   const role = session.user.role as Role;
 
   const audience =
-    isTeamAdvisor(role) ||
     isAdmin(role) ||
-    (await isSupervisingUser(session.user.id, role));
+    (await isSupervisingUser(session.user.id, role)) ||
+    (await isTeamAdvisorAnywhere(session.user.id));
   if (!audience) return NextResponse.json({ count: 0 });
 
   const me = await prisma.user.findUnique({
