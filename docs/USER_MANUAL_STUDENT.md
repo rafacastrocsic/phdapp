@@ -61,7 +61,7 @@ Toggle between the two with the **Board / List** switch at the top right.
 - **Category** — research, writing, experiment, reading… or **Other** with your own custom label
 - **Due date** — when you set one, an event automatically appears on your calendar
 - **Assignee** — usually you
-- **Subtasks** — a small checklist inside the task; tick items as you go. The card shows a `2/5` style progress badge.
+- **Subtasks** — a small checklist inside the task; tick items as you go. The card shows a `2/5` style progress badge. Each subtask can also be given its **own deadline** (date picker next to it). A subtask's deadline can't be later than the task's own deadline — if you pick a later date you'll get an error and it won't save. Any subtask that has a deadline also shows up on the **Calendar** as a `[Sub-task] … · <task>` entry (subtasks with no deadline don't appear on the calendar).
 - **Comments** — threaded discussion at the bottom
 
 ### Editing

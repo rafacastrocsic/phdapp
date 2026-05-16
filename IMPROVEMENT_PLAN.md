@@ -156,6 +156,8 @@ Pure addition, no migration, low risk. **Build first.**
 
 **Fix (2026-05-16):** unassigned (general) events — `studentId = null` — were excluded by both the calendar page-load query and the live-poll list endpoint (`studentId: { in: studentIds }` never matches null). Effect: a freshly created unassigned event showed optimistically, then the 8s poll didn't return it so the diff logic flagged it as **deleted** (struck-through ghost); after reload it vanished entirely. Both queries now `OR` in `{ studentId: null }` when no student filter is applied, matching the existing notification/highlight model (which already treats null-student events as visible to everyone). Unassigned events are therefore visible to all roles.
 
+**Enhancement (2026-05-16, user request):** sub-tasks can each have their **own deadline**. Rule: a sub-task's deadline may never be after the parent task's deadline — validated server-side in `tickets/[id]` PATCH against the *effective* state (so lowering the task's date is also caught) returning a 400 with a clear message, and pre-validated client-side so the kanban dialog shows the error inline and never persists a bad value. Sub-tasks **with** a deadline are mirrored on the **in-app calendar** as all-day `[Sub-task] <text> · <task>` events (`syncSubtaskDueEvents`; new `Event.subtaskParentId`+`subtaskKey`, cascade-on-delete; migration `20260516100133_subtask_due_events`); sub-tasks without a deadline never appear. **Scope:** in-app calendar only — *not* pushed to Google (unlike the task's own due event), to keep the Google surface small. Pruned on date-clear / sub-task removal / task archive; recreated on restore.
+
 ---
 
 ## 9. Supervisor free/busy availability (travel / leave / holidays)  ✅ COMPLETED

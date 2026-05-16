@@ -124,7 +124,7 @@ Click a task to open it. Every field saves on change (auto-save). What you can d
 
 - Change status, priority, category, assignee, due date.
 - Edit the description.
-- Add **subtasks** (a small checklist) — add, rename, tick off, remove. Useful for breaking complex work into discrete steps.
+- Add **subtasks** (a small checklist) — add, rename, tick off, remove. Useful for breaking complex work into discrete steps. Each subtask can carry **its own deadline**; it must be on or before the task's deadline (an error appears otherwise and it isn't saved). Subtasks **with** a deadline appear on the Calendar as `[Sub-task] … · <task>` (in-app calendar only — not pushed to Google); subtasks without one stay off the calendar.
 - Drop comments. Every comment also marks the task as "updated" for the other team members (they'll see a blue ring around the card next time they visit Tasks).
 
 ### Deleting (with Undo)

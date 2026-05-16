@@ -312,6 +312,7 @@ model Ticket {
   comments     Comment[]
   tags         TicketTag[]
   dueEvent     Event?    @relation("TaskDueEvent")
+  subtaskDueEvents Event[] @relation("SubtaskDueEvents")
   order        Int       @default(0)
 
   createdAt    DateTime  @default(now())
@@ -368,9 +369,18 @@ model Event {
   ticketId  String?  @unique
   ticket    Ticket?  @relation("TaskDueEvent", fields: [ticketId], references: [id], onDelete: Cascade)
 
+  // If this event mirrors a SUB-task's deadline: the parent task + which
+  // subtask (its id within the task's subtasks JSON). One event per
+  // (parent task, subtask). Cascades when the parent task is hard-deleted.
+  subtaskParentId String?
+  subtaskParent   Ticket? @relation("SubtaskDueEvents", fields: [subtaskParentId], references: [id], onDelete: Cascade)
+  subtaskKey      String?
+
   attendees EventAttendee[]
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+
+  @@unique([subtaskParentId, subtaskKey])
 }
 
 model EventAttendee {

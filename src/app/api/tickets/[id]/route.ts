@@ -4,11 +4,13 @@ import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
 import { accessForStudent, canWriteForStudent, studentVisibilityWhereAllForAdmin, type Role } from "@/lib/access";
 import { logActivity } from "@/lib/activity-log";
+import { parseSubtasks, subtaskDueViolation } from "@/lib/subtasks";
 
 const SubtaskItem = z.object({
   id: z.string(),
   text: z.string(),
   done: z.boolean(),
+  due: z.string().nullable().optional(),
 });
 
 const Patch = z.object({
@@ -56,6 +58,21 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
   if (!parsed.success) return NextResponse.json({ error: "bad input" }, { status: 400 });
   const d = parsed.data;
 
+  // A sub-task deadline may never fall after the task's deadline. Validate
+  // the EFFECTIVE state (incoming subtasks/dueDate falling back to current)
+  // so lowering the task's own due date also gets caught.
+  const effectiveSubtasks =
+    d.subtasks !== undefined ? d.subtasks : parseSubtasks(t.subtasks);
+  const effectiveTaskDue =
+    d.dueDate !== undefined
+      ? d.dueDate
+        ? new Date(d.dueDate)
+        : null
+      : t.dueDate;
+  const violation = subtaskDueViolation(effectiveSubtasks, effectiveTaskDue);
+  if (violation)
+    return NextResponse.json({ error: violation }, { status: 400 });
+
   const data: Record<string, unknown> = {};
   if (d.title !== undefined) data.title = d.title;
   if (d.description !== undefined) data.description = d.description;
@@ -83,6 +100,14 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
     const { syncTaskDueEvent } = await import("@/lib/task-event-sync");
     await syncTaskDueEvent(id, session.user.id).catch((err) =>
       console.error("syncTaskDueEvent on patch failed", err),
+    );
+  }
+  // Sub-task deadline calendar events (title also changes if the task was
+  // renamed → resync on title change too).
+  if (d.subtasks !== undefined || d.title !== undefined) {
+    const { syncSubtaskDueEvents } = await import("@/lib/task-event-sync");
+    await syncSubtaskDueEvents(id, session.user.id).catch((err) =>
+      console.error("syncSubtaskDueEvents on patch failed", err),
     );
   }
 
@@ -124,9 +149,14 @@ export async function DELETE(_req: Request, { params }: { params: Promise<{ id: 
   // Remove the linked Google Calendar event (recreated on undo if it had a
   // due date). The Ticket row itself is SOFT-deleted so it can be restored.
   {
-    const { deleteTaskDueEvent } = await import("@/lib/task-event-sync");
+    const { deleteTaskDueEvent, deleteSubtaskDueEvents } = await import(
+      "@/lib/task-event-sync"
+    );
     await deleteTaskDueEvent(id, session.user.id).catch((err) =>
       console.error("deleteTaskDueEvent failed", err),
+    );
+    await deleteSubtaskDueEvents(id).catch((err) =>
+      console.error("deleteSubtaskDueEvents failed", err),
     );
   }
 

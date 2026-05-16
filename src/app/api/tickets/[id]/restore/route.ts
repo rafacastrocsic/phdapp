@@ -40,10 +40,15 @@ export async function POST(
 
   await prisma.ticket.update({ where: { id }, data: { archivedAt: null } });
 
-  // Re-create the calendar mirror if it had a due date.
-  if (t.dueDate) {
-    const { syncTaskDueEvent } = await import("@/lib/task-event-sync");
-    await syncTaskDueEvent(id, session.user.id).catch(() => {});
+  // Re-create the calendar mirror(s): the task's own due event (if any) and
+  // any sub-task deadline events.
+  {
+    const { syncTaskDueEvent, syncSubtaskDueEvents } = await import(
+      "@/lib/task-event-sync"
+    );
+    if (t.dueDate)
+      await syncTaskDueEvent(id, session.user.id).catch(() => {});
+    await syncSubtaskDueEvents(id, session.user.id).catch(() => {});
   }
 
   await logActivity({

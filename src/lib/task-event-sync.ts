@@ -1,7 +1,9 @@
 import { prisma } from "./prisma";
 import { calendarForUser } from "./google";
+import { parseSubtasks } from "./subtasks";
 
 const TITLE_PREFIX = "[Task] ";
+const SUBTASK_PREFIX = "[Sub-task] ";
 
 function googleAllDayBody(title: string, description: string | null, dueDate: Date) {
   // Google all-day events use start.date and end.date (inclusive / exclusive).
@@ -135,6 +137,95 @@ export async function syncTaskDueEvent(
       endsAt: anchorEnd,
     },
   });
+}
+
+function allDayAnchors(dayIso: string): { startsAt: Date; endsAt: Date } | null {
+  // dayIso is "YYYY-MM-DD". Mid-day UTC anchor so the all-day pill lands on
+  // the right local date (same trick as task due events).
+  const start = new Date(`${dayIso}T12:00:00.000Z`);
+  if (Number.isNaN(start.getTime())) return null;
+  const end = new Date(start);
+  end.setUTCHours(13, 0, 0, 0);
+  return { startsAt: start, endsAt: end };
+}
+
+/**
+ * Mirror each sub-task that has a deadline as an in-app all-day calendar
+ * Event titled "[Sub-task] <text> · <task title>". Sub-tasks without a
+ * deadline get no event. Events for removed/cleared sub-tasks are pruned.
+ *
+ * In-app only — these are NOT pushed to Google Calendar (deliberate scope:
+ * the requirement is the in-app calendar; keeps the Google surface small).
+ */
+export async function syncSubtaskDueEvents(
+  taskId: string,
+  ownerUserId: string,
+): Promise<void> {
+  const task = await prisma.ticket.findUnique({
+    where: { id: taskId },
+    select: {
+      id: true,
+      title: true,
+      studentId: true,
+      archivedAt: true,
+      subtasks: true,
+      subtaskDueEvents: { select: { id: true, subtaskKey: true } },
+    },
+  });
+  if (!task) return;
+
+  // Archived (soft-deleted) task → no subtask events at all.
+  const subs = task.archivedAt ? [] : parseSubtasks(task.subtasks);
+  const withDue = subs.filter((s) => !!s.due);
+  const keep = new Set(withDue.map((s) => s.id));
+
+  // Prune events whose subtask is gone or lost its deadline.
+  const stale = task.subtaskDueEvents.filter(
+    (e) => !e.subtaskKey || !keep.has(e.subtaskKey),
+  );
+  if (stale.length > 0) {
+    await prisma.event.deleteMany({
+      where: { id: { in: stale.map((e) => e.id) } },
+    });
+  }
+
+  // Upsert one event per sub-task-with-deadline.
+  for (const s of withDue) {
+    const anchors = allDayAnchors(s.due!.slice(0, 10));
+    if (!anchors) continue;
+    const title = `${SUBTASK_PREFIX}${s.text || "untitled"} · ${task.title}`;
+    await prisma.event.upsert({
+      where: {
+        subtaskParentId_subtaskKey: {
+          subtaskParentId: taskId,
+          subtaskKey: s.id,
+        },
+      },
+      create: {
+        title,
+        startsAt: anchors.startsAt,
+        endsAt: anchors.endsAt,
+        allDay: true,
+        ownerId: ownerUserId,
+        studentId: task.studentId,
+        subtaskParentId: taskId,
+        subtaskKey: s.id,
+      },
+      update: {
+        title,
+        startsAt: anchors.startsAt,
+        endsAt: anchors.endsAt,
+        studentId: task.studentId,
+      },
+    });
+  }
+}
+
+/** Remove all sub-task deadline events for a task (used on soft-delete). */
+export async function deleteSubtaskDueEvents(taskId: string): Promise<void> {
+  await prisma.event
+    .deleteMany({ where: { subtaskParentId: taskId } })
+    .catch(() => {});
 }
 
 /**

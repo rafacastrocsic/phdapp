@@ -34,6 +34,7 @@ import {
   isOtherCategory,
 } from "@/lib/kanban-constants";
 import { cn, relativeTime, displayName } from "@/lib/utils";
+import { subtaskDueViolation } from "@/lib/subtasks";
 
 export interface Ticket {
   id: string;
@@ -63,6 +64,7 @@ export interface Subtask {
   id: string;
   text: string;
   done: boolean;
+  due?: string | null;
 }
 
 interface Member {
@@ -868,8 +870,10 @@ function TicketDetailDialog({
 }) {
   const [editing, setEditing] = useState(false);
   const [customCategory, setCustomCategory] = useState<string>("");
+  const [err, setErr] = useState<string | null>(null);
   useEffect(() => {
     if (!ticket) return;
+    setErr(null);
     setCustomCategory(
       isOtherCategory(ticket.category) && ticket.category !== "other"
         ? ticket.category
@@ -889,13 +893,32 @@ function TicketDetailDialog({
 
   async function update(patch: Partial<Ticket> & { dueDate?: string | null }) {
     if (!ticket) return;
+    // A sub-task deadline can't fall after the task's own deadline. Validate
+    // the effective state before sending so the user gets an immediate error
+    // and the bad value is never persisted (server enforces this too).
+    if (patch.subtasks !== undefined || patch.dueDate !== undefined) {
+      const nextSubtasks =
+        patch.subtasks !== undefined ? patch.subtasks : ticket.subtasks;
+      const nextDue =
+        patch.dueDate !== undefined ? patch.dueDate : ticket.dueDate;
+      const violation = subtaskDueViolation(nextSubtasks, nextDue ?? null);
+      if (violation) {
+        setErr(violation);
+        return;
+      }
+    }
+    setErr(null);
     const optimistic = { ...ticket, ...patch } as Ticket;
     onChange(optimistic);
-    await fetch(`/api/tickets/${ticket.id}`, {
+    const res = await fetch(`/api/tickets/${ticket.id}`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(patch),
     });
+    if (!res.ok) {
+      const j = await res.json().catch(() => ({}));
+      setErr(j.error ?? "Could not save changes.");
+    }
   }
 
   async function del() {
@@ -946,6 +969,12 @@ function TicketDetailDialog({
             </div>
           </div>
         </DialogHeader>
+
+        {err && (
+          <div className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-[var(--c-red)]">
+            {err}
+          </div>
+        )}
 
         <div className="space-y-4">
           <div className="grid grid-cols-2 gap-3">
@@ -1046,6 +1075,7 @@ function TicketDetailDialog({
 
           <SubtaskChecklist
             subtasks={ticket.subtasks}
+            taskDue={ticket.dueDate}
             onChange={(next) => update({ subtasks: next } as Partial<Ticket>)}
           />
 
@@ -1281,13 +1311,16 @@ function Field({
 
 function SubtaskChecklist({
   subtasks,
+  taskDue,
   onChange,
 }: {
   subtasks: Subtask[];
+  taskDue: string | null;
   onChange: (next: Subtask[]) => void;
 }) {
   const [draft, setDraft] = useState("");
   const done = subtasks.filter((s) => s.done).length;
+  const maxDue = taskDue ? taskDue.slice(0, 10) : undefined;
 
   function toggle(id: string) {
     onChange(subtasks.map((s) => (s.id === id ? { ...s, done: !s.done } : s)));
@@ -1298,12 +1331,17 @@ function SubtaskChecklist({
   function rename(id: string, text: string) {
     onChange(subtasks.map((s) => (s.id === id ? { ...s, text } : s)));
   }
+  function setDue(id: string, due: string) {
+    onChange(
+      subtasks.map((s) => (s.id === id ? { ...s, due: due || null } : s)),
+    );
+  }
   function add() {
     const text = draft.trim();
     if (!text) return;
     onChange([
       ...subtasks,
-      { id: nanoid(8), text, done: false },
+      { id: nanoid(8), text, done: false, due: null },
     ]);
     setDraft("");
   }
@@ -1333,9 +1371,21 @@ function SubtaskChecklist({
                 value={s.text}
                 onChange={(e) => rename(s.id, e.target.value)}
                 className={cn(
-                  "flex-1 bg-transparent text-sm focus:outline-none focus:bg-slate-50 rounded px-1",
+                  "flex-1 min-w-0 bg-transparent text-sm focus:outline-none focus:bg-slate-50 rounded px-1",
                   s.done && "line-through text-slate-400",
                 )}
+              />
+              <input
+                type="date"
+                value={s.due ? s.due.slice(0, 10) : ""}
+                max={maxDue}
+                onChange={(e) => setDue(s.id, e.target.value)}
+                title={
+                  maxDue
+                    ? `Deadline (on or before the task's ${maxDue})`
+                    : "Deadline (optional)"
+                }
+                className="h-7 w-[8.5rem] shrink-0 rounded-md border bg-white px-1.5 text-xs text-slate-600 focus:outline-none focus:ring-2 focus:ring-[var(--ring)]/20"
               />
               <button
                 type="button"
