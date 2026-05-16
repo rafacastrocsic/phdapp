@@ -68,6 +68,25 @@ export async function PATCH(
     data,
     include: { addedBy: authorSel, decisionBy: authorSel },
   });
+
+  // A decision (approve/reject) notifies the other side via the Reading bubble.
+  if (
+    d.status &&
+    (d.status === "approved" || d.status === "rejected") &&
+    existing.status !== d.status
+  ) {
+    const { logActivity } = await import("@/lib/activity-log");
+    await logActivity({
+      actorId: session.user.id,
+      actorRole: session.user.role,
+      studentId: id,
+      action: "reading.decision",
+      entityType: "reading",
+      entityId: item.id,
+      summary: `${d.status} the reading “${item.title}”`,
+    }).catch(() => {});
+  }
+
   return NextResponse.json({ item });
 }
 

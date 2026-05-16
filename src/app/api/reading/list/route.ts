@@ -1,3 +1,4 @@
+import { NextResponse } from "next/server";
 import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
 import {
@@ -5,16 +6,14 @@ import {
   teamLevelForStudent,
   type Role,
 } from "@/lib/access";
-import { ReadingView } from "./reading-view";
 
-export default async function ReadingPage({
-  searchParams,
-}: {
-  searchParams: Promise<{ student?: string }>;
-}) {
-  const sp = await searchParams;
-  const session = (await auth())!;
+// Polled by ReadingView so approvals / new items / status changes by others
+// show up without a manual reload.
+export async function GET(req: Request) {
+  const session = await auth();
+  if (!session?.user) return NextResponse.json({ error: "unauth" }, { status: 401 });
   const role = session.user.role as Role;
+  const studentFilter = new URL(req.url).searchParams.get("student");
 
   const students = await prisma.student.findMany({
     where: studentVisibilityWhere(session.user.id, role),
@@ -35,7 +34,7 @@ export default async function ReadingPage({
   const items = await prisma.readingItem.findMany({
     where: {
       studentId: { in: studentIds },
-      ...(sp.student ? { studentId: sp.student } : {}),
+      ...(studentFilter ? { studentId: studentFilter } : {}),
     },
     orderBy: [{ createdAt: "desc" }],
     include: {
@@ -45,31 +44,21 @@ export default async function ReadingPage({
     },
   });
 
-  // Mark Reading as seen so the sidebar bubble resets on next poll.
-  await prisma.user.update({
-    where: { id: session.user.id },
-    data: { readingLastSeenAt: new Date() },
+  return NextResponse.json({
+    students,
+    levelByStudent,
+    items: items.map((i) => ({
+      id: i.id,
+      studentId: i.studentId,
+      student: i.student,
+      title: i.title,
+      authors: i.authors,
+      url: i.url,
+      status: i.status,
+      proposedByStudent: i.proposedByStudent,
+      decisionNote: i.decisionNote,
+      addedBy: i.addedBy,
+      createdAt: i.createdAt.toISOString(),
+    })),
   });
-
-  return (
-    <ReadingView
-      viewerRole={role}
-      students={students}
-      levelByStudent={levelByStudent}
-      initialStudent={sp.student ?? null}
-      initialItems={items.map((i) => ({
-        id: i.id,
-        studentId: i.studentId,
-        student: i.student,
-        title: i.title,
-        authors: i.authors,
-        url: i.url,
-        status: i.status,
-        proposedByStudent: i.proposedByStudent,
-        decisionNote: i.decisionNote,
-        addedBy: i.addedBy,
-        createdAt: i.createdAt.toISOString(),
-      }))}
-    />
-  );
 }

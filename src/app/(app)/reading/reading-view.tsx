@@ -1,5 +1,5 @@
 "use client";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { BookOpen, ExternalLink, Check, X, Plus } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -74,6 +74,32 @@ export function ReadingView({
       : addable[0]?.id ?? "",
   );
   const [busy, setBusy] = useState(false);
+
+  // Auto-refresh so approvals / new items / status changes by others show
+  // without a manual reload (mirrors the Tasks & Calendar polling).
+  useEffect(() => {
+    let cancelled = false;
+    const tick = async () => {
+      if (document.hidden) return;
+      try {
+        const q = studentFilter
+          ? `?student=${encodeURIComponent(studentFilter)}`
+          : "";
+        const r = await fetch(`/api/reading/list${q}`, { cache: "no-store" });
+        if (!cancelled && r.ok) {
+          const j = await r.json();
+          setItems(j.items);
+        }
+      } catch {
+        /* ignore transient errors */
+      }
+    };
+    const t = setInterval(tick, 15000);
+    return () => {
+      cancelled = true;
+      clearInterval(t);
+    };
+  }, [studentFilter]);
 
   const visible = useMemo(
     () => (studentFilter ? items.filter((i) => i.studentId === studentFilter) : items),

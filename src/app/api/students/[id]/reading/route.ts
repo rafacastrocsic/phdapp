@@ -64,5 +64,20 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
     },
     include: { addedBy: authorSel, decisionBy: authorSel },
   });
+
+  // Activity log → drives the Reading sidebar bubble for the other side.
+  const { logActivity } = await import("@/lib/activity-log");
+  await logActivity({
+    actorId: session.user.id,
+    actorRole: session.user.role,
+    studentId: id,
+    action: isStudent ? "reading.propose" : "reading.create",
+    entityType: "reading",
+    entityId: item.id,
+    summary: isStudent
+      ? `proposed a reading: “${d.title}”`
+      : `added a reading: “${d.title}”`,
+  }).catch(() => {});
+
   return NextResponse.json({ item });
 }

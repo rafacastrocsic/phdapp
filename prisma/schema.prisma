@@ -24,6 +24,7 @@ model User {
   calendarLastSeenAt DateTime?
   calendarDismissedEventIds String?  // JSON array of event ids dismissed since last /calendar visit
   emailDigest    Boolean   @default(true) // weekly summary email opt-out
+  readingLastSeenAt DateTime?
 
   accounts Account[]
   sessions Session[]
