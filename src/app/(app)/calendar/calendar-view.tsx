@@ -142,6 +142,7 @@ export function CalendarView({
   const [events, setEvents] = useState<Event[]>(initial);
   const [newOpen, setNewOpen] = useState(false);
   const [availOpen, setAvailOpen] = useState(false);
+  const [availDay, setAvailDay] = useState<Date | null>(null);
   const [selectedDay, setSelectedDay] = useState<Date | null>(null);
   const [syncing, setSyncing] = useState(false);
   const [openEventId, setOpenEventId] = useState<string | null>(null);
@@ -415,6 +416,64 @@ export function CalendarView({
         initial={myAvailability}
       />
 
+      <Dialog
+        open={!!availDay}
+        onOpenChange={(o) => !o && setAvailDay(null)}
+      >
+        <DialogContent className="!max-w-md">
+          <DialogHeader>
+            <DialogTitle>
+              Supervisor availability
+              {availDay ? ` — ${format(availDay, "EEE, MMM d")}` : ""}
+            </DialogTitle>
+          </DialogHeader>
+          {(() => {
+            if (!availDay) return null;
+            const dayStart = new Date(
+              availDay.getFullYear(),
+              availDay.getMonth(),
+              availDay.getDate(),
+            );
+            const dayEnd = new Date(dayStart);
+            dayEnd.setHours(23, 59, 59, 999);
+            const list = availability.filter(
+              (a) =>
+                new Date(a.startsAt) <= dayEnd &&
+                new Date(a.endsAt) >= dayStart,
+            );
+            if (list.length === 0)
+              return (
+                <p className="text-sm text-slate-500">
+                  No availability info for this day.
+                </p>
+              );
+            return (
+              <ul className="space-y-2">
+                {list.map((a) => (
+                  <li
+                    key={a.id}
+                    className="rounded-lg border bg-slate-50 p-3 text-sm"
+                  >
+                    <div className="font-medium text-slate-900">
+                      ⊘ {a.who} — unavailable
+                    </div>
+                    <div className="text-xs text-slate-600 mt-0.5">
+                      {format(new Date(a.startsAt), "MMM d")} –{" "}
+                      {format(new Date(a.endsAt), "MMM d, yyyy")}
+                    </div>
+                    {a.label && (
+                      <div className="text-xs text-slate-500 mt-0.5">
+                        {a.label}
+                      </div>
+                    )}
+                  </li>
+                ))}
+              </ul>
+            );
+          })()}
+        </DialogContent>
+      </Dialog>
+
       {noSharedCalendar && activeStudent && (
         <div className="border-b bg-amber-50 px-6 lg:px-8 py-3 flex items-start sm:items-center gap-3 flex-wrap">
           <AlertCircle className="h-5 w-5 text-amber-700 shrink-0 mt-0.5 sm:mt-0" />
@@ -509,16 +568,16 @@ export function CalendarView({
                               ? `⊘ ${names[0]} away`
                               : `⊘ ${av.length} supervisors away`;
                           return (
-                            <div
-                              className="truncate rounded bg-slate-200 px-1.5 py-0.5 text-[10px] font-medium text-slate-600"
-                              title={av
-                                .map((a) =>
-                                  a.label ? `${a.who} — ${a.label}` : `${a.who} unavailable`,
-                                )
-                                .join("; ")}
+                            <button
+                              type="button"
+                              onClick={(ev) => {
+                                ev.stopPropagation();
+                                setAvailDay(day);
+                              }}
+                              className="block w-full truncate rounded bg-slate-200 px-1.5 py-0.5 text-left text-[10px] font-medium text-slate-600 hover:bg-slate-300"
                             >
                               {text}
-                            </div>
+                            </button>
                           );
                         })()}
                         {evs.slice(0, 3).map((e) => {
@@ -663,6 +722,7 @@ export function CalendarView({
                 setSelectedDay(day);
                 setNewOpen(true);
               }}
+              onAvailClick={(day) => setAvailDay(day)}
             />
           )}
         </div>
@@ -1513,6 +1573,7 @@ function TimeGrid({
   effectiveKind,
   onEventClick,
   onSlotClick,
+  onAvailClick,
 }: {
   cursor: Date;
   view: "week" | "day";
@@ -1521,6 +1582,7 @@ function TimeGrid({
   effectiveKind: (id: string) => "new" | "updated" | null;
   onEventClick: (id: string) => void;
   onSlotClick: (day: Date) => void;
+  onAvailClick: (day: Date) => void;
 }) {
   const days =
     view === "day"
@@ -1569,17 +1631,16 @@ function TimeGrid({
                 {format(d, "d")}
               </div>
               {unavail.length > 0 && (
-                <div
-                  className="mt-1 truncate rounded bg-slate-200 px-1.5 py-0.5 text-[10px] font-medium text-slate-600"
-                  title={unavail
-                    .map((a) => (a.label ? `${a.who} — ${a.label}` : a.who))
-                    .join("; ")}
+                <button
+                  type="button"
+                  onClick={() => onAvailClick(d)}
+                  className="mt-1 block w-full truncate rounded bg-slate-200 px-1.5 py-0.5 text-[10px] font-medium text-slate-600 hover:bg-slate-300"
                 >
                   ⊘{" "}
                   {unavail.length === 1
                     ? `${unavail[0]!.who} away`
                     : `${unavail.length} supervisors away`}
-                </div>
+                </button>
               )}
             </div>
           );

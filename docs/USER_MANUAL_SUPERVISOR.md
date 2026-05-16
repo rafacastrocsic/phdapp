@@ -149,7 +149,7 @@ Events come from two places:
 
 ### My availability
 
-The **⊘ My availability** button (calendar toolbar) lets you mark periods you're away — conference travel, leave, holidays. Add a From/To range and an optional label *only you see*. Your students see a grey **⊘ Unavailable** block on those days with **no label or reason** — just enough for them to know not to expect you. It's not a weekly chore; add periods as they come up. You also see other supervisors' availability (with labels, since you're not a student).
+The **⊘ My availability** button (calendar toolbar) lets you mark periods you're away — conference travel, leave, holidays. Add a From/To range and an optional label *only you see*. Your students see a grey **⊘ &lt;name&gt; away** block on those days; **clicking it** opens a details dialog with who and the dates (students never see the label/reason — you and other supervisors do). It's not a weekly chore; add periods as they come up. You also see other supervisors' availability (with labels, since you're not a student).
 
 ### Recurring events
 
