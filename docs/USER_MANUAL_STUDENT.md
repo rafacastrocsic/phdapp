@@ -164,7 +164,7 @@ You **cannot** change your role or your supervisor — ask your supervisor or th
 
 ## Notifications
 
-There's a **🔔 bell** in the top bar with a red **count badge** when you have unread notifications — e.g. you were assigned a task, or someone commented on one of your tasks. Click it for the list; click an item to jump to it (and mark it read), or "Mark all read". If the admin has email set up, you also get an email for these.
+There's a **🔔 bell** in the top bar with a red **count badge** when something changed that you haven't seen yet — a supervisor created or updated one of your tasks or events, added or decided on a reading, marked themselves away, etc. (your own actions don't notify you). Click the bell for the list; click an item to jump straight to it, or **"Mark all read"** to clear the badge. If the admin has email set up, you also get an email for the main ones.
 
 Other places that show "you have new stuff":
 

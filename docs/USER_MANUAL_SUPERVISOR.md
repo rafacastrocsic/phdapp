@@ -269,7 +269,7 @@ Each entry shows: actor, action, timestamp, student involved, and a link back to
 
 ## Notifications
 
-The **🔔 bell** in the top bar carries a red **unread count badge** and lists recent notifications — a task assigned to you, a new comment on a task you own, etc. Click an item to jump to it, or "Mark all read". This is in addition to the weekly email digest and the sidebar/board highlight badges. (Per-event emails also go out if the admin configured Resend.)
+The **🔔 bell** in the top bar carries a red **unread count badge** and lists recent activity from your students and co-supervisors — a task or event someone created/updated/deleted, a reading added or a proposal awaiting your decision, a co-supervisor's away period, etc. It only shows changes *others* made (never your own actions) and only for students you can see. Click an item to jump to it, or **"Mark all read"** to clear the badge. This is in addition to the weekly email digest and the sidebar/board highlight badges. (Per-event emails also go out if the admin configured Resend.)
 
 ## Your profile
 

@@ -203,6 +203,8 @@ Per-user, per-type preferences (extend the Settings page; a `NotificationPref` m
 
 **Deferred to a later wave:** browser/web push (service worker + VAPID) — separate infra, not needed for in-app + email.
 
+**Post-ship fix (2026-05-16):** the bell relied on the sparse `Notification` table (only written on task-assign and task-comment), so it stayed empty and "did not work". Rebuilt `/api/notifications` to derive the feed from the **ActivityLog** (the single source of truth that already records every cross-user change — tasks, events, reading, availability), scoped to students the viewer can see and excluding the viewer's own actions. Unread count is now the number of those entries since a new per-user `User.notificationsLastSeenAt` timestamp; "Mark all read" advances that timestamp. Per-item read isn't tracked (the feed is log-derived) — clicking an item just navigates to it. Consistent with the standing rule: a bubble/alert appears whenever someone changes something others can see.
+
 **Scope/risk:** medium-high (two channels + bell UI + read-state). **Depends on §11 infra.** Do **last**.
 
 ---
