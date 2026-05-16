@@ -34,6 +34,7 @@ import {
   expandOccurrences,
   type RecurFreq,
 } from "@/lib/recurrence";
+import { PRIORITIES, CATEGORIES } from "@/lib/kanban-constants";
 import { useRouter } from "next/navigation";
 import { openCalendarUrl } from "@/components/google-calendar-picker";
 import { CalendarShareButton } from "../students/[id]/calendar-share-button";
@@ -1280,9 +1281,34 @@ function MeetingPanel({ event }: { event: Event }) {
   });
   const [agendaDraft, setAgendaDraft] = useState("");
   const [notes, setNotes] = useState(event.meetingNotes ?? "");
-  const [actions, setActions] = useState<string[]>([]);
+  type ActionItem = {
+    text: string;
+    dueDate: string;
+    priority: string;
+    category: string;
+  };
+  const [actions, setActions] = useState<ActionItem[]>([]);
   const [actionDraft, setActionDraft] = useState("");
+  const [actionDue, setActionDue] = useState("");
+  const [actionPriority, setActionPriority] = useState("medium");
+  const [actionCategory, setActionCategory] = useState("meeting");
   const [savedMsg, setSavedMsg] = useState("");
+
+  function addAction() {
+    const t = actionDraft.trim();
+    if (!t) return;
+    setActions((p) => [
+      ...p,
+      {
+        text: t,
+        dueDate: actionDue,
+        priority: actionPriority,
+        category: actionCategory,
+      },
+    ]);
+    setActionDraft("");
+    setActionDue("");
+  }
 
   async function patch(body: Record<string, unknown>) {
     await fetch(`/api/calendar/events/${event.id}`, {
@@ -1308,7 +1334,12 @@ function MeetingPanel({ event }: { event: Event }) {
     patch({ agenda: next });
   }
   async function createTasks() {
-    const items = actions.map((text) => ({ text }));
+    const items = actions.map((a) => ({
+      text: a.text,
+      dueDate: a.dueDate || null,
+      priority: a.priority,
+      category: a.category,
+    }));
     if (items.length === 0) return;
     const r = await fetch(`/api/calendar/events/${event.id}/action-items`, {
       method: "POST",
@@ -1390,48 +1421,114 @@ function MeetingPanel({ event }: { event: Event }) {
           Action items → tasks
         </span>
         <ul className="mt-1 space-y-1">
-          {actions.map((a, i) => (
-            <li key={i} className="flex items-center gap-2 text-sm group">
-              <span className="text-slate-400">☐</span>
-              <span className="flex-1">{a}</span>
-              <button
-                type="button"
-                onClick={() => setActions((p) => p.filter((_, j) => j !== i))}
-                className="text-slate-300 hover:text-[var(--c-red)] opacity-0 group-hover:opacity-100"
+          {actions.map((a, i) => {
+            const pri = PRIORITIES.find((p) => p.id === a.priority);
+            const cat = CATEGORIES.find((c) => c.id === a.category);
+            return (
+              <li
+                key={i}
+                className="flex items-center gap-2 text-sm group flex-wrap"
               >
-                <XIcon className="h-3 w-3" />
-              </button>
-            </li>
-          ))}
+                <span className="text-slate-400">☐</span>
+                <span className="flex-1 min-w-0">{a.text}</span>
+                {a.dueDate && (
+                  <Badge color="#64748b">
+                    {new Date(a.dueDate + "T00:00:00").toLocaleDateString(
+                      undefined,
+                      { month: "short", day: "numeric" },
+                    )}
+                  </Badge>
+                )}
+                <Badge color={pri?.color ?? "#94a3b8"}>
+                  {pri?.label ?? a.priority}
+                </Badge>
+                <Badge color={cat?.color ?? "#64748b"}>
+                  {cat?.label ?? a.category}
+                </Badge>
+                <button
+                  type="button"
+                  onClick={() => setActions((p) => p.filter((_, j) => j !== i))}
+                  className="text-slate-300 hover:text-[var(--c-red)] opacity-0 group-hover:opacity-100"
+                >
+                  <XIcon className="h-3 w-3" />
+                </button>
+              </li>
+            );
+          })}
         </ul>
-        <div className="mt-1 flex gap-2">
+
+        <div className="mt-2 space-y-2 rounded-lg border bg-slate-50/60 p-2">
           <Input
             value={actionDraft}
             onChange={(e) => setActionDraft(e.target.value)}
             onKeyDown={(e) => {
               if (e.key === "Enter") {
                 e.preventDefault();
-                if (actionDraft.trim()) {
-                  setActions((p) => [...p, actionDraft.trim()]);
-                  setActionDraft("");
-                }
+                addAction();
               }
             }}
             placeholder="Add an action item…"
             className="!h-8 !text-sm"
           />
-          <Button
-            type="button"
-            size="sm"
-            variant="brand"
-            onClick={createTasks}
-            disabled={actions.length === 0}
-          >
-            Create {actions.length || ""} task{actions.length === 1 ? "" : "s"}
-          </Button>
+          <div className="grid grid-cols-3 gap-2">
+            <Input
+              type="date"
+              value={actionDue}
+              onChange={(e) => setActionDue(e.target.value)}
+              className="!h-8 !text-xs"
+              title="Deadline (optional)"
+            />
+            <Select
+              value={actionPriority}
+              onChange={(e) => setActionPriority(e.target.value)}
+              className="!h-8 !text-xs"
+              title="Priority"
+            >
+              {PRIORITIES.map((p) => (
+                <option key={p.id} value={p.id}>
+                  {p.label}
+                </option>
+              ))}
+            </Select>
+            <Select
+              value={actionCategory}
+              onChange={(e) => setActionCategory(e.target.value)}
+              className="!h-8 !text-xs"
+              title="Category"
+            >
+              {CATEGORIES.map((c) => (
+                <option key={c.id} value={c.id}>
+                  {c.label}
+                </option>
+              ))}
+            </Select>
+          </div>
+          <div className="flex items-center justify-between gap-2">
+            <Button
+              type="button"
+              size="sm"
+              variant="outline"
+              onClick={addAction}
+              disabled={!actionDraft.trim()}
+            >
+              <Plus className="h-3.5 w-3.5" /> Add item
+            </Button>
+            <Button
+              type="button"
+              size="sm"
+              variant="brand"
+              onClick={createTasks}
+              disabled={actions.length === 0}
+            >
+              Create {actions.length || ""} task{actions.length === 1 ? "" : "s"}
+            </Button>
+          </div>
         </div>
         <p className="text-[10px] text-slate-400 mt-1">
-          Creates tasks for this meeting&apos;s student (category “meeting”).
+          Tasks are created for this meeting&apos;s student with the deadline,
+          priority and category you set here. Open the{" "}
+          <span className="font-medium">Task panel</span> afterwards to add a
+          description, subtasks, comments, and more.
         </p>
       </div>
     </div>

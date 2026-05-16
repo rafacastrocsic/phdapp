@@ -152,6 +152,10 @@ Pure addition, no migration, low risk. **Build first.**
 
 **Scope/risk:** medium-high — touches Calendar **and** Tasks. Additive migration. Most valuable after §1; best after §5 so meetings can recur.
 
+**Enhancement (2026-05-16, user request):** the action-item composer now takes an optional **deadline (date), priority and category** per item (defaults preserved: medium / "meeting"); `/api/calendar/events/[id]/action-items` accepts `priority`/`category` and applies them. Pending items show priority/category/due badges. Helper text points the user to the Task panel for fuller detailing.
+
+**Fix (2026-05-16):** unassigned (general) events — `studentId = null` — were excluded by both the calendar page-load query and the live-poll list endpoint (`studentId: { in: studentIds }` never matches null). Effect: a freshly created unassigned event showed optimistically, then the 8s poll didn't return it so the diff logic flagged it as **deleted** (struck-through ghost); after reload it vanished entirely. Both queries now `OR` in `{ studentId: null }` when no student filter is applied, matching the existing notification/highlight model (which already treats null-student events as visible to everyone). Unassigned events are therefore visible to all roles.
+
 ---
 
 ## 9. Supervisor free/busy availability (travel / leave / holidays)  ✅ COMPLETED

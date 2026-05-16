@@ -93,7 +93,7 @@ Top-right toggle: **Year / Month / Week / Day**.
 
 ### 1:1 meetings
 
-If a calendar event is marked as a 1:1 meeting, opening it shows an **agenda** (you can add points before the meeting too), **notes**, and **action items**. Action items your supervisor creates become Tasks assigned to you.
+If a calendar event is marked as a 1:1 meeting, opening it shows an **agenda** (you can add points before the meeting too), **notes**, and **action items**. Action items your supervisor creates become Tasks for you — each can carry a deadline, priority and category set during the meeting, and you can flesh it out further in the Task panel.
 
 ### Supervisors' availability
 

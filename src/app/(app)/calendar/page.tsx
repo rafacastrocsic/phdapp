@@ -31,10 +31,17 @@ export default async function CalendarPage({
 
   const events = await prisma.event.findMany({
     where: {
-      ...(sp.student ? { studentId: sp.student } : { studentId: { in: studentIds } }),
-      // Recurring events are always loaded (their base startsAt may be far in
-      // the past) and expanded client-side; one-offs are windowed.
-      OR: [{ startsAt: { gte: from, lte: to } }, { recurrenceRule: { not: null } }],
+      // Unassigned (general) events have studentId = null and must show for
+      // everyone — otherwise they'd never appear after reload and the live
+      // poll would flag a freshly-created one as "deleted".
+      AND: [
+        sp.student
+          ? { studentId: sp.student }
+          : { OR: [{ studentId: { in: studentIds } }, { studentId: null }] },
+        // Recurring events are always loaded (their base startsAt may be far
+        // in the past) and expanded client-side; one-offs are windowed.
+        { OR: [{ startsAt: { gte: from, lte: to } }, { recurrenceRule: { not: null } }] },
+      ],
     },
     include: {
       student: { select: { id: true, fullName: true, alias: true, color: true } },

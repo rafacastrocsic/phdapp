@@ -30,22 +30,26 @@ export async function GET(req: Request) {
   });
   const studentIds = visible.map((s) => s.id);
 
-  const where: Record<string, unknown> = {
-    ...(studentFilter
-      ? { studentId: studentFilter }
-      : { studentId: { in: studentIds } }),
-  };
+  // Unassigned (general) events have studentId = null and must show for
+  // everyone; without this the live poll flags a freshly-created one as
+  // "deleted" because it never comes back in the list.
+  const scope = studentFilter
+    ? { studentId: studentFilter }
+    : { OR: [{ studentId: { in: studentIds } }, { studentId: null }] };
+  const where: Record<string, unknown> = { AND: [scope] };
   if (from || to) {
     // Recurring events always loaded (expanded client-side); one-offs windowed.
-    where.OR = [
-      {
-        startsAt: {
-          ...(from ? { gte: new Date(from) } : {}),
-          ...(to ? { lte: new Date(to) } : {}),
+    (where.AND as unknown[]).push({
+      OR: [
+        {
+          startsAt: {
+            ...(from ? { gte: new Date(from) } : {}),
+            ...(to ? { lte: new Date(to) } : {}),
+          },
         },
-      },
-      { recurrenceRule: { not: null } },
-    ];
+        { recurrenceRule: { not: null } },
+      ],
+    });
   }
 
   const events = await prisma.event.findMany({

@@ -180,7 +180,7 @@ When creating an event, tick **"This is a 1:1 meeting"**. Opening that event the
 
 - **Agenda** — bullet points either party can add before the meeting.
 - **Notes** — free text written during the meeting (saves on blur).
-- **Action items → tasks** — list the follow-ups, then **Create tasks** turns each into a Task for the meeting's student (category "meeting", status To do). Closes the loop between "we discussed it" and tracked work.
+- **Action items → tasks** — for each follow-up, type it and (optionally) pick a **deadline**, **priority** and **category** right in the meeting panel, then **Add item**. **Create tasks** turns each into a Task for the meeting's student with those values (defaults: priority Medium, category "meeting", status To do). Open the **Task panel** afterwards to add a description, subtasks, comments, etc. Closes the loop between "we discussed it" and tracked work.
 
 ### Editing / deleting
 
