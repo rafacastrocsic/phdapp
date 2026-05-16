@@ -86,19 +86,51 @@ export default async function ReviewPage({
         <h1 className="text-2xl font-bold text-slate-900">
           Annual progress review
         </h1>
-        <p className="text-slate-700 mt-1">
-          {displayName(student)} · Year {student.programYear} ·{" "}
-          {student.status.replace("_", " ")}
-        </p>
-        <p className="text-sm text-slate-500">
-          Period {format(from, "d MMM yyyy")} – {format(to, "d MMM yyyy")} ·
-          Supervisor: {student.supervisor?.name ?? "—"}
+        <p className="text-slate-800 mt-1 text-lg font-semibold">
+          {displayName(student)}
         </p>
         {student.thesisTitle && (
-          <p className="text-sm text-slate-600 mt-1 italic">
+          <p className="text-sm text-slate-600 mt-0.5 italic">
             Thesis: {student.thesisTitle}
           </p>
         )}
+
+        <dl className="mt-4 grid grid-cols-1 sm:grid-cols-2 gap-x-8 gap-y-1.5 text-sm">
+          <Detail label="Full name" value={student.fullName} />
+          <Detail label="Email" value={student.email} />
+          <Detail label="Programme year" value={`Year ${student.programYear}`} />
+          <Detail label="Status" value={student.status.replace("_", " ")} />
+          <Detail
+            label="Start date"
+            value={format(student.startDate, "d MMM yyyy")}
+          />
+          <Detail
+            label="Expected end"
+            value={
+              student.expectedEndDate
+                ? format(student.expectedEndDate, "d MMM yyyy")
+                : "—"
+            }
+          />
+          <Detail label="Research area" value={student.researchArea || "—"} />
+          <Detail label="ORCID" value={student.orcidId || "—"} />
+          <Detail
+            label="Supervisor"
+            value={
+              student.supervisor?.name
+                ? `${student.supervisor.name}${
+                    student.supervisor.email
+                      ? ` (${student.supervisor.email})`
+                      : ""
+                  }`
+                : "—"
+            }
+          />
+          <Detail
+            label="Review period"
+            value={`${format(from, "d MMM yyyy")} – ${format(to, "d MMM yyyy")}`}
+          />
+        </dl>
       </header>
 
       <Section title="Thesis chapters">
@@ -237,4 +269,13 @@ function Section({
 }
 function Empty() {
   return <p className="text-sm text-slate-400">None recorded.</p>;
+}
+
+function Detail({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="flex gap-2">
+      <dt className="text-slate-500 shrink-0 w-32">{label}</dt>
+      <dd className="text-slate-800 break-words">{value}</dd>
+    </div>
+  );
 }

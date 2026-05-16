@@ -152,7 +152,7 @@ Submit it; you can edit the same week's entry anytime. It saves one entry per we
 
 ## Annual review
 
-Your profile has an **Annual review** button — a printable summary of your progress over the year (thesis chapters, publications, tasks done, meetings, check-in highlights). Useful to prepare for your formal annual review. Your wellbeing scores and any private supervisor notes are **not** included.
+Your profile has an **Annual review** button — a printable summary of your progress over the year. It opens with a **student details** header (full name, email, programme year, status, start / expected-end dates, research area, ORCID, supervisor, review period) followed by thesis chapters, publications, tasks done/overdue, meetings, and check-in highlights. Useful to prepare for your formal annual review. Your wellbeing scores and any private supervisor notes are **not** included. When you **Print / Save as PDF**, only the review prints — the sidebar and top bar are automatically hidden, so you get a clean document.
 
 ## Your profile
 

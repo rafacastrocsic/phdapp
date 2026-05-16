@@ -82,7 +82,7 @@ export default async function AppLayout({
   const showLog = session.user.role === "student" || isSupervising;
 
   return (
-    <div className="flex h-screen overflow-hidden">
+    <div className="flex h-screen overflow-hidden print:block print:h-auto print:overflow-visible">
       <Sidebar
         role={session.user.role}
         showLog={showLog}
@@ -90,9 +90,11 @@ export default async function AppLayout({
         unreadKanban={unreadKanban}
         unreadCalendar={unreadCalendar}
       />
-      <div className="flex flex-1 min-w-0 flex-col">
+      <div className="flex flex-1 min-w-0 flex-col print:block print:min-w-0">
         <Topbar user={session.user} studentId={studentId} />
-        <main className="flex-1 min-w-0 overflow-auto">{children}</main>
+        <main className="flex-1 min-w-0 overflow-auto print:overflow-visible">
+          {children}
+        </main>
       </div>
     </div>
   );

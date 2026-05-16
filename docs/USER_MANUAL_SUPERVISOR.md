@@ -273,7 +273,7 @@ Details worth knowing:
 
 ## Annual review export
 
-A student profile has an **Annual review** button. It opens a clean, print-styled progress packet for a period (defaults to the last 12 months; override with `?from=&to=` in the URL): profile, thesis chapters, publications, tasks completed/overdue, supervision meetings + notes, and the weekly check-in text summary. Click **Print / Save as PDF** for the formal document. **Wellbeing scores and private supervisor notes are deliberately excluded.** External advisors/committee can view it read-only.
+A student profile has an **Annual review** button. It opens a clean, print-styled progress packet for a period (defaults to the last 12 months; override with `?from=&to=` in the URL). It leads with a **student-details header** — full name, email, programme year, status, start & expected-end dates, research area, ORCID, supervisor, and the review period — then thesis chapters, publications, tasks completed/overdue, supervision meetings + notes, and the weekly check-in text summary. Click **Print / Save as PDF** for the formal document: the app sidebar and top bar are hidden on print and the content flows across pages, so the PDF is just the review itself. **Wellbeing scores and private supervisor notes are deliberately excluded.** External advisors/committee can view it read-only.
 
 ## Activity log
 
