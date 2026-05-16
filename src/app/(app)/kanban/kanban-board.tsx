@@ -144,7 +144,7 @@ export function KanbanBoard({
   const [view, setView] = useState<"board" | "list">("board");
   const [recentlyDeleted, setRecentlyDeleted] =
     useState<Ticket[]>(initialDeleted);
-  const [undo, setUndo] = useState<{ id: string; title: string } | null>(null);
+  const [undo, setUndo] = useState<Ticket | null>(null);
   const router = useRouter();
   useEffect(() => {
     if (!undo) return;
@@ -472,7 +472,7 @@ export function KanbanBoard({
           const gone = tickets.find((t) => t.id === id);
           setTickets((prev) => prev.filter((t) => t.id !== id));
           setOpenId(null);
-          if (gone) setUndo({ id, title: gone.title });
+          if (gone) setUndo(gone);
         }}
       />
 
@@ -483,11 +483,18 @@ export function KanbanBoard({
           </span>
           <button
             type="button"
-            onClick={async () => {
+            onClick={() => {
               const u = undo;
               setUndo(null);
-              await fetch(`/api/tickets/${u.id}/restore`, { method: "POST" });
-              router.refresh();
+              // Optimistic: re-add the card instantly. The restore API (which
+              // also re-syncs the Google Calendar event) runs in the
+              // background — no await, no full page refresh, so it's instant.
+              setTickets((prev) =>
+                prev.some((t) => t.id === u.id) ? prev : [u, ...prev],
+              );
+              fetch(`/api/tickets/${u.id}/restore`, { method: "POST" }).catch(
+                () => {},
+              );
             }}
             className="font-semibold text-[var(--c-orange)] hover:underline"
           >
