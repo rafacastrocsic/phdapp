@@ -500,22 +500,27 @@ export function CalendarView({
                         {format(day, "d")}
                       </div>
                       <div className="mt-1 space-y-1">
-                        {(availabilityByDay[key] ?? []).slice(0, 1).map((a, ai) => (
-                          <div
-                            key={`av-${ai}`}
-                            className="truncate rounded bg-slate-200 px-1.5 py-0.5 text-[10px] font-medium text-slate-600"
-                            title={
-                              a.label
-                                ? `${a.who} unavailable — ${a.label}`
-                                : `${a.who} unavailable`
-                            }
-                          >
-                            ⊘ Unavailable
-                            {(availabilityByDay[key]?.length ?? 0) > 1
-                              ? ` ×${availabilityByDay[key]!.length}`
-                              : ""}
-                          </div>
-                        ))}
+                        {(() => {
+                          const av = availabilityByDay[key] ?? [];
+                          if (av.length === 0) return null;
+                          const names = av.map((a) => a.who);
+                          const text =
+                            av.length === 1
+                              ? `⊘ ${names[0]} away`
+                              : `⊘ ${av.length} supervisors away`;
+                          return (
+                            <div
+                              className="truncate rounded bg-slate-200 px-1.5 py-0.5 text-[10px] font-medium text-slate-600"
+                              title={av
+                                .map((a) =>
+                                  a.label ? `${a.who} — ${a.label}` : `${a.who} unavailable`,
+                                )
+                                .join("; ")}
+                            >
+                              {text}
+                            </div>
+                          );
+                        })()}
                         {evs.slice(0, 3).map((e) => {
                           const kind = effectiveKind(e.id);
                           const isTask = !!e.ticketId;
@@ -1570,7 +1575,10 @@ function TimeGrid({
                     .map((a) => (a.label ? `${a.who} — ${a.label}` : a.who))
                     .join("; ")}
                 >
-                  ⊘ Unavailable
+                  ⊘{" "}
+                  {unavail.length === 1
+                    ? `${unavail[0]!.who} away`
+                    : `${unavail.length} supervisors away`}
                 </div>
               )}
             </div>
@@ -1791,7 +1799,9 @@ function YearGrid({
                       )}
                       title={
                         unavailable
-                          ? `${format(day, "MMM d")} · supervisor unavailable`
+                          ? `${format(day, "MMM d")} · ${(availabilityByDay[key] ?? [])
+                              .map((a) => a.who)
+                              .join(", ")} away`
                           : evs.length > 0
                             ? `${format(day, "MMM d")} · ${evs.length} item${evs.length === 1 ? "" : "s"}`
                             : format(day, "MMM d")
