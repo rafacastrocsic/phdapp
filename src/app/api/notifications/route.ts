@@ -17,6 +17,7 @@ const ACTIONS = [
   "reading.create",
   "reading.propose",
   "reading.decision",
+  "reading.delete",
   "availability.create",
 ];
 

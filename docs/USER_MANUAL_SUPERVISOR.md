@@ -237,7 +237,7 @@ The **Reading** module (book icon, sidebar) is the paper reading list across you
 - **Add a reading** — add a paper directly for a student (pick the student in the form); it's auto-approved. You can include an optional note explaining why.
 - Track progress (To read → Reading → Read). Items can be deleted by a supervisor or whoever added them.
 - External advisors / committee see the list read-only.
-- The **Reading** sidebar item shows a count bubble when a student proposes a reading (clears when you open Reading); the page auto-refreshes so new proposals/changes appear without reloading.
+- The **Reading** sidebar item shows a count bubble (and a 🔔 bell entry) when a student proposes a reading, or when a co-supervisor adds, decides on, or removes one (clears when you open Reading); the page auto-refreshes so new proposals/changes/removals by others appear within a few seconds without reloading.
 
 ## Supervisor team workspace
 

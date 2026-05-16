@@ -102,7 +102,7 @@ export async function DELETE(
 
   const existing = await prisma.readingItem.findFirst({
     where: { id: itemId, studentId: id },
-    select: { id: true, addedById: true },
+    select: { id: true, addedById: true, title: true },
   });
   if (!existing) return NextResponse.json({ error: "not found" }, { status: 404 });
 
@@ -114,5 +114,18 @@ export async function DELETE(
     return NextResponse.json({ error: "forbidden" }, { status: 403 });
 
   await prisma.readingItem.delete({ where: { id: itemId } });
+
+  // Activity log → drives the Reading sidebar bubble + 🔔 bell for the other side.
+  const { logActivity } = await import("@/lib/activity-log");
+  await logActivity({
+    actorId: session.user.id,
+    actorRole: session.user.role,
+    studentId: id,
+    action: "reading.delete",
+    entityType: "reading",
+    entityId: existing.id,
+    summary: `removed the reading “${existing.title}”`,
+  }).catch(() => {});
+
   return NextResponse.json({ ok: true });
 }

@@ -27,7 +27,14 @@ export async function GET() {
     where: {
       studentId: { in: studentIds },
       actorId: { not: session.user.id },
-      action: { in: ["reading.create", "reading.propose", "reading.decision"] },
+      action: {
+        in: [
+          "reading.create",
+          "reading.propose",
+          "reading.decision",
+          "reading.delete",
+        ],
+      },
       createdAt: { gt: since },
     },
   });

@@ -50,6 +50,8 @@ Pure addition, no migration, low risk. **Build first.**
 
 **Fix (post-ship):** Reading had no unread bubble and no auto-refresh. Added `User.readingLastSeenAt`; reading create/propose/decision now write `reading.*` activity logs; new `/api/reading/unread` (counted by the sidebar → violet bubble on the Reading nav, clears on /reading visit which bumps readingLastSeenAt) and `/api/reading/list` (ReadingView polls it every 15s so approvals/new items/status changes by others appear without a manual reload — mirrors the Tasks/Calendar pattern).
 
+**Fix (2026-05-16):** removals were silent — the DELETE handler wrote no activity log, so deleting a reading never bumped the Reading bubble nor the 🔔 bell (the list itself still auto-refreshed via the 15s poll since deletes are hard deletes). Added a `reading.delete` activity log on DELETE and included `reading.delete` in both the `/api/reading/unread` filter and the bell `ACTIONS`, so a removal now signals the other side exactly like create/decide.
+
 **Enhancement (2026-05-16, user request):** comment/reason fields so people can explain decisions. New `ReadingItem.proposalNote` (proposer's "why is this relevant?", set at create; surfaced on the propose/add form). The pre-existing `ReadingItem.decisionNote` is now actually wired to the UI: a per-item reason box appears on pending proposals; Approve/Reject send it with the status PATCH. Both the proposal note and the decision note (with `decisionBy` name) render under the item so each side sees the other's reasoning.
 
 **What:** per-student reading list. Supervisor adds (auto-approved) or student proposes → a supervisor must approve ("OK, go ahead").
