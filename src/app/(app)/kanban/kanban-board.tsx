@@ -103,6 +103,8 @@ export function KanbanBoard({
   initialDeleted = [],
 }: Props) {
   const isStudent = viewerRole === "student";
+  // Team Advisors are read-only observers — no task creation.
+  const isObserver = viewerRole === "team_advisor";
   const [highlightByTicket, setHighlightByTicket] = useState<Record<string, "new" | "updated">>(initialHighlights);
   // Tickets the user has clicked on this session — clears their highlight,
   // and stays cleared even as the poll re-returns the highlight from the server.
@@ -272,9 +274,11 @@ export function KanbanBoard({
                 </button>
               ))}
             </div>
-            <Button variant="brand" onClick={() => setNewOpen(true)}>
-              <Plus className="h-4 w-4" /> New task
-            </Button>
+            {!isObserver && (
+              <Button variant="brand" onClick={() => setNewOpen(true)}>
+                <Plus className="h-4 w-4" /> New task
+              </Button>
+            )}
           </div>
         </div>
         <div className="flex flex-wrap gap-2">

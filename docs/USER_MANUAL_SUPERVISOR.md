@@ -241,7 +241,15 @@ The **Reading** module (book icon, sidebar) is the paper reading list across you
 
 ## Supervisor team workspace
 
-At the top of the **Team** page (visible to supervisors and the admin only — hidden from students, external advisors, and committee members) is the **Supervisor team workspace**: a shared Drive-folder link (the admin sets it) plus an internal group-notes thread for the supervisory team — templates, group policy, inter-supervisor minutes. Anyone supervisor-level can post; the author or admin can delete a note.
+At the top of the **Team** page (visible to supervisors and the admin only — hidden from students, external advisors, and committee members) is the **Supervisor team workspace**: a shared Drive-folder link (the admin sets it) plus an internal group-notes thread for the supervisory team — templates, group policy, inter-supervisor minutes. Anyone supervisor-level can post; the author or admin can delete a note. Team advisors do **not** see this workspace.
+
+## Team advisors & their suggestions
+
+A **team advisor** is a senior *internal* colleague (set up by the admin) — different from an *external advisor*, who is outside the institution and tied to one student. A team advisor follows **every** student **read-only** (they can even see private supervisor notes and wellbeing) but **cannot change anything** — their only action is sending you suggestions.
+
+They appear in their own **Team advisors** group on the Team page. Just below the Supervisor team workspace you'll see the **Advisor suggestions** card: the thread of suggestions they've sent. A suggestion may be tagged with one or more students (shown as colored chips) or marked **General** (no specific student). You can't post here — only advisors do — but you can delete a suggestion you no longer need (admins can delete any).
+
+When an advisor posts something new, the **Team** item in the sidebar shows a count bubble; it clears when you open the Team page. (This is intentionally kept off the 🔔 bell so advisor↔supervisor notes never reach students.)
 
 ## Workload
 
@@ -277,16 +285,18 @@ Top-right avatar → **Edit profile**. You can change name, color, photo. Your r
 
 ## Permissions cheat sheet
 
-| Action | Primary supervisor | Co-supervisor | External advisor | Committee | Admin |
-|---|---|---|---|---|---|
-| View student profile | ✓ | ✓ | ✓ | ✓ | ✓ (all students) |
-| Edit student profile | ✓ | – | – | – | ✓ |
-| Create / edit / delete tasks for the student | ✓ | ✓ | ✓ | ✓ | ✓ |
-| Manage the supervision team | ✓ | – | – | – | ✓ |
-| Create calendar events for the student | ✓ | ✓ | ✓ | ✓ | ✓ |
-| Chat in the student's channels | ✓ | ✓ | ✓ | ✓ | ✓ |
-| Share / provision the student's Google Calendar | ✓ | – | – | – | ✓ |
-| See all activity log entries for the student | ✓ | ✓ | ✓ | ✓ | ✓ |
+| Action | Primary supervisor | Co-supervisor | External advisor | Committee | Team advisor | Admin |
+|---|---|---|---|---|---|---|
+| View student profile | ✓ | ✓ | ✓ | ✓ | ✓ (all students) | ✓ (all students) |
+| See private supervisor notes & wellbeing | ✓ | ✓ | – | – | ✓ (all students) | ✓ |
+| Edit student profile | ✓ | – | – | – | – | ✓ |
+| Create / edit / delete tasks for the student | ✓ | ✓ | ✓ | ✓ | – | ✓ |
+| Manage the supervision team | ✓ | – | – | – | – | ✓ |
+| Create calendar events for the student | ✓ | ✓ | ✓ | ✓ | – | ✓ |
+| Chat in the student's channels | ✓ | ✓ | ✓ | ✓ | – | ✓ |
+| Share / provision the student's Google Calendar | ✓ | – | – | – | – | ✓ |
+| See all activity log entries for the student | ✓ | ✓ | ✓ | ✓ | ✓ (all students) | ✓ |
+| Send suggestions to the supervisors | – | – | – | – | ✓ | ✓ |
 
 ## Tips
 

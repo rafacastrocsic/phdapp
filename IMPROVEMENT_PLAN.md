@@ -233,6 +233,26 @@ Per-user, per-type preferences (extend the Settings page; a `NotificationPref` m
 
 ---
 
+## 15. Team Advisor role + advisor-suggestions channel  ✅ COMPLETED (2026-05-16, user request)
+
+**What:** a new global `User.role = "team_advisor"` — a senior *internal* member (distinct from per-student "external advisors", who are outside the institution) who follows **every** student **read-only** and whose only action is sending suggestions to the supervisors. No student can hold the role; it's assigned by the admin via the user's profile role dropdown / Admin panel (not the per-student "add team member" flow, which is link-based).
+
+**Privacy decision (user, confirmed):** *full* visibility — Team Advisors see everything supervisors see for every student, **including** supervisor-private notes and 1–5 wellbeing scores. The only thing kept supervisor-only is the supervisors' own internal *Supervisor team workspace* notes (the supervisors' back-channel; advisors post to the separate suggestions thread instead).
+
+**Channel decision (user, confirmed):** suggestions live in the **Team module**, not Chat — a dedicated *Advisor suggestions* thread. Each suggestion can tag one/more students or none (general). Chat stays student↔supervisor 1:1s.
+
+**Access model (the crux — read-all, write-none):** `team_advisor` resolves to `accessForStudent → null` (no write anywhere — all write gates require `canWriteForStudent`/`teamLevel==="supervisor"`/non-student-role and so reject it) and `teamLevelForStudent → "observer"` (a new `TeamLevel`, non-null so detail/review pages render). `canSeeSupervisorPrivate` now also accepts `"observer"`; a new `canWriteSupervisorPrivate` (supervisor-only) splits private READ from WRITE so the notes-POST can't leak. `studentVisibilityWhere*` returns `{}` (all students) for `team_advisor`. Two pre-existing `role === "student"`-only deny gates that a non-student would slip through (supervisor-note POST, availability POST) were tightened. `src/auth.ts` ranks `team_advisor` above student/supervisor so the env allowlist can't downgrade a DB-assigned advisor on login.
+
+**Data model:** `AdvisorSuggestion` (authorId, body, `studentIds String[]` = optional tags, timestamps) + `User.teamSuggestionsLastSeenAt` (additive migration `20260516092512_advisor_suggestions`).
+
+**API:** `/api/team/suggestions` GET (supervisors+admin+advisors) / POST (advisors+admin only); `/api/team/suggestions/[id]` DELETE (author/admin); `/api/team/unread` drives a new violet Team-sidebar bubble (cleared on /team visit which bumps `teamSuggestionsLastSeenAt`). Not routed through the student-visible 🔔 bell to avoid leaking advisor↔supervisor traffic to students.
+
+**UI:** Team page gains a "Team advisors" roster section + the "Advisor suggestions" card (composer with multi-student tag chips for advisors; read + delete-own for supervisors). Create buttons (New task / New event / My availability / propose-add reading) hidden for observers; Log book opened to them (following activity is their purpose).
+
+**Scope/risk:** medium-high (128 auth call-sites mapped first). Correctness property — *team_advisor can read everything, write nothing except suggestions* — verified gate-by-gate. Out of scope: advisors reading the supervisors' internal workspace notes (kept supervisor-only); per-instance suggestion read receipts.
+
+---
+
 ## Recommended sequence
 
 1. **§0** access helper — tiny, unblocks §3/§7/§10.

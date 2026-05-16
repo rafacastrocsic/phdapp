@@ -27,7 +27,7 @@ type Nav = {
   label: string;
   icon: typeof LayoutDashboard;
   color: string;
-  hideFor?: ("admin" | "supervisor" | "student")[];
+  hideFor?: ("admin" | "supervisor" | "student" | "team_advisor")[];
 };
 
 const NAV: Nav[] = [
@@ -61,6 +61,7 @@ export function Sidebar({
   const [unreadKanban, setUnreadKanban] = useState(initialUnreadKanban);
   const [unreadCalendar, setUnreadCalendar] = useState(initialUnreadCalendar);
   const [unreadReading, setUnreadReading] = useState(0);
+  const [unreadTeam, setUnreadTeam] = useState(0);
   const [collapsed, setCollapsed] = useState(false);
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -82,11 +83,12 @@ export function Sidebar({
     let cancelled = false;
 
     async function fetchCounts() {
-      const [chat, kanban, calendar, reading] = await Promise.all([
+      const [chat, kanban, calendar, reading, team] = await Promise.all([
         fetch("/api/chat/unread", { cache: "no-store" }),
         fetch("/api/kanban/unread", { cache: "no-store" }),
         fetch("/api/calendar/unread", { cache: "no-store" }),
         fetch("/api/reading/unread", { cache: "no-store" }),
+        fetch("/api/team/unread", { cache: "no-store" }),
       ]);
       if (!cancelled && chat.ok) {
         const j = await chat.json();
@@ -103,6 +105,10 @@ export function Sidebar({
       if (!cancelled && reading.ok) {
         const j = await reading.json();
         setUnreadReading(j.count ?? 0);
+      }
+      if (!cancelled && team.ok) {
+        const j = await team.json();
+        setUnreadTeam(j.count ?? 0);
       }
     }
 
@@ -169,7 +175,9 @@ export function Sidebar({
                   ? unreadCalendar
                   : item.href === "/reading"
                     ? unreadReading
-                    : 0;
+                    : item.href === "/team"
+                      ? unreadTeam
+                      : 0;
           const unreadColor =
             item.href === "/chat"
               ? "var(--c-pink)"
@@ -177,7 +185,9 @@ export function Sidebar({
                 ? "var(--c-orange)"
                 : item.href === "/reading"
                   ? "var(--c-violet)"
-                  : "var(--c-teal)";
+                  : item.href === "/team"
+                    ? "var(--c-yellow)"
+                    : "var(--c-teal)";
           const unreadLabel =
             item.href === "/chat"
               ? `${unread} unread message${unread === 1 ? "" : "s"}`
@@ -185,7 +195,9 @@ export function Sidebar({
                 ? `${unread} new task change${unread === 1 ? "" : "s"}`
                 : item.href === "/reading"
                   ? `${unread} reading update${unread === 1 ? "" : "s"}`
-                  : `${unread} new event change${unread === 1 ? "" : "s"}`;
+                  : item.href === "/team"
+                    ? `${unread} new advisor suggestion${unread === 1 ? "" : "s"}`
+                    : `${unread} new event change${unread === 1 ? "" : "s"}`;
           return (
             <Link
               key={item.href}

@@ -47,8 +47,14 @@ export default async function LogBookPage({
   const role = session.user.role as Role;
 
   // External advisors / committee-only users don't get a Log Book.
+  // Team Advisors do — following activity is their whole purpose.
   const isSupervising = await isSupervisingUser(session.user.id, role);
-  if (role !== "student" && role !== "admin" && !isSupervising) {
+  if (
+    role !== "student" &&
+    role !== "admin" &&
+    role !== "team_advisor" &&
+    !isSupervising
+  ) {
     redirect("/");
   }
 
@@ -117,6 +123,8 @@ export default async function LogBookPage({
               ? "A record of every action you took in PhDapp."
               : role === "admin"
               ? "Every action by every user. Use the buttons to export or wipe the history."
+              : role === "team_advisor"
+              ? "Activity across all students you follow."
               : "Actions on your supervised students plus your own actions."}
           </p>
         </div>

@@ -20,6 +20,8 @@ A short guide to using PhDapp as a PhD student. Read top to bottom the first tim
 
 PhDapp is your personal supervision workspace. Your supervisor uses it to track your work, share calendars, send you tasks and chat with you. You see only your own things — never other students' data.
 
+Besides your supervisor(s), your group may have a **team advisor** — a senior member who can follow your progress (read-only) and pass suggestions to your supervisors. They can't change your tasks, calendar or notes; you don't interact with them directly in the app.
+
 ## Signing in
 
 1. Open the link your supervisor gave you (something like `https://phdapp.vercel.app`).

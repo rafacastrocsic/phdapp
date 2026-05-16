@@ -113,6 +113,15 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
       { status: 400 },
     );
 
+  if (user.role === "team_advisor")
+    return NextResponse.json(
+      {
+        error:
+          "Team advisors follow every student globally — they aren't added per student.",
+      },
+      { status: 400 },
+    );
+
   try {
     const created = await prisma.coSupervisor.create({
       data: { studentId: id, userId: user.id, role: d.role },

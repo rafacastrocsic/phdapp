@@ -9,14 +9,17 @@ import { displayName } from "@/lib/utils";
 import {
   studentVisibilityWhereAllForAdmin,
   isSupervisingUser,
+  isTeamAdvisor,
   type Role,
 } from "@/lib/access";
 import { TeamUserCard } from "./user-edit-dialog";
 import { TeamWorkspace } from "./team-workspace";
+import { AdvisorSuggestions } from "./advisor-suggestions";
 import { Shield } from "lucide-react";
 
 const ROLE_COLOR: Record<string, string> = {
   supervisor: "#6f4cff",
+  team_advisor: "#0ea5e9",
   external_advisor: "#00d1c1",
   committee: "#a855f7",
   student: "#ff7a45",
@@ -49,11 +52,16 @@ export default async function TeamPage() {
   // (external_advisor / committee) — falling back to Supervisor for plain global
   // role=supervisor with no links yet.
   const supervisorUsers: typeof users = [];
+  const teamAdvisors: typeof users = [];
   const externalAdvisors: typeof users = [];
   const committee: typeof users = [];
 
   for (const u of users) {
     if (u.role === "student") continue;
+    if (u.role === "team_advisor") {
+      teamAdvisors.push(u);
+      continue;
+    }
     const cosupRoles = new Set(u.coSupervisedStudents.map((c) => c.role));
     const primarySupervises = u.supervisedStudents.length > 0;
     const hasSupervisorLink = cosupRoles.has("supervisor") || cosupRoles.has("co_supervisor");
@@ -96,6 +104,36 @@ export default async function TeamPage() {
     ? (await prisma.setting.findUnique({ where: { key: "teamDriveFolderUrl" } }))
         ?.value ?? null
     : null;
+
+  // ---- Advisor suggestions thread (advisors → supervisors) ----
+  const canSeeSuggestions = canWorkspace || isTeamAdvisor(role);
+  const canPostSuggestions = isTeamAdvisor(role) || isAdmin;
+  const suggestionRows = canSeeSuggestions
+    ? await prisma.advisorSuggestion.findMany({
+        orderBy: { createdAt: "desc" },
+        take: 100,
+        include: {
+          author: { select: { id: true, name: true, image: true, color: true } },
+        },
+      })
+    : [];
+  const taggedIds = [
+    ...new Set(suggestionRows.flatMap((r) => r.studentIds)),
+  ];
+  const taggedStudents = taggedIds.length
+    ? await prisma.student.findMany({
+        where: { id: { in: taggedIds } },
+        select: { id: true, fullName: true, alias: true, color: true },
+      })
+    : [];
+  const taggedById = new Map(taggedStudents.map((s) => [s.id, s]));
+  if (canSeeSuggestions) {
+    // Opening /team clears the Team sidebar bubble on the next poll.
+    await prisma.user.update({
+      where: { id: session.user.id },
+      data: { teamSuggestionsLastSeenAt: new Date() },
+    });
+  }
 
   // ---- Workload aggregation (read-only) ----
   const studentStatus = new Map(studentRows.map((s) => [s.id, s.status]));
@@ -179,6 +217,33 @@ export default async function TeamPage() {
             body: n.body,
             createdAt: n.createdAt.toISOString(),
             author: n.author,
+          }))}
+        />
+      )}
+
+      {canSeeSuggestions && (
+        <AdvisorSuggestions
+          viewerId={session.user.id}
+          canPost={canPostSuggestions}
+          isAdmin={isAdmin}
+          students={studentRows.map((s) => ({
+            id: s.id,
+            name: displayName(s),
+            color: s.color,
+          }))}
+          initial={suggestionRows.map((r) => ({
+            id: r.id,
+            body: r.body,
+            createdAt: r.createdAt.toISOString(),
+            author: r.author,
+            students: r.studentIds
+              .map((sid) => taggedById.get(sid))
+              .filter((s): s is NonNullable<typeof s> => !!s)
+              .map((s) => ({
+                id: s.id,
+                name: s.alias?.trim() || s.fullName,
+                color: s.color,
+              })),
           }))}
         />
       )}
@@ -365,6 +430,47 @@ export default async function TeamPage() {
         </CardContent>
       </Card>
 
+
+      {teamAdvisors.length > 0 && (
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between">
+            <CardTitle>Team advisors</CardTitle>
+            <Badge color={ROLE_COLOR.team_advisor} variant="solid">
+              {teamAdvisors.length}
+            </Badge>
+          </CardHeader>
+          <CardContent>
+            <p className="text-xs text-slate-500 mb-3">
+              Senior internal members who follow every student read-only and
+              send suggestions to the supervisors.
+            </p>
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+              {teamAdvisors.map((u) => (
+                <TeamUserCard
+                  key={u.id}
+                  user={{
+                    id: u.id,
+                    name: u.name,
+                    email: u.email,
+                    image: u.image,
+                    color: u.color,
+                    role: u.role,
+                  }}
+                  isMe={u.id === session.user.id}
+                  isAdmin={isAdmin}
+                  metric="follows all students"
+                >
+                  <UserCardBody
+                    u={u}
+                    isMe={u.id === session.user.id}
+                    metric="follows all students"
+                  />
+                </TeamUserCard>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
       {externalAdvisors.length > 0 && (
         <Card>

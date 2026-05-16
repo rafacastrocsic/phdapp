@@ -5,6 +5,7 @@ import { prisma } from "@/lib/prisma";
 import {
   teamLevelForStudent,
   canSeeSupervisorPrivate,
+  canWriteSupervisorPrivate,
   type Role,
 } from "@/lib/access";
 
@@ -12,16 +13,22 @@ const Body = z.object({ body: z.string().min(1) });
 
 // Non-supervisor viewers (students, external advisors, committee, unrelated)
 // must not even learn this endpoint exists → always 404, never 403.
-async function gate(studentId: string, userId: string, role: Role) {
+// READ is broader than WRITE: a Team Advisor ("observer") may read private
+// notes but must never create one.
+async function readGate(studentId: string, userId: string, role: Role) {
   const level = await teamLevelForStudent(studentId, userId, role);
   return canSeeSupervisorPrivate(level);
+}
+async function writeGate(studentId: string, userId: string, role: Role) {
+  const level = await teamLevelForStudent(studentId, userId, role);
+  return canWriteSupervisorPrivate(level);
 }
 
 export async function GET(_req: Request, { params }: { params: Promise<{ id: string }> }) {
   const session = await auth();
   if (!session?.user) return NextResponse.json({ error: "unauth" }, { status: 401 });
   const { id } = await params;
-  if (!(await gate(id, session.user.id, session.user.role as Role)))
+  if (!(await readGate(id, session.user.id, session.user.role as Role)))
     return NextResponse.json({ error: "not found" }, { status: 404 });
 
   const notes = await prisma.supervisorNote.findMany({
@@ -38,7 +45,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
   const session = await auth();
   if (!session?.user) return NextResponse.json({ error: "unauth" }, { status: 401 });
   const { id } = await params;
-  if (!(await gate(id, session.user.id, session.user.role as Role)))
+  if (!(await writeGate(id, session.user.id, session.user.role as Role)))
     return NextResponse.json({ error: "not found" }, { status: 404 });
 
   const parsed = Body.safeParse(await req.json().catch(() => null));

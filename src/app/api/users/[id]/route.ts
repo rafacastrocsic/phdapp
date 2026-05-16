@@ -7,7 +7,7 @@ const Patch = z.object({
   name: z.string().min(1).optional(),
   color: z.string().optional(),
   image: z.string().nullable().optional(),
-  role: z.enum(["admin", "supervisor", "student"]).optional(),
+  role: z.enum(["admin", "supervisor", "team_advisor", "student"]).optional(),
 });
 
 export async function PATCH(

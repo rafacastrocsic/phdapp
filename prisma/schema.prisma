@@ -26,6 +26,7 @@ model User {
   emailDigest    Boolean   @default(true) // weekly summary email opt-out
   readingLastSeenAt DateTime?
   notificationsLastSeenAt DateTime?
+  teamSuggestionsLastSeenAt DateTime?
 
   accounts Account[]
   sessions Session[]
@@ -48,6 +49,7 @@ model User {
   readingDecisions      ReadingItem[]    @relation("ReadingItemDecisionBy")
   availability          Availability[]
   teamNotes             TeamNote[]       @relation("TeamNoteAuthor")
+  advisorSuggestions    AdvisorSuggestion[] @relation("AdvisorSuggestionAuthor")
   notifications         Notification[]
 
   createdAt DateTime @default(now())
@@ -215,6 +217,20 @@ model TeamNote {
   body      String
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+}
+
+// A Team Advisor's suggestion to the supervisors. Can be tagged with one
+// or more students, or none at all (general / team-wide).
+model AdvisorSuggestion {
+  id         String   @id @default(cuid())
+  authorId   String
+  author     User     @relation("AdvisorSuggestionAuthor", fields: [authorId], references: [id])
+  body       String
+  studentIds String[] @default([]) // empty = general / not student-specific
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  @@index([createdAt])
 }
 
 model Setting {
