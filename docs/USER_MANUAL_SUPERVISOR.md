@@ -260,7 +260,9 @@ The **Team** page has two read-only workload tables:
 
 ## Weekly email digest
 
-If the admin has set it up, you get a **Monday morning email** summarising what needs attention across **the students you supervise**: overdue tasks, reading proposals awaiting your approval, new weekly check-ins, and low-wellbeing flags (a check-in scoring ≤ 2 this week). It's a once-a-week roll-up — distinct from the instant 🔔 bell and any per-event emails.
+> ⚠️ **Not active yet.** The weekly digest is built but **not switched on** — no emails are currently sent. It will start working once the admin connects an email sender (tracked in `IMPROVEMENT_PLAN.md` → FUTURE). The section below describes how it will behave once enabled. In the meantime, use the in-app 🔔 bell and sidebar badges.
+
+Once enabled, you'd get a **Monday morning email** summarising what needs attention across **the students you supervise**: overdue tasks, reading proposals awaiting your approval, new weekly check-ins, and low-wellbeing flags (a check-in scoring ≤ 2 this week). It's a once-a-week roll-up — distinct from the instant 🔔 bell and any per-event emails.
 
 Details worth knowing:
 
