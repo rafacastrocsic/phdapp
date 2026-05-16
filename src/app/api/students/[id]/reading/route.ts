@@ -8,6 +8,7 @@ const Body = z.object({
   title: z.string().min(1),
   authors: z.string().nullable().optional(),
   url: z.string().nullable().optional(),
+  proposalNote: z.string().nullable().optional(),
 });
 
 const authorSel = { select: { id: true, name: true, image: true, color: true } };
@@ -57,6 +58,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
       title: d.title,
       authors: d.authors ?? null,
       url: d.url ?? null,
+      proposalNote: d.proposalNote?.trim() || null,
       addedById: session.user.id,
       proposedByStudent: isStudent,
       status: isStudent ? "proposed" : "approved",

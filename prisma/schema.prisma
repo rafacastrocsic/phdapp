@@ -186,10 +186,11 @@ model ReadingItem {
   addedById        String
   addedBy          User     @relation("ReadingItemAddedBy", fields: [addedById], references: [id])
   proposedByStudent Boolean @default(false)
+  proposalNote     String?  // proposer's reason / why it's relevant
   status           String   @default("approved") // proposed | approved | reading | done | rejected
   decisionById     String?
   decisionBy       User?    @relation("ReadingItemDecisionBy", fields: [decisionById], references: [id])
-  decisionNote     String?
+  decisionNote     String?  // supervisor's note on approve / reject
   createdAt        DateTime @default(now())
   updatedAt        DateTime @updatedAt
 }

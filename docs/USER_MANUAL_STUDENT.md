@@ -135,7 +135,7 @@ Changes save automatically.
 The **Reading** module (book icon, sidebar) is your paper reading list:
 
 - **To read / Reading / Read** — papers your supervisors added for you. Use **Start reading** then **Mark read** to track your progress.
-- **Propose a reading** — found a paper you think is relevant? Add it (title, authors, link). It shows as **Pending approval** until a supervisor clicks **Approve** ("OK, go ahead and read it") — or they may reject it. Approved ones move into your list.
+- **Propose a reading** — found a paper you think is relevant? Add it (title, authors, link) and use the **"Why is this relevant?"** box to tell your supervisor why — they see this when deciding. It shows as **Pending approval** until a supervisor clicks **Approve** ("OK, go ahead and read it") — or they may reject it. When they approve or reject they can leave a short **comment / reason**, which appears under the item so you know why.  Approved ones move into your list.
 
 The **Reading** sidebar item shows a count bubble when a supervisor adds a reading or decides on one of your proposals (clears when you open Reading). The page also refreshes itself, so approvals appear without reloading.
 

@@ -66,7 +66,9 @@ export default async function ReadingPage({
         url: i.url,
         status: i.status,
         proposedByStudent: i.proposedByStudent,
+        proposalNote: i.proposalNote,
         decisionNote: i.decisionNote,
+        decisionBy: i.decisionBy,
         addedBy: i.addedBy,
         createdAt: i.createdAt.toISOString(),
       }))}

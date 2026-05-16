@@ -233,8 +233,8 @@ Each student profile has a **Weekly check-ins** panel — their short weekly sel
 The **Reading** module (book icon, sidebar) is the paper reading list across your students:
 
 - **Filter by student** (top-right) or see all at once; each item shows which student it's for.
-- **Pending approval** — when a student proposes a paper it appears here; click **Approve** ("OK, go ahead") or **Reject**.
-- **Add a reading** — add a paper directly for a student (pick the student in the form); it's auto-approved.
+- **Pending approval** — when a student proposes a paper it appears here, along with the student's **"Why is this relevant?"** note. Optionally type a **reason / comment** in the box, then click **Approve** ("OK, go ahead") or **Reject** — your comment is saved and shown to the student under the item.
+- **Add a reading** — add a paper directly for a student (pick the student in the form); it's auto-approved. You can include an optional note explaining why.
 - Track progress (To read → Reading → Read). Items can be deleted by a supervisor or whoever added them.
 - External advisors / committee see the list read-only.
 - The **Reading** sidebar item shows a count bubble when a student proposes a reading (clears when you open Reading); the page auto-refreshes so new proposals/changes appear without reloading.

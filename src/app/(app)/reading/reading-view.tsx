@@ -4,7 +4,7 @@ import { useRouter } from "next/navigation";
 import { BookOpen, ExternalLink, Check, X, Plus } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Input, Select } from "@/components/ui/input";
+import { Input, Select, Textarea } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 
 interface Person {
@@ -28,7 +28,9 @@ interface ReadingItem {
   url: string | null;
   status: string;
   proposedByStudent: boolean;
+  proposalNote: string | null;
   decisionNote: string | null;
+  decisionBy: Person | null;
   addedBy: Person;
   createdAt: string;
 }
@@ -64,6 +66,9 @@ export function ReadingView({
   const [title, setTitle] = useState("");
   const [authors, setAuthors] = useState("");
   const [url, setUrl] = useState("");
+  const [note, setNote] = useState("");
+  // Per-item draft reason a supervisor types before clicking Approve/Reject.
+  const [decisionDrafts, setDecisionDrafts] = useState<Record<string, string>>({});
   // Students the viewer can ADD/PROPOSE for (supervisor of, or themselves).
   const addable = students.filter(
     (s) => levelByStudent[s.id] === "supervisor" || levelByStudent[s.id] === "self",
@@ -127,6 +132,7 @@ export function ReadingView({
         title: t,
         authors: authors.trim() || null,
         url: url.trim() || null,
+        proposalNote: note.trim() || null,
       }),
     });
     setBusy(false);
@@ -137,6 +143,7 @@ export function ReadingView({
       setTitle("");
       setAuthors("");
       setUrl("");
+      setNote("");
     }
   }
 
@@ -150,6 +157,15 @@ export function ReadingView({
       body: JSON.stringify(body),
     });
     router.refresh();
+  }
+  async function decide(i: ReadingItem, status: "approved" | "rejected") {
+    const reason = (decisionDrafts[i.id] ?? "").trim() || null;
+    setDecisionDrafts((p) => {
+      const next = { ...p };
+      delete next[i.id];
+      return next;
+    });
+    await patch(i, { status, decisionNote: reason });
   }
   async function del(i: ReadingItem) {
     if (!confirm("Delete this reading?")) return;
@@ -199,8 +215,33 @@ export function ReadingView({
           <div className="text-[10px] text-slate-400 mt-0.5">
             {i.proposedByStudent ? "Proposed by student" : "Added"} by{" "}
             {i.addedBy.name ?? "someone"}
-            {i.decisionNote ? ` · note: ${i.decisionNote}` : ""}
           </div>
+          {i.proposalNote && (
+            <p className="text-xs text-slate-600 mt-1 border-l-2 border-amber-200 pl-2 whitespace-pre-wrap">
+              <span className="text-slate-400">Why: </span>
+              {i.proposalNote}
+            </p>
+          )}
+          {i.decisionNote && (
+            <p className="text-xs text-slate-600 mt-1 border-l-2 border-slate-200 pl-2 whitespace-pre-wrap">
+              <span className="text-slate-400">
+                {i.status === "rejected" ? "Rejected" : "Approved"}
+                {i.decisionBy?.name ? ` by ${i.decisionBy.name}` : ""}:{" "}
+              </span>
+              {i.decisionNote}
+            </p>
+          )}
+          {i.status === "proposed" && canDecide(i) && (
+            <Textarea
+              value={decisionDrafts[i.id] ?? ""}
+              onChange={(e) =>
+                setDecisionDrafts((p) => ({ ...p, [i.id]: e.target.value }))
+              }
+              placeholder="Reason / comment (optional) — shown to the student"
+              rows={2}
+              className="mt-2 text-xs"
+            />
+          )}
         </div>
         <div className="flex flex-col gap-1 items-end shrink-0">
           {i.status === "proposed" && canDecide(i) && (
@@ -209,7 +250,7 @@ export function ReadingView({
                 type="button"
                 size="sm"
                 variant="brand"
-                onClick={() => patch(i, { status: "approved" })}
+                onClick={() => decide(i, "approved")}
               >
                 <Check className="h-3.5 w-3.5" /> Approve
               </Button>
@@ -217,7 +258,7 @@ export function ReadingView({
                 type="button"
                 size="sm"
                 variant="outline"
-                onClick={() => patch(i, { status: "rejected" })}
+                onClick={() => decide(i, "rejected")}
               >
                 Reject
               </Button>
@@ -342,6 +383,16 @@ export function ReadingView({
                 {isStudentViewer ? "Propose" : "Add"}
               </Button>
             </div>
+            <Textarea
+              value={note}
+              onChange={(e) => setNote(e.target.value)}
+              rows={2}
+              placeholder={
+                isStudentViewer
+                  ? "Why is this relevant? (optional — your supervisor sees this)"
+                  : "Note (optional) — why you're adding this"
+              }
+            />
           </CardContent>
         </Card>
       )}
