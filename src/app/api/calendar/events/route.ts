@@ -4,7 +4,7 @@ import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
 import { calendarForUser } from "@/lib/google";
 import { normalizeCalendarId } from "@/lib/calendar-id";
-import { accessForStudent, canWriteForStudent, type Role } from "@/lib/access";
+import { accessForStudent, canWriteForStudent, isAdmin, type Role } from "@/lib/access";
 import { logActivity } from "@/lib/activity-log";
 
 const Body = z.object({
@@ -45,7 +45,7 @@ export async function POST(req: Request) {
         { error: "You can only create events for your own students" },
         { status: 403 },
       );
-  } else if (session.user.role !== "supervisor") {
+  } else if (session.user.role !== "supervisor" && !isAdmin(session.user.role)) {
     return NextResponse.json(
       { error: "Only supervisors can create unassigned events" },
       { status: 403 },
