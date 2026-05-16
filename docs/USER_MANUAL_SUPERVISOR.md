@@ -11,7 +11,17 @@ This manual is for anyone supervising or advising a PhD student in PhDapp. The f
 - [Calendar](#calendar)
 - [Chat](#chat)
 - [Files](#files)
+- [Thesis & publications](#thesis--publications)
+- [Private supervisor notes](#private-supervisor-notes)
+- [Weekly check-ins](#weekly-check-ins)
+- [Reading](#reading)
+- [Supervisor team workspace](#supervisor-team-workspace)
+- [Team advisors & their suggestions](#team-advisors--their-suggestions)
+- [Workload](#workload)
+- [Weekly email digest](#weekly-email-digest)
+- [Annual review export](#annual-review-export)
 - [Activity log](#activity-log)
+- [Notifications](#notifications)
 - [Your profile](#your-profile)
 - [Permissions cheat sheet](#permissions-cheat-sheet)
 - [Tips](#tips)
@@ -62,11 +72,12 @@ Only **primary supervisors** and the **admin** can edit a student's profile (Edi
 
 ## Supervision teams
 
-Every student has a **primary supervisor** and optionally additional team members. Team roles:
+Every student has a **primary supervisor** and optionally additional team members. Team roles (assigned **per student**, so the same person can hold different roles on different students):
 
-- **Supervisor** (additional, alongside the primary)
-- **External advisor**
-- **Committee member**
+- **Supervisor** (additional, alongside the primary) — full read/write on that student.
+- **Team advisor** — a senior *internal* colleague who follows that student **read-only** (sees everything, including private supervisor notes and wellbeing) but **cannot change anything**; their only action is sending suggestions to the supervisors. See [Team advisors & their suggestions](#team-advisors--their-suggestions).
+- **External advisor** — someone *outside* the institution, attached to that student (read-only by default).
+- **Committee member** — sits on that student's committee (read-only).
 
 Only the **primary supervisor** or **admin** can manage the team. To do so:
 
@@ -75,7 +86,7 @@ Only the **primary supervisor** or **admin** can manage the team. To do so:
 3. The dialog shows the current team. Add a person by:
    - Picking them from the **From existing users** dropdown (only non-student accounts appear), or
    - Typing their email in the **By email** field — they must have signed in once already.
-4. Pick their role on the right (**Supervisor / External advisor / Committee member**).
+4. Pick their role on the right (**Supervisor / Team advisor / External advisor / Committee member**).
 5. Click **Add**.
 
 To remove someone, click the **X** on their row. To promote a co-supervisor to primary, click the small **Crown** button on their row.

@@ -157,14 +157,13 @@ export default async function StudentDetail({
           <div className="absolute inset-0 dotgrid opacity-15" />
         </div>
         <div className="px-6 pb-6 -mt-12 relative">
-          <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
-            <div className="flex items-end gap-4 min-w-0">
+          <div className="flex items-end gap-4 flex-wrap">
             <Avatar
               name={student.fullName}
               src={student.avatarUrl}
               color={student.color}
               size="lg"
-              className="!h-20 !w-20 !text-xl ring-4 ring-white shrink-0"
+              className="!h-20 !w-20 !text-xl ring-4 ring-white"
             />
             <div className="flex-1 min-w-0 pb-2">
               <div className="flex items-center gap-2 flex-wrap">
@@ -220,8 +219,7 @@ export default async function StudentDetail({
                 )}
               </div>
             </div>
-            </div>
-            <div className="flex gap-2 flex-wrap lg:justify-end pb-2">
+            <div className="flex gap-2 flex-wrap pb-2">
               {canEdit && (
                 <EditStudentDialog
                   canDelete={canDelete}

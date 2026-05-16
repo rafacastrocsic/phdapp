@@ -45,6 +45,14 @@ You can do everything any user can do, plus you are the **only** person who can:
 
 The app assumes one human admin who is also a developer. If you delegate development to someone else, give them the GitHub repo + Vercel collaborator access; keep the Google OAuth client to yourself.
 
+**The roles, in plain terms.** Two layers: a global app role (**admin / supervisor / student**) and, per student, a team relationship set in **Manage team** / **Add team member**:
+
+- **Primary supervisor / Supervisor** — full read+write on that student.
+- **Team advisor** — a **senior internal colleague** who follows specific students **read-only**. They see *everything* for those students (including private supervisor notes and wellbeing) but can change nothing; their only action is posting to the *Advisor suggestions* thread for the supervisors. Per-student, so the same person can supervise one student and team-advise another. Assign via **Manage team** or **Add team member** (see [Adding users → A new team advisor](#a-new-team-advisor)); technical detail in *Feature surfaces* below.
+- **External advisor** — a collaborator from outside the institution, attached per student.
+- **Committee member** — sits on a student's committee, per student.
+- **Student** — sees only their own data.
+
 ### Feature surfaces added since launch
 
 - **Thesis & publications tracker** (per student profile): `ThesisChapter` + `Publication` tables. Supervisors and the student edit; external advisors/committee read-only. Items can link a Drive file/folder via a picker rooted at the student's shared folder.

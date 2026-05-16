@@ -4,11 +4,16 @@ A short guide to using PhDapp as a PhD student. Read top to bottom the first tim
 
 - [Welcome](#welcome)
 - [Signing in](#signing-in)
+- [Your supervision team](#your-supervision-team)
 - [Your dashboard](#your-dashboard)
 - [Tasks](#tasks)
 - [Calendar](#calendar)
 - [Chat](#chat)
 - [Files](#files)
+- [Thesis & publications](#thesis--publications)
+- [Reading](#reading)
+- [Weekly check-in](#weekly-check-in)
+- [Annual review](#annual-review)
 - [Your profile](#your-profile)
 - [Notifications](#notifications)
 - [Tips](#tips)
@@ -20,7 +25,7 @@ A short guide to using PhDapp as a PhD student. Read top to bottom the first tim
 
 PhDapp is your personal supervision workspace. Your supervisor uses it to track your work, share calendars, send you tasks and chat with you. You see only your own things — never other students' data.
 
-Besides your supervisor(s), your group may have a **team advisor** — a senior member who can follow your progress (read-only) and pass suggestions to your supervisors. They can't change your tasks, calendar or notes; you don't interact with them directly in the app.
+Besides your supervisor(s), other people may be attached to your record — see [Your supervision team](#your-supervision-team) below for who they are and what they can (and can't) do.
 
 ## Signing in
 
@@ -30,6 +35,18 @@ Besides your supervisor(s), your group may have a **team advisor** — a senior 
 4. The first time Google may show a warning: *"Te han dado acceso a una aplicación que aún se está probando"* / *"You've been given access to an app that's still being tested"*. This is expected — click **Continue** / **Continuar**.
 
 You're in. From here on the site remembers you on this browser.
+
+## Your supervision team
+
+A few different people may be attached to your record. You don't manage any of this (your supervisor or the admin does) — but it helps to know who can see your work:
+
+- **Primary supervisor** — your main supervisor. Full access: creates tasks/events, edits your profile, chats with you.
+- **Supervisor (additional)** — a co-supervisor with the same access as the primary.
+- **Team advisor** — a **senior member of the group** assigned to follow you. They can **see everything about your work read-only** — including tasks, calendar, reading, thesis, *and* private supervisor notes and your wellbeing score — but they **cannot change anything**. Their only action is sending **suggestions to your supervisors** (you don't see those, and you don't interact with the advisor directly in the app). Think of them as a senior pair of eyes looking out for your progress.
+- **External advisor** — a collaborator from **outside the institution** attached to your record (read-only).
+- **Committee member** — someone on your assessment committee (read-only).
+
+You always see **only your own** data — never other students'. None of these roles can see another student's things on your account.
 
 ## Your dashboard
 
