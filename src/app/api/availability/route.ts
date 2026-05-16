@@ -41,5 +41,43 @@ export async function POST(req: Request) {
       kind: d.kind ?? "away",
     },
   });
+
+  // Bump the Calendar "unread" bubble for this supervisor's students:
+  // log an availability.create per affected student so /api/calendar/unread
+  // counts it (label is intentionally not included — students never see it).
+  const myStudents = await prisma.student.findMany({
+    where: {
+      OR: [
+        { supervisorId: session.user.id },
+        {
+          coSupervisors: {
+            some: {
+              userId: session.user.id,
+              role: { in: ["supervisor", "co_supervisor"] },
+            },
+          },
+        },
+      ],
+    },
+    select: { id: true },
+  });
+  if (myStudents.length > 0) {
+    const { logActivity } = await import("@/lib/activity-log");
+    await Promise.all(
+      myStudents.map((s) =>
+        logActivity({
+          actorId: session.user.id,
+          actorRole: session.user.role,
+          studentId: s.id,
+          action: "availability.create",
+          entityType: "availability",
+          entityId: item.id,
+          summary: "marked a period unavailable",
+        }),
+      ),
+    ).catch((err) => console.error("availability log failed", err));
+  }
+
   return NextResponse.json({ item });
 }
+

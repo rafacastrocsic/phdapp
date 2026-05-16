@@ -150,6 +150,8 @@ Pure addition, no migration, low risk. **Build first.**
 
 ## 9. Supervisor free/busy availability (travel / leave / holidays)  ✅ COMPLETED
 
+**Fix (post-ship):** availability now renders in **all** calendar views — Month (chip), Year (greyed day + tooltip), Week/Day (header "⊘ Unavailable" banner), not just Month. And marking availability now writes an `availability.create` activity-log row per affected student, which `/api/calendar/unread` counts → the student's Calendar **sidebar bubble number** increments (clears on their next /calendar visit). Label still never exposed to students.
+
 **What:** *not* a weekly chore. Occasionally a supervisor marks a period they're **away/unavailable** (conference travel, medical leave, holidays) so their students know not to expect them / when they're back. Students see a human-labelled away block, not the supervisor's full calendar.
 
 **Data model (new):** `Availability` (userId = supervisor, startsAt, endsAt, `label` for the supervisor's own reference e.g. "Conference travel", kind `away|busy`, optional `recurrenceRule` reusing §5, timestamps). Dedicated model so it never pollutes student task/event data and can be styled distinctly.

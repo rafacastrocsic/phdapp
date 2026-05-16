@@ -27,7 +27,14 @@ export async function GET() {
       // Events about visible students, or unassigned events (studentId null)
       OR: [{ studentId: { in: studentIds } }, { studentId: null }],
       actorId: { not: session.user.id },
-      action: { in: ["event.create", "event.update", "event.delete"] },
+      action: {
+        in: [
+          "event.create",
+          "event.update",
+          "event.delete",
+          "availability.create",
+        ],
+      },
       createdAt: { gt: since },
       ...(dismissed.length > 0 ? { NOT: { entityId: { in: dismissed } } } : {}),
     },

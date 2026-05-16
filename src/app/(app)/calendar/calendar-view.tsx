@@ -440,6 +440,7 @@ export function CalendarView({
             <YearGrid
               year={cursor.getFullYear()}
               events={filtered}
+              availabilityByDay={availabilityByDay}
               onPickDay={(day) => {
                 setCursor(day);
                 setView("month");
@@ -647,6 +648,7 @@ export function CalendarView({
               cursor={cursor}
               view={view}
               events={filtered}
+              availabilityByDay={availabilityByDay}
               effectiveKind={effectiveKind}
               onEventClick={(id) => {
                 setOpenEventId(id);
@@ -1502,6 +1504,7 @@ function TimeGrid({
   cursor,
   view,
   events,
+  availabilityByDay,
   effectiveKind,
   onEventClick,
   onSlotClick,
@@ -1509,6 +1512,7 @@ function TimeGrid({
   cursor: Date;
   view: "week" | "day";
   events: Event[];
+  availabilityByDay: Record<string, { who: string; label: string | null }[]>;
   effectiveKind: (id: string) => "new" | "updated" | null;
   onEventClick: (id: string) => void;
   onSlotClick: (day: Date) => void;
@@ -1542,6 +1546,7 @@ function TimeGrid({
         <div className="border-r" />
         {days.map((d) => {
           const today = isSameDay(d, new Date());
+          const unavail = availabilityByDay[format(d, "yyyy-MM-dd")] ?? [];
           return (
             <div
               key={d.toISOString()}
@@ -1558,6 +1563,16 @@ function TimeGrid({
               >
                 {format(d, "d")}
               </div>
+              {unavail.length > 0 && (
+                <div
+                  className="mt-1 truncate rounded bg-slate-200 px-1.5 py-0.5 text-[10px] font-medium text-slate-600"
+                  title={unavail
+                    .map((a) => (a.label ? `${a.who} — ${a.label}` : a.who))
+                    .join("; ")}
+                >
+                  ⊘ Unavailable
+                </div>
+              )}
             </div>
           );
         })}
@@ -1709,10 +1724,12 @@ function NowLine() {
 function YearGrid({
   year,
   events,
+  availabilityByDay,
   onPickDay,
 }: {
   year: number;
   events: Event[];
+  availabilityByDay: Record<string, { who: string; label: string | null }[]>;
   onPickDay: (day: Date) => void;
 }) {
   // Bucket events by yyyy-MM-dd for fast lookup.
@@ -1756,6 +1773,7 @@ function YearGrid({
                 {days.map((day) => {
                   const key = format(day, "yyyy-MM-dd");
                   const evs = byDay[key] ?? [];
+                  const unavailable = (availabilityByDay[key]?.length ?? 0) > 0;
                   const inMonth = isSameMonth(day, monthDate);
                   const isToday = isSameDay(day, today);
                   const hasTask = evs.some((e) => e.ticketId);
@@ -1764,17 +1782,20 @@ function YearGrid({
                       key={key}
                       type="button"
                       onClick={() => onPickDay(day)}
-                      title={
-                        evs.length > 0
-                          ? `${format(day, "MMM d")} · ${evs.length} item${evs.length === 1 ? "" : "s"}`
-                          : format(day, "MMM d")
-                      }
                       className={cn(
                         "flex flex-col items-center justify-start h-7 rounded text-[10px] hover:bg-slate-100",
                         !inMonth && "text-slate-300",
                         inMonth && !isToday && "text-slate-700",
                         isToday && "bg-[var(--c-violet)] text-white font-bold hover:bg-[var(--c-violet)]",
+                        unavailable && !isToday && "bg-slate-200/70",
                       )}
+                      title={
+                        unavailable
+                          ? `${format(day, "MMM d")} · supervisor unavailable`
+                          : evs.length > 0
+                            ? `${format(day, "MMM d")} · ${evs.length} item${evs.length === 1 ? "" : "s"}`
+                            : format(day, "MMM d")
+                      }
                     >
                       <span className="leading-none mt-0.5">{format(day, "d")}</span>
                       {evs.length > 0 && (
