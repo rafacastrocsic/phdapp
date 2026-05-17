@@ -12,7 +12,15 @@ export async function visibleChannelIdsForUser(userId: string): Promise<string[]
       OR: [
         { members: { some: { userId } } },
         { student: { supervisorId: userId } },
-        { student: { coSupervisors: { some: { userId } } } },
+        // team_advisor links are read-only and grant NO chat access
+        // (they still see a channel if explicitly added as a member above).
+        {
+          student: {
+            coSupervisors: {
+              some: { userId, role: { not: "team_advisor" } },
+            },
+          },
+        },
         { student: { userId } },
         { kind: "general" },
       ],

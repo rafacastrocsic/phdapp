@@ -12,7 +12,15 @@ async function authorize(channelId: string, userId: string) {
         { members: { some: { userId } } },
         { kind: "general" },
         { student: { supervisorId: userId } },
-        { student: { coSupervisors: { some: { userId } } } },
+        // team_advisor is read-only — no implicit chat via the team link
+        // (still allowed if explicitly added as a channel member above).
+        {
+          student: {
+            coSupervisors: {
+              some: { userId, role: { not: "team_advisor" } },
+            },
+          },
+        },
         { student: { userId } },
       ],
     },

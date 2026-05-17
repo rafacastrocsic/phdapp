@@ -322,14 +322,16 @@ export function ChatView({
               </h2>
             )}
             <div className="flex items-center gap-1 ml-auto">
-              <NewChannelDialog
-                students={students}
-                teamMembers={teamMembers}
-                onCreated={(c) => {
-                  setChannels((prev) => [c, ...prev]);
-                  setActiveId(c.id);
-                }}
-              />
+              {meRole !== "student" && (
+                <NewChannelDialog
+                  students={students}
+                  teamMembers={teamMembers}
+                  onCreated={(c) => {
+                    setChannels((prev) => [c, ...prev]);
+                    setActiveId(c.id);
+                  }}
+                />
+              )}
               <button
                 type="button"
                 onClick={toggleChannelsCollapsed}

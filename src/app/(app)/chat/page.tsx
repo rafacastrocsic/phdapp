@@ -1,6 +1,5 @@
 import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
-import { studentVisibilityWhere, type Role } from "@/lib/access";
 import { computeUnreadByChannel } from "@/lib/chat-access";
 import { ChatView } from "./chat-view";
 
@@ -11,10 +10,22 @@ export default async function ChatPage({
 }) {
   const sp = await searchParams;
   const session = (await auth())!;
-  const role = session.user.role as Role;
 
+  // Chat-eligible students = those the viewer supervises / co-supervises /
+  // externally-advises / is on committee for / is — but NOT students they
+  // only *team-advise* (team advisor is read-only: no chat).
   const visibleStudents = await prisma.student.findMany({
-    where: studentVisibilityWhere(session.user.id, role),
+    where: {
+      OR: [
+        { supervisorId: session.user.id },
+        {
+          coSupervisors: {
+            some: { userId: session.user.id, role: { not: "team_advisor" } },
+          },
+        },
+        { userId: session.user.id },
+      ],
+    },
     select: { id: true, fullName: true, alias: true, color: true },
   });
 

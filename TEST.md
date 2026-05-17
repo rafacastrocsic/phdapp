@@ -376,31 +376,30 @@ For Mode A just say "go" and I'll start the audit.
 - Fix: added `role: { not: "team_advisor" }` to both clauses. tsc clean.
   Status: **fixed (this commit)**.
 
-### BUG-02 — S2 — Team advisor not excluded from a student's private chat — DECISION
+### BUG-02 — S2 — Team advisor not excluded from a student's private chat — FIXED (read-only enforced)
 - Where: `channels/[id]/messages/route.ts:15`, `channels/route.ts:30`,
   `lib/chat-access.ts:15` — all match `coSupervisors.some({ userId })` with no
   role filter, so a team advisor can **read & post** in the student's 1:1
   channel and create channels about them.
 - Conflict: supervisor-manual cheat sheet says chat = "–" for team advisor and
   the role is "read-only".
-- Decision needed: **(a)** exclude `team_advisor` from those three checks
-  (enforce the documented read-only model — recommended), or **(b)** keep it and
-  amend the manual to say advisors participate in chat. Fix is ~3 one-line
-  `role: { not: "team_advisor" }` additions (option a).
+- Resolved: option **(a)** — `role: { not: "team_advisor" }` added to
+  `chat-access.ts`, `chat/page.tsx`, `channels/[id]/messages` authorize, and
+  `channels` create link-check; the chat page's student set now excludes
+  team-advised students. A team advisor still sees a channel only if explicitly
+  added as a member. **Status: fixed.**
 
-### BUG-03 — S2 — Unrestricted channel creation + arbitrary membership
+### BUG-03 — S2 — Unrestricted channel creation + arbitrary membership — FIXED
 - Where: `src/app/api/channels/route.ts` POST.
-- With no `studentId`, there is **no role/relationship gate**: any authed user
-  (incl. students) can create a channel with arbitrary `kind` — notably
-  `kind:"general"`, which `channels/[id]/messages` `authorize()` treats as
-  readable/postable by **everyone** — and arbitrary `memberIds` (inject any
-  users). Abuse / integrity vector (not a read-leak of existing private data).
-- Proposed fix: require a supervising user (or admin) to create a channel;
-  validate `kind` against an allowlist (`student|cosupervisors|direct|general`,
-  with `general` admin-only); for non-student-linked channels ignore
-  client-supplied `memberIds` the creator can't legitimately add. Needs a quick
-  check of how the chat UI calls this so we don't break cosupervisor/direct
-  channel creation — flagging before changing.
+- Was: with no `studentId`, no gate — any user (incl. students) could create a
+  channel with arbitrary `kind` (notably `general`, which everyone can
+  read/post) and arbitrary `memberIds`.
+- Fix (verified against the chat UI's `NewChannelDialog` payload so supervisor/
+  co-sup/admin flows still work): **students 403** on channel create; `kind`
+  constrained to a zod enum (`cosupervisors|student|direct|general`);
+  `kind:"general"` requires `isSupervisingUser || admin`; the studentId
+  link-check now also excludes `team_advisor`. UI: `NewChannelDialog` hidden for
+  students. **Status: fixed.**
 
 ### BUG-04 — S3 — Advisors/committee/team-advisor can post task comments — DECISION
 - Where: `src/app/api/tickets/[id]/comments/route.ts` POST — gated by
