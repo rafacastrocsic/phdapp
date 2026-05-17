@@ -395,23 +395,31 @@ For Mode A just say "go" and I'll start the audit.
   channel with arbitrary `kind` (notably `general`, which everyone can
   read/post) and arbitrary `memberIds`.
 - Fix (verified against the chat UI's `NewChannelDialog` payload so supervisor/
-  co-sup/admin flows still work): **students 403** on channel create; `kind`
-  constrained to a zod enum (`cosupervisors|student|direct|general`);
-  `kind:"general"` requires `isSupervisingUser || admin`; the studentId
-  link-check now also excludes `team_advisor`. UI: `NewChannelDialog` hidden for
-  students. **Status: fixed.**
+  co-sup/admin flows still work): `kind` constrained to a zod enum; for
+  **non-students** `kind:"general"` requires `isSupervisingUser || admin` and
+  the studentId link-check excludes `team_advisor`. **Students CAN create a
+  channel** (per product decision) but only **about themselves** and only with
+  **their own supervisors** (primary + `co_supervisor`) — never `general`,
+  never with team/external/committee advisors or other students; server forces
+  `studentId = self`, validates every requested member ∈ {their supervisors}
+  (else 403). UI: the member picker for a student is scoped to just their
+  supervisors and the kind/linked-student fields are hidden. **Status: fixed.**
 
-### BUG-04 — S3 — Advisors/committee/team-advisor can post task comments — DECISION
+### BUG-04 — S3 — Advisors/committee/team-advisor can post task comments — ACCEPTED (by design, documented)
 - Where: `src/app/api/tickets/[id]/comments/route.ts` POST — gated by
   *visibility* only (`studentVisibilityWhereAllForAdmin`), not write access.
-- Defensible (comments = communication, not task mutation) but inconsistent with
-  the strict "read-only" wording for team advisor. Decide: accept (note in
-  manual) or gate to writers.
+- **Decision: accept.** Comments are *communication*, not task mutation —
+  anyone who can see the student may comment. The strict "read-only" wording
+  for team advisor refers to data they cannot change (tasks/events/profile);
+  posting a comment is allowed for advisors/committee/team-advisor. Documented
+  in the manuals (cheat-sheet note). No code change. **Status: closed.**
 
-### BUG-05 — S3 — Chat attachments are world-readable Blob URLs
+### BUG-05 — S3 — Chat attachments are world-readable Blob URLs — ACCEPTED (known limitation, FUTURE)
 - Where: `src/app/api/chat/upload/route.ts:59` `access: "public"`.
-- Unguessable name + 7-day TTL, but a leaked URL is public for ≤7 days.
-  Pre-existing deliberate tradeoff. Optional hardening: signed URLs.
+- **Decision: accept** as a documented known limitation (unguessable name +
+  7-day auto-delete; only surfaced inside authz'd channels). Hardening
+  (private blobs + short-lived signed URLs) logged as an **IMPROVEMENT_PLAN
+  FUTURE** item. No code change now. **Status: closed (deferred).**
 
 ### Audited clean (no issue)
 `/log` DELETE & `/log/export` (admin-only) · `/chat/cleanup` (admin-only) ·
@@ -432,9 +440,9 @@ accessForStudent/teamLevel for controls — correct).
 4. **BUG-04 / BUG-05** — your call (S3).
 5. lint debt + Prisma 7 — opportunistic (S3/S4).
 
-### Decisions I need from you
-- BUG-02: enforce read-only (exclude team advisor from chat) **or** allow + doc?
-- BUG-04: gate comments to writers **or** accept + doc?
-- BUG-05: leave as-is **or** move to signed URLs later (FUTURE)?
-- Proceed to **Mode B** (Neon branch + guarded test-login route) for the
-  functional/runtime + direct-API negative pass?
+### Status — all Mode A items resolved
+- BUG-01 fixed (S1) · BUG-02 fixed read-only (S2) · BUG-03 fixed, students may
+  channel **only their own supervisors** (S2) · BUG-04 accepted+documented (S3)
+  · BUG-05 accepted, FUTURE hardening logged (S3) · lint/Prisma-7 = S3/S4 debt.
+- Next: **Mode B** (Neon branch + a prod-disabled test-login route) for the
+  runtime + direct-API negative pass — pending your go-ahead.

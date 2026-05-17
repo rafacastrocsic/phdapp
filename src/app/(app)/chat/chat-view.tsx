@@ -322,16 +322,15 @@ export function ChatView({
               </h2>
             )}
             <div className="flex items-center gap-1 ml-auto">
-              {meRole !== "student" && (
-                <NewChannelDialog
-                  students={students}
-                  teamMembers={teamMembers}
-                  onCreated={(c) => {
-                    setChannels((prev) => [c, ...prev]);
-                    setActiveId(c.id);
-                  }}
-                />
-              )}
+              <NewChannelDialog
+                meRole={meRole}
+                students={students}
+                teamMembers={teamMembers}
+                onCreated={(c) => {
+                  setChannels((prev) => [c, ...prev]);
+                  setActiveId(c.id);
+                }}
+              />
               <button
                 type="button"
                 onClick={toggleChannelsCollapsed}
@@ -772,18 +771,21 @@ function channelKindLabel(kind: string) {
 }
 
 function NewChannelDialog({
+  meRole,
   students,
   teamMembers,
   onCreated,
 }: {
+  meRole: string;
   students: { id: string; fullName: string; alias: string | null; color: string }[];
   teamMembers: Member[];
   onCreated: (c: Channel) => void;
 }) {
+  const isStudent = meRole === "student";
   const [open, setOpen] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [kind, setKind] = useState("cosupervisors");
+  const [kind, setKind] = useState(isStudent ? "direct" : "cosupervisors");
   const [memberIds, setMemberIds] = useState<string[]>([]);
 
   async function onSubmit(e: React.FormEvent<HTMLFormElement>) {
@@ -827,27 +829,35 @@ function NewChannelDialog({
           <Field label="Channel name">
             <Input name="name" required placeholder="e.g. Co-sups · Ada Lovelace" />
           </Field>
-          <Field label="Kind">
-            <Select
-              name="kind"
-              value={kind}
-              onChange={(e) => setKind(e.target.value)}
-            >
-              <option value="cosupervisors">Other supervisors</option>
-              <option value="student">With student</option>
-              <option value="general">General</option>
-              <option value="direct">Direct message</option>
-            </Select>
-          </Field>
-          <Field label="Linked student (optional)">
-            <Select name="studentId" defaultValue="">
-              <option value="">None</option>
-              {students.map((s) => (
-                <option key={s.id} value={s.id}>{displayName(s)}</option>
-              ))}
-            </Select>
-          </Field>
-          <Field label="Members">
+          {isStudent ? (
+            // Students may only message their own supervisors; the server
+            // forces the channel onto their own record.
+            <input type="hidden" name="kind" value="direct" />
+          ) : (
+            <>
+              <Field label="Kind">
+                <Select
+                  name="kind"
+                  value={kind}
+                  onChange={(e) => setKind(e.target.value)}
+                >
+                  <option value="cosupervisors">Other supervisors</option>
+                  <option value="student">With student</option>
+                  <option value="general">General</option>
+                  <option value="direct">Direct message</option>
+                </Select>
+              </Field>
+              <Field label="Linked student (optional)">
+                <Select name="studentId" defaultValue="">
+                  <option value="">None</option>
+                  {students.map((s) => (
+                    <option key={s.id} value={s.id}>{displayName(s)}</option>
+                  ))}
+                </Select>
+              </Field>
+            </>
+          )}
+          <Field label={isStudent ? "Your supervisors" : "Members"}>
             <div className="rounded-lg border max-h-40 overflow-y-auto p-2 space-y-1 bg-white">
               {teamMembers.map((m) => (
                 <label

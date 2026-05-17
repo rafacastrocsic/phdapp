@@ -419,7 +419,9 @@ If the deploy fails:
   - Don't commit `.env` to git (it's gitignored, but double-check).
 - **OAuth scopes**: the app requests Calendar + Drive scopes. Users are shown this on sign-in. If you remove or add a scope, existing users must re-consent.
 - **Database access**: Neon connection string in `DATABASE_URL` grants full read/write access. Treat as a top-tier secret. Rotate from the Neon dashboard if leaked.
-- **Vercel Blob URLs are public** (anyone with the URL can read). Don't store anything sensitive there. The long random suffix in URLs makes them effectively unguessable but not private.
+- **Vercel Blob URLs are public** (anyone with the URL can read). Chat attachments use this (unguessable name + 7-day auto-delete) — accepted as a known limitation; "private blobs + signed URLs" is logged in `IMPROVEMENT_PLAN.md` → FUTURE. Don't store anything highly sensitive in chat.
+- **Task comments are visibility-gated, not write-gated** — anyone who can see a student (incl. team/external advisors, committee) can post comments on that student's tasks. Intentional: comments are communication, not task edits. Team advisors still cannot change tasks/events/profile.
+- **Team-advisor hardening (Mode A audit, see `TEST.md` §11)**: `team_advisor` co-rows are excluded from team management (`cosupervisors[/userId]`), from `accessForStudent` writes, and from chat (`channels`/`chat-access`). Re-check `TEST.md` §7 matrix after any access-control change.
 - **Activity log retention**: indefinite. If a user requests deletion of their activity (GDPR / DSAR), you'd need to manually delete their `ActivityLog` rows.
 
 ## References to other files

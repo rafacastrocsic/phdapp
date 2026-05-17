@@ -45,11 +45,38 @@ export default async function ChatPage({
     orderBy: { updatedAt: "desc" },
   });
 
-  const teamMembers = await prisma.user.findMany({
-    where: { role: { in: ["admin", "supervisor", "student"] } },
-    select: { id: true, name: true, image: true, color: true, role: true },
-    orderBy: { name: "asc" },
-  });
+  // Member picker for "New channel". A student may only start a channel with
+  // their own supervisors (primary + co_supervisor) — never advisors,
+  // committee, or other students. Everyone else picks from the full roster.
+  const teamMembers =
+    session.user.role === "student"
+      ? await (async () => {
+          const me = await prisma.student.findFirst({
+            where: { userId: session.user.id },
+            select: {
+              supervisorId: true,
+              coSupervisors: {
+                where: { role: { in: ["supervisor", "co_supervisor"] } },
+                select: { userId: true },
+              },
+            },
+          });
+          const ids = [
+            ...(me?.supervisorId ? [me.supervisorId] : []),
+            ...(me?.coSupervisors.map((c) => c.userId) ?? []),
+          ];
+          if (ids.length === 0) return [];
+          return prisma.user.findMany({
+            where: { id: { in: ids } },
+            select: { id: true, name: true, image: true, color: true, role: true },
+            orderBy: { name: "asc" },
+          });
+        })()
+      : await prisma.user.findMany({
+          where: { role: { in: ["admin", "supervisor", "student"] } },
+          select: { id: true, name: true, image: true, color: true, role: true },
+          orderBy: { name: "asc" },
+        });
 
   const { byChannel: unreadByChannel } = await computeUnreadByChannel(session.user.id);
 

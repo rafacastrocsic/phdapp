@@ -17,55 +17,100 @@ export async function POST(req: Request) {
   if (!session?.user) return NextResponse.json({ error: "unauth" }, { status: 401 });
   const role = session.user.role as Role;
 
-  // Students never create channels (their 1:1 is auto-provisioned). This also
-  // closes the hole where any user could spin up a `general` channel (which
-  // everyone can read/post) or inject arbitrary members.
-  if (role === "student")
-    return NextResponse.json(
-      { error: "Students cannot create channels" },
-      { status: 403 },
-    );
-
   const json = await req.json().catch(() => null);
   const parsed = Body.safeParse(json);
   if (!parsed.success) return NextResponse.json({ error: "bad input" }, { status: 400 });
   const d = parsed.data;
 
-  // A `general` channel is readable/postable by EVERYONE — restrict creation
-  // to real supervisors / admin.
-  if (
-    d.kind === "general" &&
-    !(isAdmin(role) || (await isSupervisingUser(session.user.id, role)))
-  )
-    return NextResponse.json(
-      { error: "Only supervisors or the admin can create a general channel" },
-      { status: 403 },
-    );
+  let requestedMembers: string[] = [];
+  try {
+    const arr = JSON.parse(d.memberIds ?? "[]");
+    if (Array.isArray(arr)) requestedMembers = arr.filter((x) => typeof x === "string");
+  } catch {
+    /* ignore — treat as no members */
+  }
 
-  // If a student is linked, only one of that student's supervisors (NOT a
-  // read-only team advisor), OR the student themselves, can create a channel
-  // about them.
-  if (d.studentId) {
-    const allowed = await prisma.student.findFirst({
-      where: {
-        id: d.studentId,
-        OR: [
-          { supervisorId: session.user.id },
-          {
-            coSupervisors: {
-              some: { userId: session.user.id, role: { not: "team_advisor" } },
-            },
-          },
-          { userId: session.user.id },
-        ],
-      },
-      select: { id: true },
-    });
-    if (!allowed)
+  let effectiveStudentId: string | null = d.studentId || null;
+  let memberIds = requestedMembers;
+
+  if (role === "student") {
+    // A student may only create a channel ABOUT THEMSELVES, and only with
+    // their own supervisors (primary or co_supervisor) — never `general`,
+    // never with team/external/committee advisors, never with other students.
+    if (d.kind === "general")
       return NextResponse.json(
-        { error: "You can only create channels about students you are linked to" },
+        { error: "Students can only message their own supervisors" },
         { status: 403 },
       );
+    const me = await prisma.student.findFirst({
+      where: { userId: session.user.id },
+      select: {
+        id: true,
+        supervisorId: true,
+        coSupervisors: {
+          where: { role: { in: ["supervisor", "co_supervisor"] } },
+          select: { userId: true },
+        },
+      },
+    });
+    if (!me)
+      return NextResponse.json(
+        { error: "No student profile is linked to your account" },
+        { status: 403 },
+      );
+    effectiveStudentId = me.id;
+    const allowed = new Set<string>(
+      [me.supervisorId, ...me.coSupervisors.map((c) => c.userId)].filter(
+        (x): x is string => !!x,
+      ),
+    );
+    const disallowed = requestedMembers.filter((id) => !allowed.has(id));
+    if (disallowed.length > 0)
+      return NextResponse.json(
+        {
+          error:
+            "You can only start a channel with your supervisors — not advisors, committee members, or other students.",
+        },
+        { status: 403 },
+      );
+    memberIds = requestedMembers.filter((id) => allowed.has(id));
+  } else {
+    // Non-students. A `general` channel is readable/postable by EVERYONE —
+    // restrict creation to real supervisors / admin.
+    if (
+      d.kind === "general" &&
+      !(isAdmin(role) || (await isSupervisingUser(session.user.id, role)))
+    )
+      return NextResponse.json(
+        { error: "Only supervisors or the admin can create a general channel" },
+        { status: 403 },
+      );
+
+    // If a student is linked, only one of that student's supervisors (NOT a
+    // read-only team advisor), OR the student themselves, can create a
+    // channel about them.
+    if (effectiveStudentId) {
+      const allowed = await prisma.student.findFirst({
+        where: {
+          id: effectiveStudentId,
+          OR: [
+            { supervisorId: session.user.id },
+            {
+              coSupervisors: {
+                some: { userId: session.user.id, role: { not: "team_advisor" } },
+              },
+            },
+            { userId: session.user.id },
+          ],
+        },
+        select: { id: true },
+      });
+      if (!allowed)
+        return NextResponse.json(
+          { error: "You can only create channels about students you are linked to" },
+          { status: 403 },
+        );
+    }
   }
 
   const colorByKind: Record<string, string> = {
@@ -75,7 +120,6 @@ export async function POST(req: Request) {
     general: "#ffcc4d",
   };
 
-  const memberIds: string[] = JSON.parse(d.memberIds ?? "[]");
   const allMemberIds = Array.from(new Set([session.user.id, ...memberIds]));
 
   const channel = await prisma.channel.create({
@@ -83,7 +127,7 @@ export async function POST(req: Request) {
       name: d.name,
       kind: d.kind,
       color: colorByKind[d.kind] ?? "#6f4cff",
-      studentId: d.studentId || null,
+      studentId: effectiveStudentId,
       members: {
         create: allMemberIds.map((id) => ({ userId: id })),
       },

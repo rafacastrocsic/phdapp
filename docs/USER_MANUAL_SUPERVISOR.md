@@ -320,6 +320,10 @@ _"Team advisor" is per-student — the ticks below apply only to the students th
 | See the student's activity (profile / modules) | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
 | Send suggestions to the supervisors | – | – | – | – | ✓ | ✓ |
 
+_**Task comments** are communication, not a task edit: anyone who can **see** a student (incl. team advisors, external advisors and committee members) can post comments on that student's tasks. The "read-only" limit on team advisors refers to changing data (tasks/events/profile), which they still cannot do._
+
+_**Chat:** students can start a chat channel only with their **own supervisors** (primary + co-supervisors) — never with team/external advisors, committee members, or other students. Team advisors get **no** chat access unless a supervisor explicitly adds them to a specific channel._
+
 ## Tips
 
 - **Set due dates** even on rough drafts — that's what populates the calendar.
