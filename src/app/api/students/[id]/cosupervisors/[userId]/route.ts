@@ -24,7 +24,17 @@ export async function DELETE(
             id,
             OR: [
               { supervisorId: session.user.id },
-              { coSupervisors: { some: { userId: session.user.id } } },
+              // team_advisor links are READ-ONLY and must NOT confer the
+              // right to manage this student's team (mirrors loadOwned in
+              // ../route.ts — this sibling route was missed in that fix).
+              {
+                coSupervisors: {
+                  some: {
+                    userId: session.user.id,
+                    role: { not: "team_advisor" },
+                  },
+                },
+              },
             ],
           },
     select: { id: true, supervisorId: true },
@@ -109,7 +119,14 @@ export async function PATCH(
             id,
             OR: [
               { supervisorId: session.user.id },
-              { coSupervisors: { some: { userId: session.user.id } } },
+              {
+                coSupervisors: {
+                  some: {
+                    userId: session.user.id,
+                    role: { not: "team_advisor" },
+                  },
+                },
+              },
             ],
           },
     select: { id: true, supervisorId: true },

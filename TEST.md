@@ -352,3 +352,90 @@ bug-yield-per-effort. Mode C only for final UAT.
 
 Tell me: (1) is `.env` `DATABASE_URL` prod? (2) which mode(s) to proceed with?
 For Mode A just say "go" and I'll start the audit.
+
+---
+
+## 11. Mode A findings — static + authz audit (2026-05-17)
+
+### Static
+- `tsc --noEmit`: **clean** ✓
+- `prisma validate`: **valid** ✓ · `migrate status`: prod **schema up to date** (20 migrations) ✓
+- `eslint`: **11 errors + 2 warnings**, all `react-hooks/set-state-in-effect` /
+  exhaustive-deps. **Not deploy-blocking** (Next 16 doesn't fail build on these;
+  deploys succeed, tsc clean). S3 code-debt. 3 in this cycle's files
+  (`global-search.tsx:26`, `kanban-board.tsx:876`, `manage-team-dialog.tsx:69`),
+  rest pre-existing. Prisma 6→7 major upgrade available (S4, informational).
+
+### BUG-01 — S1 — Team advisor can hijack a student's team — FIXED
+- Where: `src/app/api/students/[id]/cosupervisors/[userId]/route.ts` DELETE & PATCH
+- The non-admin ownership check used `coSupervisors.some({ userId })` **without**
+  `role != "team_advisor"`. A team advisor (read-only by design) of a student
+  could DELETE that student's supervisors or PATCH-promote **themselves** to
+  primary supervisor (full write). The sibling `../route.ts` `loadOwned` got the
+  exclusion in the per-student rework; this sub-route was missed.
+- Fix: added `role: { not: "team_advisor" }` to both clauses. tsc clean.
+  Status: **fixed (this commit)**.
+
+### BUG-02 — S2 — Team advisor not excluded from a student's private chat — DECISION
+- Where: `channels/[id]/messages/route.ts:15`, `channels/route.ts:30`,
+  `lib/chat-access.ts:15` — all match `coSupervisors.some({ userId })` with no
+  role filter, so a team advisor can **read & post** in the student's 1:1
+  channel and create channels about them.
+- Conflict: supervisor-manual cheat sheet says chat = "–" for team advisor and
+  the role is "read-only".
+- Decision needed: **(a)** exclude `team_advisor` from those three checks
+  (enforce the documented read-only model — recommended), or **(b)** keep it and
+  amend the manual to say advisors participate in chat. Fix is ~3 one-line
+  `role: { not: "team_advisor" }` additions (option a).
+
+### BUG-03 — S2 — Unrestricted channel creation + arbitrary membership
+- Where: `src/app/api/channels/route.ts` POST.
+- With no `studentId`, there is **no role/relationship gate**: any authed user
+  (incl. students) can create a channel with arbitrary `kind` — notably
+  `kind:"general"`, which `channels/[id]/messages` `authorize()` treats as
+  readable/postable by **everyone** — and arbitrary `memberIds` (inject any
+  users). Abuse / integrity vector (not a read-leak of existing private data).
+- Proposed fix: require a supervising user (or admin) to create a channel;
+  validate `kind` against an allowlist (`student|cosupervisors|direct|general`,
+  with `general` admin-only); for non-student-linked channels ignore
+  client-supplied `memberIds` the creator can't legitimately add. Needs a quick
+  check of how the chat UI calls this so we don't break cosupervisor/direct
+  channel creation — flagging before changing.
+
+### BUG-04 — S3 — Advisors/committee/team-advisor can post task comments — DECISION
+- Where: `src/app/api/tickets/[id]/comments/route.ts` POST — gated by
+  *visibility* only (`studentVisibilityWhereAllForAdmin`), not write access.
+- Defensible (comments = communication, not task mutation) but inconsistent with
+  the strict "read-only" wording for team advisor. Decide: accept (note in
+  manual) or gate to writers.
+
+### BUG-05 — S3 — Chat attachments are world-readable Blob URLs
+- Where: `src/app/api/chat/upload/route.ts:59` `access: "public"`.
+- Unguessable name + 7-day TTL, but a leaked URL is public for ≤7 days.
+  Pre-existing deliberate tradeoff. Optional hardening: signed URLs.
+
+### Audited clean (no issue)
+`/log` DELETE & `/log/export` (admin-only) · `/chat/cleanup` (admin-only) ·
+`/availability` + `/availability/[id]` (own-scoped) · `/drive/list` &
+`/calendar/list` (caller's own Google token = Google ACL boundary) ·
+`/students` POST (supervisor/admin) · `/students/[id]/*` (accessForStudent /
+teamLevel; notes POST uses `canWriteSupervisorPrivate`) · `/team/*` (workspace &
+suggestions gated; suggestions = `isTeamAdvisorAnywhere`) · `/search` (visibility
+-scoped) · `/tickets/[id]` (accessForStudent+canWriteForStudent) ·
+`/channels/[id]` PATCH/DELETE (member/admin; DELETE blocks students) · server
+pages `students/[id]` & `review` (spot-checked: visibility for the record,
+accessForStudent/teamLevel for controls — correct).
+
+### Fix order
+1. **BUG-01** — done (S1).
+2. **BUG-03** — restrict channel creation (S2; verify chat UI first).
+3. **BUG-02** — apply option (a) or (b) once you decide (S2).
+4. **BUG-04 / BUG-05** — your call (S3).
+5. lint debt + Prisma 7 — opportunistic (S3/S4).
+
+### Decisions I need from you
+- BUG-02: enforce read-only (exclude team advisor from chat) **or** allow + doc?
+- BUG-04: gate comments to writers **or** accept + doc?
+- BUG-05: leave as-is **or** move to signed URLs later (FUTURE)?
+- Proceed to **Mode B** (Neon branch + guarded test-login route) for the
+  functional/runtime + direct-API negative pass?
