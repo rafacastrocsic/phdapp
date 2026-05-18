@@ -1867,7 +1867,7 @@ function TaskListView({
 
   const COLS = 6;
 
-  function Row({ t }: { t: Ticket }) {
+  function Row({ t, accent }: { t: Ticket; accent?: string }) {
     const due = t.dueDate ? new Date(t.dueDate) : null;
     const overdue = due && isBefore(due, new Date()) && t.status !== "done";
     const checked = selSet.has(t.id);
@@ -1880,7 +1880,15 @@ function TaskListView({
             checked && "bg-violet-50/60",
           )}
         >
-          <td className="px-2 py-2 w-8" onClick={(e) => e.stopPropagation()}>
+          <td
+            className="px-2 py-2 w-8"
+            onClick={(e) => e.stopPropagation()}
+            // Colored left bar ties a row to its group block above;
+            // ungrouped rows get a transparent bar so text stays aligned.
+            style={{
+              borderLeft: `3px solid ${accent ?? "transparent"}`,
+            }}
+          >
             <input
               type="checkbox"
               checked={checked}
@@ -2112,10 +2120,29 @@ function TaskListView({
                         </td>
                       </tr>
                       {tasks.map((t) => (
-                        <Row key={t.id} t={t} />
+                        <Row key={t.id} t={t} accent={group.color} />
                       ))}
                     </Fragment>
                   ))}
+                  {/* Separate standalone tasks from the group blocks above
+                      so the two are visually distinct (only needed when
+                      both groups and individual tasks are present). */}
+                  {groupBlocks.length > 0 && ungrouped.length > 0 && (
+                    <tr className="bg-slate-50/80">
+                      <td colSpan={COLS + 1} className="px-3 py-1.5">
+                        <div className="flex items-center gap-2">
+                          <span className="h-2.5 w-2.5 rounded-sm border border-slate-300 bg-white" />
+                          <span className="text-xs font-bold text-slate-700">
+                            Individual tasks
+                          </span>
+                          <span className="text-[10px] text-slate-400">
+                            · {ungrouped.length} task
+                            {ungrouped.length === 1 ? "" : "s"} not in a group
+                          </span>
+                        </div>
+                      </td>
+                    </tr>
+                  )}
                   {ungrouped.map((t) => (
                     <Row key={t.id} t={t} />
                   ))}

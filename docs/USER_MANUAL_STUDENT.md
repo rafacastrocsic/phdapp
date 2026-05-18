@@ -74,7 +74,7 @@ Toggle between them with the **Board / List / Gantt** switch at the top right.
 
 ### Grouping tasks (List view)
 
-In **List** view each task row has a checkbox. Tick the tasks you want, type a **group name** in the bar that appears, and click **Create group** — they're collected under that group heading. (You can only group tasks that are all yours, which they always are for you.) On a group heading you can **rename** or **disband** it (disbanding just ungroups the tasks, it doesn't delete them); each grouped task has a small **ungroup** link. Groups are purely organisational — they don't change a task's status, due date, etc.
+In **List** view each task row has a checkbox. Tick the tasks you want, type a **group name** in the bar that appears, and click **Create group** — they're collected under that group heading. (You can only group tasks that are all yours, which they always are for you.) On a group heading you can **rename** or **disband** it (disbanding just ungroups the tasks, it doesn't delete them); each grouped task has a small **ungroup** link. Tasks inside a group carry a coloured left bar (the group's colour); any tasks not in a group are listed under an **"Individual tasks"** heading at the bottom, so grouped and standalone tasks are easy to tell apart at a glance. Groups are purely organisational — they don't change a task's status, due date, etc.
 
 A grouped task also shows its group as a small **▦ group-name** chip (in the group's colour) on its **Board** card, so you can see which group a card belongs to without switching to List view.
 
