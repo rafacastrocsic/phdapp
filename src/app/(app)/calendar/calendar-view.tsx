@@ -883,6 +883,8 @@ export function CalendarView({
         event={openEvent}
         open={!!openEvent}
         tasks={tasks}
+        students={students}
+        canAssignStudent={!isStudent}
         onOpenChange={(o) => !o && setOpenEventId(null)}
         onPeekTask={(id) => {
           setOpenEventId(null);
@@ -906,6 +908,8 @@ function EventDetailDialog({
   event,
   open,
   tasks,
+  students,
+  canAssignStudent,
   onOpenChange,
   onPeekTask,
   onDeleted,
@@ -913,6 +917,8 @@ function EventDetailDialog({
   event: Event | null;
   open: boolean;
   tasks: LinkableTask[];
+  students: Student[];
+  canAssignStudent: boolean;
   onOpenChange: (b: boolean) => void;
   onPeekTask: (ticketId: string) => void;
   onDeleted: (id: string) => void;
@@ -994,6 +1000,8 @@ function EventDetailDialog({
           <EventEditForm
             event={event}
             tasks={tasks}
+            students={students}
+            canAssignStudent={canAssignStudent}
             onCancel={() => setEditing(false)}
             onSaved={() => {
               setEditing(false);
@@ -1145,19 +1153,28 @@ function EventDetailDialog({
 function EventEditForm({
   event,
   tasks,
+  students,
+  canAssignStudent,
   onCancel,
   onSaved,
 }: {
   event: Event;
   tasks: LinkableTask[];
+  students: Student[];
+  canAssignStudent: boolean;
   onCancel: () => void;
   onSaved: () => void;
 }) {
   const linkedToGoogle = !!event.googleEventId;
   const [linkedTaskId, setLinkedTaskId] = useState(event.linkedTaskId ?? "");
+  const [studentId, setStudentId] = useState(event.student?.id ?? "");
+  // Task picker follows the chosen student (else any visible task).
+  const taskScopeStudentId = canAssignStudent
+    ? studentId || null
+    : event.student?.id ?? null;
   const taskOptions = (
-    event.student
-      ? tasks.filter((t) => t.studentId === event.student!.id)
+    taskScopeStudentId
+      ? tasks.filter((t) => t.studentId === taskScopeStudentId)
       : tasks
   ).slice();
   // Keep the currently-linked task selectable even if it falls outside the
@@ -1220,6 +1237,7 @@ function EventEditForm({
         meetingUrl: meetingUrl.trim() || null,
         description: description.trim() || null,
         linkedTaskId: linkedTaskId || null,
+        ...(canAssignStudent ? { studentId: studentId || null } : {}),
         pushToGoogle: linkedToGoogle,
       }),
     });
@@ -1239,6 +1257,24 @@ function EventEditForm({
       <Field label="Title">
         <Input value={title} onChange={(e) => setTitle(e.target.value)} />
       </Field>
+      {canAssignStudent && (
+        <Field label="Student">
+          <Select
+            value={studentId}
+            onChange={(e) => {
+              setStudentId(e.target.value);
+              setLinkedTaskId(""); // task list is student-scoped
+            }}
+          >
+            <option value="">No specific student (General calendar)</option>
+            {students.map((s) => (
+              <option key={s.id} value={s.id}>
+                {displayName(s)}
+              </option>
+            ))}
+          </Select>
+        </Field>
+      )}
       <div className="grid grid-cols-3 gap-2">
         <Field label="Date">
           <Input type="date" value={date} onChange={(e) => setDate(e.target.value)} />

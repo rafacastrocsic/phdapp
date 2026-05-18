@@ -8,6 +8,7 @@ import { ProfileEditor } from "@/components/profile-editor";
 import { Shield, Info } from "lucide-react";
 import { AddTeamMember } from "./add-team-member";
 import { MaintenanceTools } from "./maintenance";
+import { GeneralCalendarSetting } from "./general-calendar-setting";
 
 const ROLE_GROUPS = ["admin", "supervisor", "student"] as const;
 const ROLE_LABEL: Record<string, string> = {
@@ -71,6 +72,8 @@ export default async function AdminPage() {
       </div>
 
       <AddTeamMember students={studentOpts} />
+
+      <GeneralCalendarSetting />
 
       <MaintenanceTools />
 

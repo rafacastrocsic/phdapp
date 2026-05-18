@@ -317,6 +317,18 @@ Per-user, per-type preferences (extend the Settings page; a `NotificationPref` m
 
 ---
 
+## 20. General calendar config + event student reassignment  ✅ COMPLETED (2026-05-18, user request)
+
+**What:** (a) admin can define the **General calendar** used for unassigned events and tasks-without-a-student-calendar; (b) an existing event can be **(re)assigned to a student** (or unassigned) from the Edit dialog; (c) cosmetic: student profile says "Tasks" not "Tickets".
+
+**General calendar:** reuses the existing key/value `Setting` table — new key `generalCalendarId`. `getGeneralCalendarId()` (`src/lib/general-calendar.ts`) returns it normalized. Google-push target is now `student.calendarId → generalCalendarId → "primary"` in `POST /api/calendar/events` and `task-event-sync.ts`. Admin-only `GET|PUT /api/admin/general-calendar` + a **General calendar** card on `/admin`. No migration (Setting already exists).
+
+**Event reassignment:** `PATCH /api/calendar/events/[id]` now accepts `studentId` (assign requires `canWriteForStudent` for the new student; unassign is supervisor/admin only). Edit-event dialog gained a **Student** select (non-students only) that also re-scopes the Related-task picker. Local-data change only — doesn't migrate an already-pushed Google event between calendars (documented).
+
+**Scope/risk:** low. No schema/migration (Setting reused). Main care: permission-checking the *new* student on reassign, and not overloading the calendar-target fallback order.
+
+---
+
 ## Recommended sequence
 
 1. **§0** access helper — tiny, unblocks §3/§7/§10.

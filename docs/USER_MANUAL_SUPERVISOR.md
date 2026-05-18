@@ -217,7 +217,9 @@ When creating an event, tick **"This is a 1:1 meeting"**. Opening that event the
 
 ### Editing / deleting
 
-Click an event to open it, then **Edit** to change its details — title, **date**, **start/end time**, **location**, meeting link, description — and **Save changes** (no need to delete and recreate). If the event is linked to Google Calendar, the change is pushed there too. **Delete** removes the in-app record (and the Google Calendar event, if you choose the "+ Google" option).
+Click an event to open it, then **Edit** to change its details — title, **student**, **date**, **start/end time**, **location**, meeting link, description — and **Save changes** (no need to delete and recreate). The **Student** field lets you (re)assign an event to a student or set it back to *No specific student* — handy for an event created in the general calendar that you later want tied to a particular student (you can only assign to students you supervise; making an event unassigned is supervisor/admin only). If the event is linked to Google Calendar, the change is pushed there too. **Delete** removes the in-app record (and the Google Calendar event, if you choose the "+ Google" option).
+
+> Unassigned ("No specific student") events — and tasks whose student has no shared calendar — are pushed to a **General calendar** the admin configures (see the admin manual). If the admin hasn't set one, they fall back to the event creator's own primary Google Calendar. Reassigning an existing event's student here changes it locally; it does not move an already-pushed Google Calendar event between calendars.
 
 Event times are stored and shown in the **viewer's timezone**, so the start/end you set is what you see (and Google Calendar gets the correct instant). Note: events created before this fix may display a start/end shifted by your UTC offset the first time they're opened — re-saving the correct time once permanently corrects that event (older events are not auto-migrated).
 

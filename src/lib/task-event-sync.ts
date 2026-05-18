@@ -1,6 +1,7 @@
 import { prisma } from "./prisma";
 import { calendarForUser } from "./google";
 import { parseSubtasks } from "./subtasks";
+import { getGeneralCalendarId } from "./general-calendar";
 
 const TITLE_PREFIX = "[Task]_";
 const SUBTASK_PREFIX = "[Sub-task]_";
@@ -70,7 +71,9 @@ export async function syncTaskDueEvent(
   const dueDate = task.dueDate;
   const cal = await calendarForUser(ownerUserId);
   const targetCalendarId =
-    normalizeCalendarId(task.student?.calendarId) ?? "primary";
+    normalizeCalendarId(task.student?.calendarId) ??
+    (await getGeneralCalendarId()) ??
+    "primary";
 
   if (!task.dueEvent) {
     // Case 2: no event yet → create both.

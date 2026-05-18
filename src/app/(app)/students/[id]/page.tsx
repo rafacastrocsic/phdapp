@@ -252,7 +252,7 @@ export default async function StudentDetail({
               <Link href={`/kanban?student=${student.id}`}>
                 <Button variant="brand" size="sm">
                   <KanbanSquare className="h-4 w-4" />
-                  Tickets
+                  Tasks
                 </Button>
               </Link>
               <Link href={`/calendar?student=${student.id}`}>
@@ -392,7 +392,7 @@ export default async function StudentDetail({
           <CardContent className="p-0">
             {student.tickets.length === 0 ? (
               <div className="p-8 text-center text-sm text-slate-500">
-                No tickets yet for this student.
+                No tasks yet for this student.
               </div>
             ) : (
               <ul className="divide-y">

@@ -4,6 +4,7 @@ import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
 import { calendarForUser } from "@/lib/google";
 import { normalizeCalendarId } from "@/lib/calendar-id";
+import { getGeneralCalendarId } from "@/lib/general-calendar";
 import {
   accessForStudent,
   canWriteForStudent,
@@ -107,7 +108,12 @@ export async function POST(req: Request) {
       googleWarning =
         "Google account not linked — event saved locally only. Sign out and back in to reconnect Google.";
     } else {
-      const targetCalendarId = normalizeCalendarId(student?.calendarId) || "primary";
+      // Assigned → that student's shared calendar; unassigned → the
+      // admin-configured General calendar; else the creator's primary.
+      const targetCalendarId =
+        normalizeCalendarId(student?.calendarId) ||
+        (await getGeneralCalendarId()) ||
+        "primary";
       const requestBody = {
         summary: d.title,
         description: d.description ?? undefined,

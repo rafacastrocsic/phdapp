@@ -7,6 +7,7 @@ import {
   accessForStudent,
   canWriteForStudent,
   studentVisibilityWhereAllForAdmin,
+  isAdmin,
   type Role,
 } from "@/lib/access";
 import { logActivity } from "@/lib/activity-log";
@@ -47,6 +48,8 @@ const Patch = z.object({
   pushToGoogle: z.boolean().optional(),
   // Manual task link: a task id to link, or null to unlink.
   linkedTaskId: z.string().nullable().optional(),
+  // Re-assign the event to a student (or null = unassigned/general).
+  studentId: z.string().nullable().optional(),
 });
 
 export async function PATCH(
@@ -103,6 +106,32 @@ export async function PATCH(
         );
     }
     data.linkedTaskId = linkedTaskId;
+  }
+
+  // Re-assign the event to a student (or unassign → General calendar).
+  if (d.studentId !== undefined) {
+    const newStudentId = d.studentId || null;
+    if (newStudentId) {
+      const access = await accessForStudent(
+        newStudentId,
+        session.user.id,
+        session.user.role as Role,
+      );
+      if (!canWriteForStudent(access))
+        return NextResponse.json(
+          { error: "You can only assign events to your own students" },
+          { status: 403 },
+        );
+    } else if (
+      session.user.role !== "supervisor" &&
+      !isAdmin(session.user.role)
+    ) {
+      return NextResponse.json(
+        { error: "Only supervisors can make an event unassigned" },
+        { status: 403 },
+      );
+    }
+    data.studentId = newStudentId;
   }
 
   // Prefer client-computed ISO instants (timezone-correct). Otherwise fall
