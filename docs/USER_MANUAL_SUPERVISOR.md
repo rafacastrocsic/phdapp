@@ -101,7 +101,7 @@ The **Tasks** module is the heart of the app. Tasks are work items you assign to
 
 - **Board** — Kanban columns from Backlog → To do → In progress → Review → Blocked → Done. Drag cards to change status.
 - **List** — table per student showing the full **Group → Task → Subtask** hierarchy (subtasks listed under each task), with status, priority, category, assignee, due date.
-- **Gantt** — a timeline grouped by student. Each task is a bar running from its creation date to its due date, coloured by status (dimmed when Done, red outline when overdue), with a dashed "today" line and weekly gridlines. A ⛓ icon marks tasks with dependencies. Click any bar or label to open the task.
+- **Gantt** — a timeline grouped by student. Each task is a bar running from its creation date to its due date, coloured by status (dimmed when Done, red outline when overdue), with a dashed "today" line and weekly gridlines. Within each student, tasks are ordered by dependency — a parent first, then the tasks depending on it **indented beneath** it (↳ marker) — so a dependency chain reads top-to-bottom. A ⛓ icon marks tasks with dependencies. Click any bar or label to open the task.
 
 Toggle with **Board / List / Gantt** at the top right.
 

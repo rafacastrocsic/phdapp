@@ -26,8 +26,59 @@ function endOf(t: Ticket): number {
 }
 
 /**
+ * Order a student's tasks so parents come first and each dependent task
+ * is listed (indented) under the parent it depends on — a depth-first
+ * walk of the dependency DAG. Multi-parent tasks appear once, under the
+ * first parent that reaches them. Cycles / orphan deps fall back to the
+ * end as un-indented rows. Siblings are ordered by start date.
+ */
+function orderByDependency(
+  list: Ticket[],
+): { ticket: Ticket; depth: number }[] {
+  const ids = new Set(list.map((t) => t.id));
+  const byId = new Map(list.map((t) => [t.id, t]));
+  const parentsOf = new Map<string, string[]>();
+  const childrenOf = new Map<string, string[]>();
+  for (const t of list) {
+    const ps = (t.dependsOnIds ?? []).filter(
+      (p) => p !== t.id && ids.has(p),
+    );
+    parentsOf.set(t.id, ps);
+    for (const p of ps) {
+      const arr = childrenOf.get(p) ?? [];
+      arr.push(t.id);
+      childrenOf.set(p, arr);
+    }
+  }
+  const byStart = (a: string, b: string) => {
+    const ta = byId.get(a)!;
+    const tb = byId.get(b)!;
+    return startOf(ta) - startOf(tb) || ta.title.localeCompare(tb.title);
+  };
+  const out: { ticket: Ticket; depth: number }[] = [];
+  const seen = new Set<string>();
+  const visit = (id: string, depth: number) => {
+    if (seen.has(id)) return;
+    seen.add(id);
+    out.push({ ticket: byId.get(id)!, depth });
+    for (const k of (childrenOf.get(id) ?? []).slice().sort(byStart))
+      visit(k, depth + 1);
+  };
+  const roots = list
+    .filter((t) => (parentsOf.get(t.id) ?? []).length === 0)
+    .map((t) => t.id)
+    .sort(byStart);
+  for (const r of roots) visit(r, 0);
+  // Anything left (dependency cycle, or deps only on filtered-out tasks).
+  for (const t of [...list].map((x) => x.id).sort(byStart))
+    if (!seen.has(t)) visit(t, 0);
+  return out;
+}
+
+/**
  * Lightweight dependency-aware Gantt: one row per task (start = created,
- * end = due date), grouped by student, with a "today" line. No external
+ * end = due date), grouped by student, with a "today" line. Tasks are
+ * ordered so dependents sit indented under their parent. No external
  * lib — a positioned-bar timeline. Click a bar to open the task.
  */
 export function GanttView({
@@ -77,9 +128,9 @@ export function GanttView({
     return students
       .map((s) => ({
         student: s,
-        tickets: (m[s.id] ?? []).sort((a, b) => startOf(a) - startOf(b)),
+        rows: orderByDependency(m[s.id] ?? []),
       }))
-      .filter((g) => g.tickets.length > 0);
+      .filter((g) => g.rows.length > 0);
   }, [tickets, students]);
 
   const titleById = useMemo(() => {
@@ -141,7 +192,7 @@ export function GanttView({
               )}
             </div>
             <ul>
-              {g.tickets.map((t) => {
+              {g.rows.map(({ ticket: t, depth }) => {
                 const s = startOf(t);
                 const e = endOf(t);
                 const left = ((s - range.min) / range.span) * 100;
@@ -164,10 +215,20 @@ export function GanttView({
                     <button
                       type="button"
                       onClick={() => onOpen(t.id)}
-                      className="shrink-0 truncate px-3 py-2 text-left text-sm text-slate-800"
-                      style={{ width: LABEL_W }}
-                      title={t.title}
+                      className="shrink-0 truncate py-2 pr-3 text-left text-sm text-slate-800"
+                      style={{
+                        width: LABEL_W,
+                        paddingLeft: `${0.75 + depth * 1.1}rem`,
+                      }}
+                      title={
+                        depth > 0 && deps.length > 0
+                          ? `${t.title} — depends on: ${deps.join(", ")}`
+                          : t.title
+                      }
                     >
+                      {depth > 0 && (
+                        <span className="mr-1 text-slate-300">↳</span>
+                      )}
                       {deps.length > 0 && (
                         <span
                           className="mr-1 text-slate-400"
