@@ -151,7 +151,7 @@ You usually don't need to — your supervisor schedules things. But if you want 
 
 If the event has a Google Calendar push enabled, it lands on your supervisor's shared calendar too. The **Repeats** option makes an event recur (daily/weekly/monthly until a date) — handy for a standing weekly slot. The **Related task (optional)** picker lets you connect the event to one of your tasks (e.g. a work session or meeting about that task); it doesn't change the task's own deadline.
 
-To change an event afterwards, click it → **Edit**, adjust the date, time, location, link or description, then **Save changes** (you don't need to delete and recreate it).
+To change an event afterwards, click it → **Edit**, adjust the date, time, location, link or description, then **Save changes** (you don't need to delete and recreate it). Event times are saved in **your** timezone, so the time you pick is the time you'll see. (One-off note: an event created before this was fixed may show a shifted start/end the first time you open it — just set it to the correct time once and save; it stays correct after that.)
 
 ## Chat
 

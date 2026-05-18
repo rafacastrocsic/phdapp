@@ -218,6 +218,8 @@ When creating an event, tick **"This is a 1:1 meeting"**. Opening that event the
 
 Click an event to open it, then **Edit** to change its details — title, **date**, **start/end time**, **location**, meeting link, description — and **Save changes** (no need to delete and recreate). If the event is linked to Google Calendar, the change is pushed there too. **Delete** removes the in-app record (and the Google Calendar event, if you choose the "+ Google" option).
 
+Event times are stored and shown in the **viewer's timezone**, so the start/end you set is what you see (and Google Calendar gets the correct instant). Note: events created before this fix may display a start/end shifted by your UTC offset the first time they're opened — re-saving the correct time once permanently corrects that event (older events are not auto-migrated).
+
 ### Sharing the calendar with the team
 
 When you add someone to a supervision team, the system tries to share the student's Google Calendar with them automatically (if you're signed in with Google). If sharing fails or someone joined the team late, open the student's profile → **Sync calendar** to refresh the access list.
