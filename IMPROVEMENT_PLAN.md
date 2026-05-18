@@ -261,6 +261,22 @@ Per-user, per-type preferences (extend the Settings page; a `NotificationPref` m
 
 ---
 
+## 16. Task dependencies + Gantt view  ✅ COMPLETED (2026-05-18, user request)
+
+**What:** when defining or editing a task you can mark it as depending on one or more existing tasks ("parent" tasks). A task with any unfinished parent is auto-moved to **Blocked**; once *all* parents are **Done** it auto-moves to **To do** (and re-blocks if a parent is reopened). Plus a third Tasks view — a **Gantt** timeline — alongside Board and List.
+
+**Data model (new):** explicit join model `TaskDependency` (`id`, `dependentId`, `dependsOnId`, `@@unique([dependentId, dependsOnId])`, `@@index([dependsOnId])`, both FKs → `Ticket` with `onDelete: Cascade`). Ticket gains self-relations `dependsOn TaskDependency[] @relation("Dependent")` and `dependents TaskDependency[] @relation("DependsOn")`. Hand-written additive migration `20260518100556_task_dependencies` (offline pattern — `prisma migrate diff` needs a live DB; applied on Vercel deploy).
+
+**Engine:** `src/lib/task-deps.ts` — `wouldCreateCycle()` (DFS over dependsOn edges, rejects self + loops), `setDependencies()` (validates same-student + no cycle, then replaces the set), `applyDependencyGate()` (no deps / already Done → no-op; any parent ≠ done → force `blocked`; all parents done & currently `blocked` → `todo`), `propagateFrom()` (re-gates direct dependents on a status change + logs `ticket.update`). The gate **only** manages tasks that have dependencies and never overrides `done` — manual statuses on undependent tasks are untouched.
+
+**API:** `tickets` POST and `tickets/[id]` PATCH accept `dependsOnIds: string[]`. POST runs setDependencies + gate after create and **rolls back the just-created row** on a bad dependency (cycle/cross-student) → 400. PATCH validates **before** the ticket mutation (no partial write), then re-gates self + propagates to dependents after. `/api/tickets/list` and the kanban page include `dependsOn {dependsOnId}` → `dependsOnIds[]` (+ `createdAt`) on the shared client `Ticket`.
+
+**UI:** reusable `DependencyPicker` (scrollable checkbox list of same-student tasks, excludes self, shows status badge) in the New- and Edit-task dialogs. New **Gantt** view (`src/app/(app)/kanban/gantt-view.tsx`) — deliberately **no external Gantt library**: a CSS positioned-bar timeline grouped by student, weekly gridlines, dashed "today" line, status-coloured bars (dimmed when Done, red outline when overdue), ⛓ marker for tasks with dependencies; click a bar/label to open the task. Wired as the third tab in the kanban view switcher (`board | list | gantt`).
+
+**Scope/risk:** medium. Migration additive/low-risk. Main care: cycle/cross-student rejection and ordering writes so a bad dependency never half-applies. The auto Blocked↔To do transitions are documented in all three manuals (don't drag a gated task out of Blocked by hand — finish its parents).
+
+---
+
 ## Recommended sequence
 
 1. **§0** access helper — tiny, unblocks §3/§7/§10.

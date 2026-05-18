@@ -63,16 +63,27 @@ Click any card to drill in.
 
 The **Tasks** module (orange icon, sidebar) is where most of the day-to-day work lives.
 
-### Two views
+### Three views
 
 - **Board** (default) — Kanban columns from "Backlog" to "Done". Drag cards left/right to change their status.
 - **List** — your tasks as a table, showing the full **Group → Task → Subtask** hierarchy: subtasks are listed under each task, and tasks can be organised into named **Groups**.
+- **Gantt** — a timeline. Each task is a bar running from when it was created to its due date, grouped by student, with a dashed "today" line and weekly gridlines. A ⛓ icon marks tasks that depend on other tasks. Click any bar (or its label) to open the task.
 
-Toggle between the two with the **Board / List** switch at the top right.
+Toggle between them with the **Board / List / Gantt** switch at the top right.
 
 ### Grouping tasks (List view)
 
 In **List** view each task row has a checkbox. Tick the tasks you want, type a **group name** in the bar that appears, and click **Create group** — they're collected under that group heading. (You can only group tasks that are all yours, which they always are for you.) On a group heading you can **rename** or **disband** it (disbanding just ungroups the tasks, it doesn't delete them); each grouped task has a small **ungroup** link. Groups are purely organisational — they don't change a task's status, due date, etc.
+
+### Task dependencies
+
+When you create or edit a task you can say it **depends on** one or more existing tasks (the "parent" tasks) — use the **Depends on** picker in the new-task and edit-task dialogs. Only tasks belonging to the same student are selectable, and you can't create a loop (A depends on B depends on A).
+
+- As soon as a task has at least one unfinished parent it is automatically moved to **Blocked**.
+- When **every** parent is set to **Done**, the task automatically moves back to **To do**.
+- If a parent is later re-opened, its blocked children become **Blocked** again.
+
+Tasks with dependencies show a ⛓ icon (with the parent list on hover) in the **List** and **Gantt** views.
 
 ### What's on a task
 

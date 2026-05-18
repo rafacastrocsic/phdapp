@@ -35,6 +35,7 @@ import {
 } from "@/lib/kanban-constants";
 import { cn, relativeTime, displayName } from "@/lib/utils";
 import { subtaskDueViolation } from "@/lib/subtasks";
+import { GanttView } from "./gantt-view";
 
 export interface Ticket {
   id: string;
@@ -59,6 +60,8 @@ export interface Ticket {
   subtasks: Subtask[];
   completionRequestedAt?: string | null;
   group?: { id: string; name: string; color: string } | null;
+  dependsOnIds?: string[];
+  createdAt?: string;
   updatedAt: string;
 }
 
@@ -145,7 +148,7 @@ export function KanbanBoard({
   const [newOpen, setNewOpen] = useState(autoOpenNew);
   const [draggingId, setDraggingId] = useState<string | null>(null);
   const [hoverStatus, setHoverStatus] = useState<string | null>(null);
-  const [view, setView] = useState<"board" | "list">("board");
+  const [view, setView] = useState<"board" | "list" | "gantt">("board");
   const [recentlyDeleted, setRecentlyDeleted] =
     useState<Ticket[]>(initialDeleted);
   const [undo, setUndo] = useState<Ticket | null>(null);
@@ -297,7 +300,7 @@ export function KanbanBoard({
           </div>
           <div className="flex items-center gap-2 shrink-0">
             <div className="flex rounded-lg border bg-slate-50 p-0.5">
-              {(["board", "list"] as const).map((v) => (
+              {(["board", "list", "gantt"] as const).map((v) => (
                 <button
                   key={v}
                   type="button"
@@ -375,6 +378,12 @@ export function KanbanBoard({
           students={students}
           onOpen={(id) => setOpenId(id)}
           onMutated={refetchTickets}
+        />
+      ) : view === "gantt" ? (
+        <GanttView
+          tickets={filtered}
+          students={students}
+          onOpen={(id) => setOpenId(id)}
         />
       ) : (
       <div className="flex-1 min-w-0 overflow-x-auto">
@@ -487,6 +496,7 @@ export function KanbanBoard({
         open={newOpen}
         onOpenChange={setNewOpen}
         students={students}
+        tickets={tickets}
         teamMembers={teamMembers}
         assigneeOptions={assigneeOptions}
         defaultStudentId={
@@ -507,6 +517,7 @@ export function KanbanBoard({
         ticket={openTicket}
         open={!!openTicket}
         isStudent={isStudent}
+        allTickets={tickets}
         onOpenChange={(o) => !o && setOpenId(null)}
         students={students}
         teamMembers={assigneeOptions}
@@ -753,6 +764,7 @@ function NewTicketDialog({
   open,
   onOpenChange,
   students,
+  tickets,
   teamMembers,
   assigneeOptions,
   defaultStudentId,
@@ -763,6 +775,7 @@ function NewTicketDialog({
   open: boolean;
   onOpenChange: (b: boolean) => void;
   students: Props["students"];
+  tickets: Ticket[];
   teamMembers: Member[];
   assigneeOptions: Member[];
   defaultStudentId: string | null;
@@ -774,6 +787,9 @@ function NewTicketDialog({
   const [error, setError] = useState<string | null>(null);
   const [category, setCategory] = useState<string>("research");
   const [customCategory, setCustomCategory] = useState<string>("");
+  const [studentId, setStudentId] = useState<string>(defaultStudentId ?? "");
+  const [deps, setDeps] = useState<string[]>([]);
+  const effStudentId = isStudent ? defaultStudentId : studentId || null;
 
   // Use teamMembers var to satisfy unused-var when we don't render the full list
   void teamMembers;
@@ -795,7 +811,7 @@ function NewTicketDialog({
     const res = await fetch("/api/tickets", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(payload),
+      body: JSON.stringify({ ...payload, dependsOnIds: deps }),
     });
     setSubmitting(false);
     if (!res.ok) {
@@ -823,7 +839,15 @@ function NewTicketDialog({
           {!isStudent ? (
             <div className="grid grid-cols-2 gap-3">
               <Field label="Student">
-                <Select name="studentId" defaultValue={defaultStudentId ?? ""} required>
+                <Select
+                  name="studentId"
+                  value={studentId}
+                  onChange={(e) => {
+                    setStudentId(e.target.value);
+                    setDeps([]);
+                  }}
+                  required
+                >
                   <option value="" disabled>Select…</option>
                   {students.map((s) => (
                     <option key={s.id} value={s.id}>{displayName(s)}</option>
@@ -890,6 +914,14 @@ function NewTicketDialog({
           <Field label="Drive folder URL (optional)">
             <Input name="driveFolderUrl" placeholder="https://drive.google.com/…" />
           </Field>
+          <Field label="Depends on (optional)">
+            <DependencyPicker
+              tickets={tickets}
+              studentId={effStudentId}
+              value={deps}
+              onChange={setDeps}
+            />
+          </Field>
           {error && (
             <div className="text-sm text-[var(--c-red)] bg-red-50 rounded-lg p-3">{error}</div>
           )}
@@ -909,6 +941,7 @@ function TicketDetailDialog({
   ticket,
   open,
   isStudent,
+  allTickets,
   onOpenChange,
   teamMembers,
   onChange,
@@ -917,6 +950,7 @@ function TicketDetailDialog({
   ticket: Ticket | null;
   open: boolean;
   isStudent: boolean;
+  allTickets: Ticket[];
   onOpenChange: (b: boolean) => void;
   students: Props["students"];
   teamMembers: Member[];
@@ -937,7 +971,7 @@ function TicketDetailDialog({
   }, [ticket?.id, ticket?.category]);
   // Debounce timer for text fields so we save changes without one PATCH per keystroke.
   const debounceTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
-  function debouncedSave(patch: Partial<Ticket> & { dueDate?: string | null; requestCompletion?: boolean }) {
+  function debouncedSave(patch: Partial<Ticket> & { dueDate?: string | null; requestCompletion?: boolean; dependsOnIds?: string[] }) {
     if (debounceTimer.current) clearTimeout(debounceTimer.current);
     debounceTimer.current = setTimeout(() => {
       // ticket may have been closed/changed in the meantime; check before calling
@@ -946,7 +980,7 @@ function TicketDetailDialog({
   }
   if (!ticket) return null;
 
-  async function update(patch: Partial<Ticket> & { dueDate?: string | null; requestCompletion?: boolean }) {
+  async function update(patch: Partial<Ticket> & { dueDate?: string | null; requestCompletion?: boolean; dependsOnIds?: string[] }) {
     if (!ticket) return;
     // A sub-task deadline can't fall after the task's own deadline. Validate
     // the effective state before sending so the user gets an immediate error
@@ -1169,6 +1203,16 @@ function TicketDetailDialog({
             onChange={(next) => update({ subtasks: next } as Partial<Ticket>)}
           />
 
+          <Field label="Depends on">
+            <DependencyPicker
+              tickets={allTickets}
+              studentId={ticket.student.id}
+              selfId={ticket.id}
+              value={ticket.dependsOnIds ?? []}
+              onChange={(next) => update({ dependsOnIds: next })}
+            />
+          </Field>
+
           <Comments ticketId={ticket.id} initialCount={ticket.commentCount} />
 
           <TicketHistory ticketId={ticket.id} />
@@ -1382,6 +1426,68 @@ function parseChangedKeys(details: string | null): string[] {
     // ignore
   }
   return [];
+}
+
+function DependencyPicker({
+  tickets,
+  studentId,
+  selfId,
+  value,
+  onChange,
+}: {
+  tickets: Ticket[];
+  studentId: string | null;
+  selfId?: string;
+  value: string[];
+  onChange: (next: string[]) => void;
+}) {
+  const candidates = tickets.filter(
+    (t) => t.student.id === studentId && t.id !== selfId,
+  );
+  function toggle(id: string) {
+    onChange(
+      value.includes(id) ? value.filter((x) => x !== id) : [...value, id],
+    );
+  }
+  if (!studentId) {
+    return (
+      <p className="text-xs text-slate-400">Pick a student first.</p>
+    );
+  }
+  if (candidates.length === 0) {
+    return (
+      <p className="text-xs text-slate-400">
+        No other tasks for this student yet.
+      </p>
+    );
+  }
+  return (
+    <div>
+      <div className="max-h-40 overflow-auto rounded-lg border bg-white divide-y">
+        {candidates.map((t) => (
+          <label
+            key={t.id}
+            className="flex items-center gap-2 px-2 py-1.5 text-sm cursor-pointer hover:bg-slate-50"
+          >
+            <input
+              type="checkbox"
+              checked={value.includes(t.id)}
+              onChange={() => toggle(t.id)}
+              className="h-4 w-4 rounded border-slate-300"
+            />
+            <span className="truncate flex-1">{t.title}</span>
+            <Badge color={statusColor(t.status)}>
+              {STATUSES.find((s) => s.id === t.status)?.label ?? t.status}
+            </Badge>
+          </label>
+        ))}
+      </div>
+      <p className="mt-1 text-[11px] text-slate-400">
+        The task stays <b>Blocked</b> until every selected task is{" "}
+        <b>Done</b>, then it auto-moves to <b>To do</b>.
+      </p>
+    </div>
+  );
 }
 
 function Field({

@@ -4,6 +4,7 @@ import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
 import { accessForStudent, canWriteForStudent, type Role } from "@/lib/access";
 import { logActivity } from "@/lib/activity-log";
+import { setDependencies, applyDependencyGate } from "@/lib/task-deps";
 
 const Body = z.object({
   title: z.string().min(1),
@@ -15,6 +16,7 @@ const Body = z.object({
   category: z.string().default("research"),
   dueDate: z.string().optional().nullable(),
   driveFolderUrl: z.string().optional().nullable(),
+  dependsOnIds: z.array(z.string()).optional(),
 });
 
 export async function POST(req: Request) {
@@ -67,6 +69,21 @@ export async function POST(req: Request) {
     },
   });
 
+  let effStatus = created.status;
+  if (d.dependsOnIds && d.dependsOnIds.length > 0) {
+    const depErr = await setDependencies(
+      created.id,
+      d.studentId,
+      d.dependsOnIds,
+    );
+    if (depErr) {
+      await prisma.ticket.delete({ where: { id: created.id } }).catch(() => {});
+      return NextResponse.json({ error: depErr }, { status: 400 });
+    }
+    const gate = await applyDependencyGate(created.id);
+    if (gate) effStatus = gate;
+  }
+
   if (created.dueDate) {
     const { syncTaskDueEvent } = await import("@/lib/task-event-sync");
     await syncTaskDueEvent(created.id, session.user.id).catch((err) =>
@@ -99,7 +116,7 @@ export async function POST(req: Request) {
       id: created.id,
       title: created.title,
       description: created.description,
-      status: created.status,
+      status: effStatus,
       priority: created.priority,
       category: created.category,
       dueDate: created.dueDate?.toISOString() ?? null,
@@ -111,6 +128,7 @@ export async function POST(req: Request) {
       student: created.student,
       tags: created.tags,
       subtasks: [] as { id: string; text: string; done: boolean }[],
+      dependsOnIds: d.dependsOnIds ?? [],
       updatedAt: created.updatedAt.toISOString(),
     },
   });

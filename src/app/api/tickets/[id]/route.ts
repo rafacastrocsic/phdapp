@@ -29,6 +29,8 @@ const Patch = z.object({
   requestCompletion: z.boolean().optional(),
   // null = remove from its group.
   groupId: z.string().nullable().optional(),
+  // Replace this task's dependency set (parent task ids).
+  dependsOnIds: z.array(z.string()).optional(),
 });
 
 async function load(id: string, userId: string, role: Role) {
@@ -131,6 +133,14 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
   if (violation)
     return NextResponse.json({ error: violation }, { status: 400 });
 
+  // Dependencies: validate + replace BEFORE mutating the ticket so a bad
+  // dependency (cycle / cross-student) aborts cleanly with no partial write.
+  if (d.dependsOnIds !== undefined) {
+    const { setDependencies } = await import("@/lib/task-deps");
+    const depErr = await setDependencies(id, t.studentId, d.dependsOnIds);
+    if (depErr) return NextResponse.json({ error: depErr }, { status: 400 });
+  }
+
   const data: Record<string, unknown> = {};
   if (d.title !== undefined) data.title = d.title;
   if (d.description !== undefined) data.description = d.description;
@@ -154,6 +164,21 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
   if (requestedCompletion) data.completionRequestedAt = new Date();
 
   await prisma.ticket.update({ where: { id }, data });
+
+  // Dependency gating: re-gate this task (deps changed → maybe block/unblock)
+  // and, if its status changed, cascade to its dependents (a parent going
+  // Done unblocks them → To do; reopening re-blocks them).
+  if (d.dependsOnIds !== undefined || d.status !== undefined) {
+    const { applyDependencyGate, propagateFrom } = await import(
+      "@/lib/task-deps"
+    );
+    if (d.dependsOnIds !== undefined)
+      await applyDependencyGate(id).catch(() => {});
+    if (d.status !== undefined)
+      await propagateFrom(id, session.user.id, session.user.role).catch(
+        () => {},
+      );
+  }
 
   // If due date or title/description changed, keep the linked calendar event
   // in sync (creates / updates / deletes as appropriate).

@@ -97,12 +97,23 @@ To remove someone, click the **X** on their row. To promote a co-supervisor to p
 
 The **Tasks** module is the heart of the app. Tasks are work items you assign to (or co-track with) a student.
 
-### Two views
+### Three views
 
 - **Board** — Kanban columns from Backlog → To do → In progress → Review → Blocked → Done. Drag cards to change status.
 - **List** — table per student showing the full **Group → Task → Subtask** hierarchy (subtasks listed under each task), with status, priority, category, assignee, due date.
+- **Gantt** — a timeline grouped by student. Each task is a bar running from its creation date to its due date, coloured by status (dimmed when Done, red outline when overdue), with a dashed "today" line and weekly gridlines. A ⛓ icon marks tasks with dependencies. Click any bar or label to open the task.
 
-Toggle with **Board / List** at the top right.
+Toggle with **Board / List / Gantt** at the top right.
+
+### Task dependencies
+
+When creating or editing a task, the **Depends on** picker lets you make it depend on one or more existing tasks of the **same student** (cross-student links and dependency loops are rejected). The app then keeps the status in sync automatically:
+
+- A task with any unfinished parent is moved to **Blocked** automatically.
+- Once **all** parents are **Done**, the task auto-moves to **To do**.
+- Re-opening a parent re-blocks its dependent children.
+
+This means you generally shouldn't drag a dependency-gated task out of Blocked by hand — finish its parents and it clears itself. Dependent tasks show a ⛓ icon (parents on hover) in List and Gantt.
 
 ### Grouping tasks (List view)
 

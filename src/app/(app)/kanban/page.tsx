@@ -31,6 +31,7 @@ export default async function KanbanPage({
       assignee: { select: { id: true, name: true, image: true, color: true } },
       student: { select: { id: true, fullName: true, alias: true, color: true } },
       group: { select: { id: true, name: true, color: true } },
+      dependsOn: { select: { dependsOnId: true } },
       tags: true,
       _count: { select: { comments: true } },
     },
@@ -152,6 +153,8 @@ export default async function KanbanPage({
         subtasks: parseSubtasks(t.subtasks),
         completionRequestedAt: t.completionRequestedAt?.toISOString() ?? null,
         group: t.group,
+        dependsOnIds: t.dependsOn.map((x) => x.dependsOnId),
+        createdAt: t.createdAt.toISOString(),
         updatedAt: t.updatedAt.toISOString(),
       }))}
       students={students}

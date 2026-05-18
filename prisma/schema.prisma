@@ -322,10 +322,25 @@ model Ticket {
   tags         TicketTag[]
   dueEvent     Event?    @relation("TaskDueEvent")
   subtaskDueEvents Event[] @relation("SubtaskDueEvents")
+  // Dependencies: this task waits on `dependsOn`; `dependents` wait on it.
+  dependsOn    TaskDependency[] @relation("Dependent")
+  dependents   TaskDependency[] @relation("DependsOn")
   order        Int       @default(0)
 
   createdAt    DateTime  @default(now())
   updatedAt    DateTime  @updatedAt
+}
+
+// Task dependency edge: `dependent` is blocked until `dependsOn` is done.
+model TaskDependency {
+  id          String @id @default(cuid())
+  dependentId String
+  dependsOnId String
+  dependent   Ticket @relation("Dependent", fields: [dependentId], references: [id], onDelete: Cascade)
+  dependsOn   Ticket @relation("DependsOn", fields: [dependsOnId], references: [id], onDelete: Cascade)
+
+  @@unique([dependentId, dependsOnId])
+  @@index([dependsOnId])
 }
 
 // Top of the 3-level hierarchy: a named group of tasks for one student.
