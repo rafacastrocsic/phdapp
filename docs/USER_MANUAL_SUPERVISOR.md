@@ -107,7 +107,7 @@ Toggle with **Board / List / Gantt** at the top right.
 
 ### Task dependencies
 
-When creating or editing a task, the **Depends on** picker lets you make it depend on one or more existing tasks of the **same student** (cross-student links and dependency loops are rejected). The app then keeps the status in sync automatically:
+When creating or editing a task, the **Depends on** field is a drop-down **selector**: choose a parent task and it appears as a removable chip (× to drop it). You can depend on one or more existing tasks of the **same student** (cross-student links and dependency loops are rejected). The app then keeps the status in sync automatically:
 
 - A task with any unfinished parent is moved to **Blocked** automatically.
 - Once **all** parents are **Done**, the task auto-moves to **To do**.
@@ -142,7 +142,7 @@ Above the board:
 - **Priority** — Low / Medium / High / Urgent
 - **Category** — one of the predefined ones (Research, Writing, **Lab work**, **IC Design**, **Coding**, Reading, Publication, Conference, Meeting, Admin), or pick **Other** and type your own one-time label
 - **Due date** — optional. **Setting a due date automatically creates a Google Calendar event** on the student's shared calendar.
-- **Drive folder URL** — link to a folder where this task's deliverables live
+- **Drive folder** — link a Google Drive folder where this task's deliverables live. Click **Pick from Drive** to browse and select a folder (My Drive or Shared with me) instead of pasting a URL. Once linked, an **Open Drive folder** button appears in the task and a clickable folder icon shows on the board card. **Change folder** re-opens the picker; **Clear** unlinks.
 
 **Create task** saves and opens the new task in the detail dialog.
 

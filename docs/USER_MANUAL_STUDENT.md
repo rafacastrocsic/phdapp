@@ -79,7 +79,7 @@ A grouped task also shows its group as a small **▦ group-name** chip (in the g
 
 ### Task dependencies
 
-When you create or edit a task you can say it **depends on** one or more existing tasks (the "parent" tasks) — use the **Depends on** picker in the new-task and edit-task dialogs. Only tasks belonging to the same student are selectable, and you can't create a loop (A depends on B depends on A).
+When you create or edit a task you can say it **depends on** one or more existing tasks (the "parent" tasks). In the new-task and edit-task dialogs the **Depends on** field is a drop-down **selector**: pick a parent task from the list and it's added as a removable chip below (click the × on a chip to remove it). Only tasks belonging to the same student are selectable, and you can't create a loop (A depends on B depends on A).
 
 - As soon as a task has at least one unfinished parent it is automatically moved to **Blocked**.
 - When **every** parent is set to **Done**, the task automatically moves back to **To do**.
@@ -94,6 +94,7 @@ Tasks with dependencies show a ⛓ icon (with the parent list on hover) in the *
 - **Priority** — Low / Medium / High / Urgent (a colored "L/M/H/U" tag)
 - **Category** — Research, Writing, Lab work, IC Design, Coding, Reading, Publication, Conference, Meeting, Admin… or **Other** with your own custom label
 - **Due date** — when you set one, an event automatically appears on your calendar
+- **Drive folder** — link a Google Drive folder by clicking **Pick from Drive** and browsing your Drive (no need to paste a URL). Once linked, an **Open Drive folder** button appears in the task, and the task card shows a small folder icon you can click to jump straight to the folder.
 - **Assignee** — usually you
 - **Subtasks** — a small checklist inside the task; tick items as you go. The card shows a `2/5` style progress badge. Each subtask can also be given its **own deadline** (date picker next to it). A subtask's deadline can't be later than the task's own deadline — if you pick a later date you'll get an error and it won't save. Any subtask that has a deadline also shows up on the **Calendar** as a `[Sub-task] … · <task>` entry (subtasks with no deadline don't appear on the calendar).
 - **Comments** — threaded discussion at the bottom

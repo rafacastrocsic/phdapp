@@ -36,6 +36,7 @@ import {
 import { cn, relativeTime, displayName } from "@/lib/utils";
 import { subtaskDueViolation } from "@/lib/subtasks";
 import { GanttView } from "./gantt-view";
+import { DriveFolderPicker } from "@/components/drive-folder-picker";
 
 export interface Ticket {
   id: string;
@@ -760,7 +761,18 @@ function TicketCard({
                 <MessageSquare className="h-3 w-3" /> {ticket.commentCount}
               </span>
             )}
-            {ticket.driveFolderUrl && <FolderOpen className="h-3 w-3" />}
+            {ticket.driveFolderUrl && (
+              <a
+                href={ticket.driveFolderUrl}
+                target="_blank"
+                rel="noopener"
+                onClick={(e) => e.stopPropagation()}
+                title="Open Drive folder"
+                className="flex items-center hover:text-[var(--c-blue)]"
+              >
+                <FolderOpen className="h-3 w-3" />
+              </a>
+            )}
             {ticket.channelId && <MessageSquare className="h-3 w-3" />}
           </div>
         </div>
@@ -798,6 +810,7 @@ function NewTicketDialog({
   const [customCategory, setCustomCategory] = useState<string>("");
   const [studentId, setStudentId] = useState<string>(defaultStudentId ?? "");
   const [deps, setDeps] = useState<string[]>([]);
+  const [driveFolderUrl, setDriveFolderUrl] = useState<string | null>(null);
   const effStudentId = isStudent ? defaultStudentId : studentId || null;
 
   // Use teamMembers var to satisfy unused-var when we don't render the full list
@@ -820,7 +833,11 @@ function NewTicketDialog({
     const res = await fetch("/api/tickets", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ ...payload, dependsOnIds: deps }),
+      body: JSON.stringify({
+        ...payload,
+        dependsOnIds: deps,
+        driveFolderUrl,
+      }),
     });
     setSubmitting(false);
     if (!res.ok) {
@@ -920,8 +937,11 @@ function NewTicketDialog({
           <Field label="Due date">
             <Input type="date" name="dueDate" />
           </Field>
-          <Field label="Drive folder URL (optional)">
-            <Input name="driveFolderUrl" placeholder="https://drive.google.com/…" />
+          <Field label="Drive folder (optional)">
+            <DriveFolderField
+              value={driveFolderUrl}
+              onChange={setDriveFolderUrl}
+            />
           </Field>
           <Field label="Depends on (optional)">
             <DependencyPicker
@@ -1182,19 +1202,14 @@ function TicketDetailDialog({
                 onChange={(e) => update({ dueDate: e.target.value || null })}
               />
             </Field>
-            <Field label="Drive folder URL">
-              <Input
-                defaultValue={ticket.driveFolderUrl ?? ""}
-                onChange={(e) =>
-                  debouncedSave({ driveFolderUrl: e.target.value || null })
-                }
-                onBlur={(e) =>
-                  update({ driveFolderUrl: e.target.value || null })
-                }
-                placeholder="paste from Drive"
-              />
-            </Field>
           </div>
+
+          <Field label="Drive folder">
+            <DriveFolderField
+              value={ticket.driveFolderUrl ?? null}
+              onChange={(url) => update({ driveFolderUrl: url })}
+            />
+          </Field>
 
           <Field label="Description">
             <Textarea
@@ -1453,15 +1468,21 @@ function DependencyPicker({
   const candidates = tickets.filter(
     (t) => t.student.id === studentId && t.id !== selfId,
   );
-  function toggle(id: string) {
-    onChange(
-      value.includes(id) ? value.filter((x) => x !== id) : [...value, id],
-    );
+  const byId = new Map(candidates.map((t) => [t.id, t]));
+  const selected = value
+    .map((id) => byId.get(id))
+    .filter((t): t is Ticket => !!t);
+  const available = candidates.filter((t) => !value.includes(t.id));
+
+  function add(id: string) {
+    if (id && !value.includes(id)) onChange([...value, id]);
   }
+  function remove(id: string) {
+    onChange(value.filter((x) => x !== id));
+  }
+
   if (!studentId) {
-    return (
-      <p className="text-xs text-slate-400">Pick a student first.</p>
-    );
+    return <p className="text-xs text-slate-400">Pick a student first.</p>;
   }
   if (candidates.length === 0) {
     return (
@@ -1471,30 +1492,101 @@ function DependencyPicker({
     );
   }
   return (
-    <div>
-      <div className="max-h-40 overflow-auto rounded-lg border bg-white divide-y">
-        {candidates.map((t) => (
-          <label
-            key={t.id}
-            className="flex items-center gap-2 px-2 py-1.5 text-sm cursor-pointer hover:bg-slate-50"
-          >
-            <input
-              type="checkbox"
-              checked={value.includes(t.id)}
-              onChange={() => toggle(t.id)}
-              className="h-4 w-4 rounded border-slate-300"
-            />
-            <span className="truncate flex-1">{t.title}</span>
-            <Badge color={statusColor(t.status)}>
-              {STATUSES.find((s) => s.id === t.status)?.label ?? t.status}
-            </Badge>
-          </label>
+    <div className="space-y-2">
+      <Select
+        value=""
+        onChange={(e) => {
+          add(e.target.value);
+          e.target.value = "";
+        }}
+      >
+        <option value="">
+          {available.length === 0
+            ? "All tasks already selected"
+            : "Add a parent task…"}
+        </option>
+        {available.map((t) => (
+          <option key={t.id} value={t.id}>
+            {t.title} ·{" "}
+            {STATUSES.find((s) => s.id === t.status)?.label ?? t.status}
+          </option>
         ))}
-      </div>
-      <p className="mt-1 text-[11px] text-slate-400">
+      </Select>
+
+      {selected.length > 0 && (
+        <ul className="flex flex-wrap gap-1.5">
+          {selected.map((t) => (
+            <li
+              key={t.id}
+              className="flex items-center gap-1.5 rounded-full border bg-slate-50 py-1 pl-2.5 pr-1 text-xs"
+            >
+              <span
+                className="h-1.5 w-1.5 rounded-full"
+                style={{ background: statusColor(t.status) }}
+              />
+              <span className="max-w-[14rem] truncate">{t.title}</span>
+              <button
+                type="button"
+                onClick={() => remove(t.id)}
+                className="flex h-4 w-4 items-center justify-center rounded-full text-slate-400 hover:bg-slate-200 hover:text-slate-700"
+                title="Remove dependency"
+                aria-label={`Remove ${t.title}`}
+              >
+                <X className="h-3 w-3" />
+              </button>
+            </li>
+          ))}
+        </ul>
+      )}
+
+      <p className="text-[11px] text-slate-400">
         The task stays <b>Blocked</b> until every selected task is{" "}
         <b>Done</b>, then it auto-moves to <b>To do</b>.
       </p>
+    </div>
+  );
+}
+
+// Drive-folder field: a picker (browse Google Drive) plus an "Open" button
+// when a folder is linked. Tickets store the full folder URL; the shared
+// DriveFolderPicker speaks folder-IDs, so we adapt between the two.
+const DRIVE_FOLDER_RE = /\/folders\/([a-zA-Z0-9_-]+)/;
+function driveUrlToId(url: string | null | undefined): string | null {
+  if (!url) return null;
+  const m = url.match(DRIVE_FOLDER_RE);
+  return m ? m[1] : null;
+}
+function DriveFolderField({
+  value,
+  onChange,
+}: {
+  value: string | null;
+  onChange: (url: string | null) => void;
+}) {
+  const id = driveUrlToId(value);
+  return (
+    <div className="space-y-2">
+      {value && (
+        <a
+          href={value}
+          target="_blank"
+          rel="noopener"
+          className="inline-flex items-center gap-1.5 rounded-lg border bg-slate-50 px-3 py-1.5 text-sm font-medium text-[var(--c-blue)] hover:bg-slate-100"
+        >
+          <FolderOpen className="h-4 w-4" /> Open Drive folder
+        </a>
+      )}
+      <DriveFolderPicker
+        value={id}
+        onChange={(folderId) =>
+          onChange(
+            folderId
+              ? `https://drive.google.com/drive/folders/${folderId}`
+              : null,
+          )
+        }
+        triggerLabel={value ? "Change folder" : "Pick from Drive"}
+      />
     </div>
   );
 }
