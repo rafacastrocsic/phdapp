@@ -122,6 +122,8 @@ You usually don't need to — your supervisor schedules things. But if you want 
 
 If the event has a Google Calendar push enabled, it lands on your supervisor's shared calendar too. The **Repeats** option makes an event recur (daily/weekly/monthly until a date) — handy for a standing weekly slot.
 
+To change an event afterwards, click it → **Edit**, adjust the date, time, location, link or description, then **Save changes** (you don't need to delete and recreate it).
+
 ## Chat
 
 The **Chat** module (green icon) is for direct messages with your supervisor and co-supervisors.

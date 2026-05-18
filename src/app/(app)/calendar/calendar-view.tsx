@@ -889,6 +889,7 @@ function EventDetailDialog({
 }) {
   const [deleting, setDeleting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [editing, setEditing] = useState(false);
   const router = useRouter();
 
   if (!event) return null;
@@ -947,12 +948,32 @@ function EventDetailDialog({
   }
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
+    <Dialog
+      open={open}
+      onOpenChange={(o) => {
+        if (!o) setEditing(false);
+        onOpenChange(o);
+      }}
+    >
       <DialogContent className="!max-w-md">
         <DialogHeader>
           <DialogTitle>{event.title}</DialogTitle>
         </DialogHeader>
 
+        {editing && (
+          <EventEditForm
+            event={event}
+            onCancel={() => setEditing(false)}
+            onSaved={() => {
+              setEditing(false);
+              onOpenChange(false);
+              router.refresh();
+            }}
+          />
+        )}
+
+        {!editing && (
+        <>
         <div className="space-y-3 text-sm">
           <div className="flex items-center gap-2 text-slate-700">
             <Clock className="h-4 w-4 text-slate-400" />
@@ -1055,12 +1076,142 @@ function EventDetailDialog({
               </Button>
             )}
           </div>
-          <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
-            Close
-          </Button>
+          <div className="flex gap-2">
+            <Button
+              type="button"
+              variant="brand"
+              size="sm"
+              onClick={() => setEditing(true)}
+            >
+              Edit
+            </Button>
+            <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
+              Close
+            </Button>
+          </div>
         </div>
+        </>
+        )}
       </DialogContent>
     </Dialog>
+  );
+}
+
+function EventEditForm({
+  event,
+  onCancel,
+  onSaved,
+}: {
+  event: Event;
+  onCancel: () => void;
+  onSaved: () => void;
+}) {
+  const linkedToGoogle = !!event.googleEventId;
+  const s = new Date(event.startsAt);
+  const en = new Date(event.endsAt);
+  const [title, setTitle] = useState(event.title);
+  const [date, setDate] = useState(format(s, "yyyy-MM-dd"));
+  const [start, setStart] = useState(format(s, "HH:mm"));
+  const [end, setEnd] = useState(format(en, "HH:mm"));
+  const [location, setLocation] = useState(event.location ?? "");
+  const [meetingUrl, setMeetingUrl] = useState(event.meetingUrl ?? "");
+  const [description, setDescription] = useState(event.description ?? "");
+  const [saving, setSaving] = useState(false);
+  const [err, setErr] = useState<string | null>(null);
+
+  async function save() {
+    if (!title.trim()) {
+      setErr("Title is required.");
+      return;
+    }
+    setSaving(true);
+    setErr(null);
+    const r = await fetch(`/api/calendar/events/${event.id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        title: title.trim(),
+        date,
+        startTime: start,
+        endTime: end,
+        location: location.trim() || null,
+        meetingUrl: meetingUrl.trim() || null,
+        description: description.trim() || null,
+        pushToGoogle: linkedToGoogle,
+      }),
+    });
+    setSaving(false);
+    if (!r.ok) {
+      const j = await r.json().catch(() => ({}));
+      setErr(j.error ?? "Could not save changes.");
+      return;
+    }
+    const j = await r.json().catch(() => ({}));
+    if (j.googleWarning) alert(j.googleWarning);
+    onSaved();
+  }
+
+  return (
+    <div className="space-y-3">
+      <Field label="Title">
+        <Input value={title} onChange={(e) => setTitle(e.target.value)} />
+      </Field>
+      <div className="grid grid-cols-3 gap-2">
+        <Field label="Date">
+          <Input type="date" value={date} onChange={(e) => setDate(e.target.value)} />
+        </Field>
+        <Field label="Start">
+          <Input type="time" value={start} onChange={(e) => setStart(e.target.value)} />
+        </Field>
+        <Field label="End">
+          <Input type="time" value={end} onChange={(e) => setEnd(e.target.value)} />
+        </Field>
+      </div>
+      <Field label="Location">
+        <Input
+          value={location}
+          onChange={(e) => setLocation(e.target.value)}
+          placeholder="Room, address…"
+        />
+      </Field>
+      <Field label="Meeting link">
+        <Input
+          value={meetingUrl}
+          onChange={(e) => setMeetingUrl(e.target.value)}
+          placeholder="https://…"
+        />
+      </Field>
+      <Field label="Description">
+        <Textarea
+          rows={3}
+          value={description}
+          onChange={(e) => setDescription(e.target.value)}
+        />
+      </Field>
+      {err && (
+        <div className="text-sm text-[var(--c-red)] bg-red-50 rounded-lg p-3">
+          {err}
+        </div>
+      )}
+      <div className="flex justify-end gap-2 pt-3 border-t">
+        <Button type="button" variant="outline" onClick={onCancel} disabled={saving}>
+          Cancel
+        </Button>
+        <Button
+          type="button"
+          variant="brand"
+          onClick={save}
+          disabled={saving || !title.trim()}
+        >
+          {saving ? "Saving…" : "Save changes"}
+        </Button>
+      </div>
+      {linkedToGoogle && (
+        <p className="text-[11px] text-slate-400">
+          Changes also update the linked Google Calendar event.
+        </p>
+      )}
+    </div>
   );
 }
 

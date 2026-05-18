@@ -195,7 +195,7 @@ When creating an event, tick **"This is a 1:1 meeting"**. Opening that event the
 
 ### Editing / deleting
 
-Click an event to open it. Edit fields then **Save**. **Delete** removes both the in-app record and the Google Calendar event (if linked).
+Click an event to open it, then **Edit** to change its details — title, **date**, **start/end time**, **location**, meeting link, description — and **Save changes** (no need to delete and recreate). If the event is linked to Google Calendar, the change is pushed there too. **Delete** removes the in-app record (and the Google Calendar event, if you choose the "+ Google" option).
 
 ### Sharing the calendar with the team
 
