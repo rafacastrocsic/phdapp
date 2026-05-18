@@ -119,6 +119,8 @@ This means you generally shouldn't drag a dependency-gated task out of Blocked b
 
 In **List** view, tick the checkbox on any tasks (they must all belong to the **same student**), enter a **group name** in the bar that appears, and **Create group**. The tasks then sit under that group heading. On the heading: **rename** or **disband** (disband only ungroups — tasks are kept); each task has an **ungroup** link. Groups are organisational only — they don't affect status/due/assignee. (Students get the same grouping for their own tasks.)
 
+The group is also surfaced on the **Board**: each grouped card carries a small **▦ group-name** chip in the group's colour, so the card's group is visible without leaving Board view.
+
 ### Filters
 
 Above the board:

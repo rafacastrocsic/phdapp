@@ -655,6 +655,15 @@ function TicketCard({
             {CATEGORIES.find((c) => c.id === ticket.category)?.label ??
               ticket.category}
           </Badge>
+          {ticket.group && (
+            <Badge
+              color={highlight ? "#ffffff" : ticket.group.color}
+              variant={highlight ? "outline" : "soft"}
+              title={`Group: ${ticket.group.name}`}
+            >
+              ▦ {ticket.group.name}
+            </Badge>
+          )}
           {ticket.completionRequestedAt && ticket.status !== "done" && (
             <Badge
               color={highlight ? "#ffffff" : "#f59e0b"}
