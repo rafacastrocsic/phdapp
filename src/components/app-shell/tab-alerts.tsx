@@ -1,5 +1,6 @@
 "use client";
 import { useEffect, useRef } from "react";
+import { playChatSound } from "@/lib/chat-sound";
 
 /**
  * Browser-tab awareness for new chat messages (Bruno's suggestion):
@@ -13,7 +14,6 @@ export function TabAlerts() {
   const baseTitle = useRef<string>("PhDapp · Supervision Hub");
   const prevCount = useRef<number | null>(null);
   const origFavicons = useRef<{ el: HTMLLinkElement; href: string }[]>([]);
-  const audioCtx = useRef<AudioContext | null>(null);
 
   useEffect(() => {
     if (typeof document !== "undefined" && document.title)
@@ -81,41 +81,7 @@ export function TabAlerts() {
       link.href = dataUrl;
     }
 
-    function beep() {
-      try {
-        if (
-          typeof window === "undefined" ||
-          window.localStorage.getItem("phdapp.muteChat") === "1"
-        )
-          return;
-        const Ctor =
-          window.AudioContext ||
-          (window as unknown as { webkitAudioContext?: typeof AudioContext })
-            .webkitAudioContext;
-        if (!Ctor) return;
-        if (!audioCtx.current) audioCtx.current = new Ctor();
-        const ctx = audioCtx.current;
-        if (ctx.state === "suspended") ctx.resume().catch(() => {});
-        const t = ctx.currentTime;
-        const play = (freq: number, start: number, dur: number) => {
-          const o = ctx.createOscillator();
-          const g = ctx.createGain();
-          o.type = "sine";
-          o.frequency.value = freq;
-          g.gain.setValueAtTime(0.0001, t + start);
-          g.gain.exponentialRampToValueAtTime(0.15, t + start + 0.02);
-          g.gain.exponentialRampToValueAtTime(0.0001, t + start + dur);
-          o.connect(g);
-          g.connect(ctx.destination);
-          o.start(t + start);
-          o.stop(t + start + dur);
-        };
-        play(660, 0, 0.15);
-        play(880, 0.16, 0.2);
-      } catch {
-        // audio blocked until a user gesture — ignore
-      }
-    }
+    const beep = () => playChatSound();
 
     function apply(count: number, sender: string | null) {
       document.title =
@@ -124,14 +90,10 @@ export function TabAlerts() {
               sender ? `${sender} messaged you` : "New message"
             } – ${baseTitle.current}`
           : baseTitle.current;
-      if (count > 0) {
-        const url = drawFavicon(count);
-        if (url) setFavicon(url);
-      } else {
-        const injected = document.getElementById("phdapp-fav");
-        if (injected) injected.remove();
-        // restore originals (their href is unchanged, nothing else needed)
-      }
+      // Always keep a favicon — draw the brand tile (badge only when
+      // there are unreads). Removing the link left the tab with no icon.
+      const url = drawFavicon(count);
+      if (url) setFavicon(url);
     }
 
     async function tick() {

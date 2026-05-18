@@ -506,7 +506,13 @@ model Message {
   attachments String?  // JSON: [{name, url}]
   channel     Channel  @relation(fields: [channelId], references: [id], onDelete: Cascade)
   author      User     @relation(fields: [authorId], references: [id])
+  // Optional "in reply to" another message in the same channel.
+  replyToId   String?
+  replyTo     Message?  @relation("MessageReplies", fields: [replyToId], references: [id], onDelete: SetNull)
+  replies     Message[] @relation("MessageReplies")
   createdAt   DateTime @default(now())
+
+  @@index([replyToId])
 }
 
 // ───────── Log book ─────────

@@ -38,7 +38,16 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
 
   const messages = await prisma.message.findMany({
     where: { channelId: id },
-    include: { author: { select: { id: true, name: true, image: true, color: true } } },
+    include: {
+      author: { select: { id: true, name: true, image: true, color: true } },
+      replyTo: {
+        select: {
+          id: true,
+          body: true,
+          author: { select: { name: true } },
+        },
+      },
+    },
     orderBy: { createdAt: "asc" },
     take: 200,
   });
@@ -60,6 +69,13 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
       createdAt: m.createdAt.toISOString(),
       author: m.author,
       attachments: parseAttachments(m.attachments),
+      replyTo: m.replyTo
+        ? {
+            id: m.replyTo.id,
+            body: m.replyTo.body,
+            authorName: m.replyTo.author?.name ?? null,
+          }
+        : null,
     })),
     reads: reads.map((r) => ({
       userId: r.userId,
@@ -101,6 +117,7 @@ const Body = z
         }),
       )
       .optional(),
+    replyToId: z.string().optional().nullable(),
   })
   .refine((d) => (d.body && d.body.trim().length > 0) || (d.attachments && d.attachments.length > 0), {
     message: "Need a message body or at least one attachment",
@@ -122,14 +139,33 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
     );
 
   const attachments = parsed.data.attachments ?? [];
+  // Only honour replyToId if it points at a message in THIS channel.
+  let replyToId: string | null = null;
+  if (parsed.data.replyToId) {
+    const parent = await prisma.message.findFirst({
+      where: { id: parsed.data.replyToId, channelId: id },
+      select: { id: true },
+    });
+    replyToId = parent?.id ?? null;
+  }
   const m = await prisma.message.create({
     data: {
       channelId: id,
       authorId: session.user.id,
       body: parsed.data.body ?? "",
       attachments: attachments.length > 0 ? JSON.stringify(attachments) : null,
+      replyToId,
     },
-    include: { author: { select: { id: true, name: true, image: true, color: true } } },
+    include: {
+      author: { select: { id: true, name: true, image: true, color: true } },
+      replyTo: {
+        select: {
+          id: true,
+          body: true,
+          author: { select: { name: true } },
+        },
+      },
+    },
   });
   await prisma.channel.update({
     where: { id },
@@ -157,6 +193,13 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
       createdAt: m.createdAt.toISOString(),
       author: m.author,
       attachments,
+      replyTo: m.replyTo
+        ? {
+            id: m.replyTo.id,
+            body: m.replyTo.body,
+            authorName: m.replyTo.author?.name ?? null,
+          }
+        : null,
     },
   });
 }

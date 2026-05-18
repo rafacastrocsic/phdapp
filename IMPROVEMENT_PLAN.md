@@ -383,6 +383,16 @@ Per-user, per-type preferences (extend the Settings page; a `NotificationPref` m
 
 ---
 
+## 26. Chat batch: reply, edit-channel, drop/paste, sound, fixes  ✅ COMPLETED (2026-05-18, user request)
+
+**What:** message **replies**; full **channel editing** (name/description/colour/**members**, member changes confirmed, allowed for any member); **drag-and-drop** + **Ctrl/Cmd+V paste** uploads; notification **sound type + volume** config; fix the favicon vanishing when chat is read; stop **deleted (orphan) students** appearing in member pickers.
+
+**Implementation:** additive `Message.replyToId` self-relation (migration `20260518170000_message_reply`) threaded through the messages API + UI (quoted bubble + composer reply bar). `PATCH /api/channels/[id]` extended with `color`+`memberIds` (validated full-set replace) behind an `EditChannelDialog` (replaces the `prompt()` rename). `chat-sound.ts` centralises a configurable WebAudio sound (localStorage), used by both `TabAlerts` and a `SoundSettingsDialog`. Favicon now always redrawn (brand tile, badge only when unread). Chat member query filters out student-role users with no `studentProfile`.
+
+**Scope/risk:** low–medium. One additive migration; the rest API/UI. Member-set replace is the main correctness point (validated against real users; confirm-gated in UI).
+
+---
+
 ## Recommended sequence
 
 1. **§0** access helper — tiny, unblocks §3/§7/§10.

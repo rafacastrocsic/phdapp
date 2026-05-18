@@ -73,7 +73,14 @@ export default async function ChatPage({
           });
         })()
       : await prisma.user.findMany({
-          where: { role: { in: ["admin", "supervisor", "student"] } },
+          where: {
+            OR: [
+              { role: { in: ["admin", "supervisor"] } },
+              // Student-role users only count if their Student record still
+              // exists — drop orphans left behind by a deleted student.
+              { role: "student", studentProfile: { isNot: null } },
+            ],
+          },
           select: { id: true, name: true, image: true, color: true, role: true },
           orderBy: { name: "asc" },
         });
@@ -90,6 +97,7 @@ export default async function ChatPage({
         name: c.name,
         kind: c.kind,
         color: c.color,
+        description: c.description,
         student: c.student,
         memberCount: c.members.length,
         members: c.members.map((m) => m.user),

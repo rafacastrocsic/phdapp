@@ -244,7 +244,10 @@ The **Chat** module is for ongoing conversation with each student and their team
 - **Messages**: type at the bottom, Enter to send. **Paperclip** for attachments (25 MB max; chat attachments are auto-purged after 7 days).
 - **Edit / delete** your own messages via the kebab menu on the message.
 - **Delivery ticks** on messages you send (WhatsApp-style): **one grey ✓** sent · **two grey ✓✓** delivered · **two blue ✓✓** seen by another member (updates within a few seconds of them opening the channel).
-- **Browser-tab alerts**: with unread messages the tab title becomes **"(N) … messaged you"** and the favicon shows a red count badge, plus a short sound on each new message — so you don't miss one while working in another tab. Mute the sound via the `phdapp.muteChat=1` localStorage key (badge/title remain).
+- **Browser-tab alerts**: with unread messages the tab title becomes **"(N) … messaged you"** and the favicon shows a red count badge, plus a short sound on each new message — so you don't miss one while working in another tab.
+- **Notification sound**: channel **⋮ → Notification sound…** to choose the sound (Chime/Ding/Pop/None) and volume (per device, with a Test button).
+- **Reply** to a specific message with the **↩ Reply** action (shows a quoted snippet); **drag-and-drop** files or **paste images** (Ctrl/Cmd+V) directly into the composer.
+- **Edit channel**: **⋮ → Edit channel** lets you change the **name, description, colour, and members**. Changing membership asks for confirmation (removed people lose access and history; added people see all past messages). Available to any member of the channel.
 
 You can collapse the channels column with the chevron at the top of that column. Same with the main left sidebar.
 

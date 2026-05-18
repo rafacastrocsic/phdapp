@@ -14,6 +14,9 @@ async function callerIsMember(channelId: string, userId: string) {
 const Patch = z.object({
   name: z.string().min(1).optional(),
   description: z.string().nullable().optional(),
+  color: z.string().optional(),
+  // Full replacement of the channel's member set.
+  memberIds: z.array(z.string()).optional(),
 });
 
 export async function PATCH(
@@ -32,7 +35,7 @@ export async function PATCH(
     session.user.role === "admin" || (await callerIsMember(id, session.user.id));
   if (!allowed)
     return NextResponse.json(
-      { error: "Only members of this channel can rename it" },
+      { error: "Only members of this channel can edit it" },
       { status: 403 },
     );
 
@@ -44,8 +47,26 @@ export async function PATCH(
   const data: Record<string, unknown> = {};
   if (d.name !== undefined) data.name = d.name;
   if (d.description !== undefined) data.description = d.description;
+  if (d.color !== undefined) data.color = d.color;
+  if (Object.keys(data).length > 0)
+    await prisma.channel.update({ where: { id }, data });
 
-  await prisma.channel.update({ where: { id }, data });
+  // Replace the member set if provided (dedup; keep only real users).
+  if (d.memberIds !== undefined) {
+    const wanted = Array.from(new Set(d.memberIds));
+    const users = await prisma.user.findMany({
+      where: { id: { in: wanted } },
+      select: { id: true },
+    });
+    const validIds = users.map((u) => u.id);
+    await prisma.channelMember.deleteMany({ where: { channelId: id } });
+    if (validIds.length > 0)
+      await prisma.channelMember.createMany({
+        data: validIds.map((userId) => ({ channelId: id, userId })),
+        skipDuplicates: true,
+      });
+  }
+
   return NextResponse.json({ ok: true });
 }
 

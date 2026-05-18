@@ -21,6 +21,9 @@ import {
   ChevronRight,
   Check,
   CheckCheck,
+  Bell,
+  Reply,
+  Volume2,
 } from "lucide-react";
 
 const CHANNELS_COLLAPSE_KEY = "phdapp.chat-channels-collapsed";
@@ -29,7 +32,7 @@ import { format } from "date-fns";
 import { Avatar } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Input, Select } from "@/components/ui/input";
+import { Input, Select, Textarea } from "@/components/ui/input";
 import {
   Dialog,
   DialogContent,
@@ -38,12 +41,21 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog";
 import { cn, relativeTime, displayName } from "@/lib/utils";
+import {
+  playChatSound,
+  getSoundType,
+  getVolume,
+  SOUND_KEY,
+  VOL_KEY,
+  type SoundType,
+} from "@/lib/chat-sound";
 
 interface Channel {
   id: string;
   name: string;
   kind: string;
   color: string;
+  description?: string | null;
   student: { id: string; fullName: string; alias: string | null; color: string } | null;
   memberCount: number;
   members: { id: string; name: string | null; image: string | null; color: string }[];
@@ -60,6 +72,7 @@ interface Message {
   createdAt: string;
   author: { id: string; name: string | null; image: string | null; color: string };
   attachments?: Attachment[];
+  replyTo?: { id: string; body: string; authorName: string | null } | null;
 }
 interface Read {
   userId: string;
@@ -126,6 +139,10 @@ export function ChatView({
   }
   const [pendingAttachments, setPendingAttachments] = useState<Attachment[]>([]);
   const [uploading, setUploading] = useState(false);
+  const [replyTarget, setReplyTarget] = useState<Message | null>(null);
+  const [dragOver, setDragOver] = useState(false);
+  const [editOpen, setEditOpen] = useState(false);
+  const [soundOpen, setSoundOpen] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -236,24 +253,9 @@ export function ChatView({
     [channels, search],
   );
 
-  async function renameActiveChannel() {
-    if (!active) return;
-    const name = window.prompt("New channel name", active.name);
-    if (name === null) return;
-    const trimmed = name.trim();
-    if (!trimmed || trimmed === active.name) return;
-    const r = await fetch(`/api/channels/${active.id}`, {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ name: trimmed }),
-    });
-    if (!r.ok) {
-      const j = await r.json().catch(() => ({}));
-      alert(j.error ?? "Could not rename");
-      return;
-    }
+  function applyChannelUpdate(patch: Partial<Channel>) {
     setChannels((prev) =>
-      prev.map((c) => (c.id === active.id ? { ...c, name: trimmed } : c)),
+      prev.map((c) => (c.id === activeId ? { ...c, ...patch } : c)),
     );
   }
 
@@ -281,8 +283,10 @@ export function ChatView({
     if (!body.trim() && pendingAttachments.length === 0) return;
     const text = body;
     const atts = pendingAttachments.slice();
+    const reply = replyTarget;
     setBody("");
     setPendingAttachments([]);
+    setReplyTarget(null);
     // optimistic
     const tempId = `temp-${Date.now()}`;
     setMessages((prev) => [
@@ -298,12 +302,23 @@ export function ChatView({
           color: "#6366f1",
         },
         attachments: atts,
+        replyTo: reply
+          ? {
+              id: reply.id,
+              body: reply.body,
+              authorName: reply.author.name ?? null,
+            }
+          : null,
       },
     ]);
     const r = await fetch(`/api/channels/${activeId}/messages`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ body: text, attachments: atts }),
+      body: JSON.stringify({
+        body: text,
+        attachments: atts,
+        replyToId: reply?.id ?? null,
+      }),
     });
     if (r.ok) {
       const { message } = await r.json();
@@ -515,11 +530,18 @@ export function ChatView({
                     className="z-50 min-w-[180px] rounded-xl border bg-white p-1 shadow-lg"
                   >
                     <DropdownMenu.Item
-                      onSelect={renameActiveChannel}
+                      onSelect={() => setEditOpen(true)}
                       className="flex cursor-pointer items-center gap-2 rounded-md px-3 py-2 text-sm text-slate-700 hover:bg-slate-50 focus:bg-slate-50 outline-none"
                     >
                       <Pencil className="h-4 w-4 text-slate-500" />
-                      Rename channel
+                      Edit channel
+                    </DropdownMenu.Item>
+                    <DropdownMenu.Item
+                      onSelect={() => setSoundOpen(true)}
+                      className="flex cursor-pointer items-center gap-2 rounded-md px-3 py-2 text-sm text-slate-700 hover:bg-slate-50 focus:bg-slate-50 outline-none"
+                    >
+                      <Bell className="h-4 w-4 text-slate-500" />
+                      Notification sound…
                     </DropdownMenu.Item>
                     {canDeleteChannel && (
                       <>
@@ -538,7 +560,31 @@ export function ChatView({
               </DropdownMenu.Root>
             </div>
 
-            <div ref={scrollRef} className="flex-1 overflow-y-auto p-6 space-y-2">
+            <div
+              ref={scrollRef}
+              onDragOver={(e) => {
+                e.preventDefault();
+                if (!dragOver) setDragOver(true);
+              }}
+              onDragLeave={(e) => {
+                if (e.target === e.currentTarget) setDragOver(false);
+              }}
+              onDrop={(e) => {
+                e.preventDefault();
+                setDragOver(false);
+                if (e.dataTransfer.files?.length)
+                  uploadFiles(e.dataTransfer.files);
+              }}
+              className={cn(
+                "relative flex-1 overflow-y-auto p-6 space-y-2",
+                dragOver && "ring-2 ring-inset ring-[var(--c-violet)] bg-violet-50/40",
+              )}
+            >
+              {dragOver && (
+                <div className="pointer-events-none absolute inset-0 z-10 flex items-center justify-center text-sm font-semibold text-[var(--c-violet)]">
+                  Drop files to attach
+                </div>
+              )}
               {messages.length === 0 ? (
                 <div className="text-center text-sm text-slate-400 mt-12">
                   No messages yet — say hi 👋
@@ -578,6 +624,21 @@ export function ChatView({
                               {mine ? "You" : m.author.name}
                             </span>{" "}
                             · {format(new Date(m.createdAt), "HH:mm")}
+                          </div>
+                        )}
+                        {m.replyTo && (
+                          <div
+                            className={cn(
+                              "mb-1 overflow-hidden rounded-lg border-l-2 border-slate-300 bg-slate-100/70 px-2 py-1 text-left text-[11px] text-slate-500",
+                              mine && "ml-auto",
+                            )}
+                          >
+                            <span className="font-semibold text-slate-600">
+                              {m.replyTo.authorName ?? "Someone"}
+                            </span>
+                            <span className="ml-1 line-clamp-2">
+                              {m.replyTo.body || "(attachment)"}
+                            </span>
                           </div>
                         )}
                         {m.body && (
@@ -631,6 +692,19 @@ export function ChatView({
                               </div>
                             );
                           })()}
+                        {m.id.startsWith("temp-") ? null : (
+                          <button
+                            type="button"
+                            onClick={() => setReplyTarget(m)}
+                            className={cn(
+                              "mt-0.5 inline-flex items-center gap-1 text-[10px] text-slate-400 hover:text-slate-700",
+                              mine && "flex-row-reverse",
+                            )}
+                            title="Reply to this message"
+                          >
+                            <Reply className="h-3 w-3" /> Reply
+                          </button>
+                        )}
                       </div>
                     </div>
                     </div>
@@ -640,6 +714,28 @@ export function ChatView({
             </div>
 
             <form onSubmit={send} className="border-t bg-white p-3 space-y-2">
+              {replyTarget && (
+                <div className="flex items-center gap-2 rounded-lg border-l-2 border-[var(--c-violet)] bg-violet-50 px-2 py-1.5 text-xs">
+                  <Reply className="h-3.5 w-3.5 shrink-0 text-[var(--c-violet)]" />
+                  <span className="min-w-0 flex-1 truncate text-slate-600">
+                    Replying to{" "}
+                    <b>
+                      {replyTarget.author.id === meId
+                        ? "yourself"
+                        : replyTarget.author.name}
+                    </b>
+                    : {replyTarget.body || "(attachment)"}
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => setReplyTarget(null)}
+                    className="shrink-0 rounded p-0.5 text-slate-400 hover:bg-slate-200 hover:text-slate-700"
+                    title="Cancel reply"
+                  >
+                    <XIcon className="h-3.5 w-3.5" />
+                  </button>
+                </div>
+              )}
               {pendingAttachments.length > 0 && (
                 <div className="flex flex-wrap gap-2">
                   {pendingAttachments.map((a, i) => (
@@ -676,6 +772,15 @@ export function ChatView({
                 <Input
                   value={body}
                   onChange={(e) => setBody(e.target.value)}
+                  onPaste={(e) => {
+                    const files = Array.from(
+                      e.clipboardData?.files ?? [],
+                    );
+                    if (files.length > 0) {
+                      e.preventDefault();
+                      uploadFiles(files);
+                    }
+                  }}
                   placeholder={
                     uploading
                       ? "Uploading…"
@@ -699,6 +804,17 @@ export function ChatView({
           </>
         )}
       </main>
+
+      {active && (
+        <EditChannelDialog
+          open={editOpen}
+          onOpenChange={setEditOpen}
+          channel={active}
+          teamMembers={teamMembers}
+          onSaved={(patch) => applyChannelUpdate(patch)}
+        />
+      )}
+      <SoundSettingsDialog open={soundOpen} onOpenChange={setSoundOpen} />
     </div>
   );
 }
@@ -965,6 +1081,270 @@ function Field({ label, children }: { label: string; children: React.ReactNode }
       <span className="text-xs font-semibold text-slate-700">{label}</span>
       <div className="mt-1">{children}</div>
     </label>
+  );
+}
+
+function EditChannelDialog({
+  open,
+  onOpenChange,
+  channel,
+  teamMembers,
+  onSaved,
+}: {
+  open: boolean;
+  onOpenChange: (b: boolean) => void;
+  channel: Channel;
+  teamMembers: Member[];
+  onSaved: (patch: Partial<Channel>) => void;
+}) {
+  const [name, setName] = useState(channel.name);
+  const [description, setDescription] = useState(channel.description ?? "");
+  const [color, setColor] = useState(channel.color);
+  const [memberIds, setMemberIds] = useState<string[]>(
+    channel.members.map((m) => m.id),
+  );
+  const [saving, setSaving] = useState(false);
+  const [err, setErr] = useState<string | null>(null);
+
+  // Re-sync when switching channels while the dialog is mounted.
+  useEffect(() => {
+    setName(channel.name);
+    setDescription(channel.description ?? "");
+    setColor(channel.color);
+    setMemberIds(channel.members.map((m) => m.id));
+    setErr(null);
+  }, [channel.id, channel.name, channel.description, channel.color, channel.members]);
+
+  // Union of pickable team members and the channel's current members
+  // (so existing members stay visible even if not in the team list).
+  const options: Member[] = [...teamMembers];
+  for (const m of channel.members)
+    if (!options.some((o) => o.id === m.id))
+      options.push({ ...m, role: "member" });
+
+  const origIds = new Set(channel.members.map((m) => m.id));
+  const membersChanged =
+    memberIds.length !== origIds.size ||
+    memberIds.some((id) => !origIds.has(id));
+
+  async function save() {
+    if (!name.trim()) {
+      setErr("Name is required.");
+      return;
+    }
+    if (
+      membersChanged &&
+      !window.confirm(
+        "You're changing who is in this channel. Members you remove will lose access to it (and its history); members you add will see all past messages. Continue?",
+      )
+    )
+      return;
+    setSaving(true);
+    setErr(null);
+    const r = await fetch(`/api/channels/${channel.id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        name: name.trim(),
+        description: description.trim() || null,
+        color,
+        ...(membersChanged ? { memberIds } : {}),
+      }),
+    });
+    setSaving(false);
+    if (!r.ok) {
+      const j = await r.json().catch(() => ({}));
+      setErr(j.error ?? "Could not save changes.");
+      return;
+    }
+    onSaved({
+      name: name.trim(),
+      description: description.trim() || null,
+      color,
+      members: options
+        .filter((o) => memberIds.includes(o.id))
+        .map((o) => ({
+          id: o.id,
+          name: o.name,
+          image: o.image,
+          color: o.color,
+        })),
+      memberCount: memberIds.length,
+    });
+    onOpenChange(false);
+  }
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>Edit channel</DialogTitle>
+        </DialogHeader>
+        <div className="space-y-3">
+          <Field label="Channel name">
+            <Input value={name} onChange={(e) => setName(e.target.value)} />
+          </Field>
+          <Field label="Description (optional)">
+            <Textarea
+              rows={2}
+              value={description}
+              onChange={(e) => setDescription(e.target.value)}
+            />
+          </Field>
+          <Field label="Color">
+            <input
+              type="color"
+              value={color}
+              onChange={(e) => setColor(e.target.value)}
+              className="h-9 w-16 cursor-pointer rounded border"
+            />
+          </Field>
+          <Field label="Members">
+            <div className="rounded-lg border max-h-44 overflow-y-auto p-2 space-y-1 bg-white">
+              {options.map((m) => (
+                <label
+                  key={m.id}
+                  className="flex items-center gap-2 text-sm py-1 px-1 rounded hover:bg-slate-50 cursor-pointer"
+                >
+                  <input
+                    type="checkbox"
+                    checked={memberIds.includes(m.id)}
+                    onChange={(e) =>
+                      setMemberIds((prev) =>
+                        e.target.checked
+                          ? [...prev, m.id]
+                          : prev.filter((id) => id !== m.id),
+                      )
+                    }
+                  />
+                  <Avatar name={m.name} src={m.image} color={m.color} size="xs" />
+                  <span className="flex-1 truncate">{m.name}</span>
+                  <Badge color={m.color}>{m.role}</Badge>
+                </label>
+              ))}
+            </div>
+            {membersChanged && (
+              <p className="mt-1 text-[11px] text-[var(--c-red)]">
+                Member changes take effect after you confirm on save.
+              </p>
+            )}
+          </Field>
+          {err && (
+            <div className="text-sm text-[var(--c-red)] bg-red-50 rounded-lg p-3">
+              {err}
+            </div>
+          )}
+          <div className="flex justify-end gap-2 pt-2">
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => onOpenChange(false)}
+            >
+              Cancel
+            </Button>
+            <Button
+              type="button"
+              variant="brand"
+              onClick={save}
+              disabled={saving}
+            >
+              {saving ? "Saving…" : "Save changes"}
+            </Button>
+          </div>
+        </div>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+function SoundSettingsDialog({
+  open,
+  onOpenChange,
+}: {
+  open: boolean;
+  onOpenChange: (b: boolean) => void;
+}) {
+  const [type, setType] = useState<SoundType>("chime");
+  const [vol, setVol] = useState(0.15);
+
+  useEffect(() => {
+    if (open) {
+      setType(getSoundType());
+      setVol(getVolume());
+    }
+  }, [open]);
+
+  function persist(nextType: SoundType, nextVol: number) {
+    setType(nextType);
+    setVol(nextVol);
+    try {
+      window.localStorage.setItem(SOUND_KEY, nextType);
+      window.localStorage.setItem(VOL_KEY, String(nextVol));
+      // Clear the legacy mute flag so it doesn't override the new setting.
+      window.localStorage.removeItem("phdapp.muteChat");
+    } catch {
+      // ignore
+    }
+  }
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="!max-w-sm">
+        <DialogHeader>
+          <DialogTitle>Notification sound</DialogTitle>
+        </DialogHeader>
+        <div className="space-y-3">
+          <Field label="Sound">
+            <Select
+              value={type}
+              onChange={(e) =>
+                persist(e.target.value as SoundType, vol)
+              }
+            >
+              <option value="chime">Chime</option>
+              <option value="ding">Ding</option>
+              <option value="pop">Pop</option>
+              <option value="none">None (silent)</option>
+            </Select>
+          </Field>
+          <Field label={`Volume — ${Math.round(vol * 100)}%`}>
+            <input
+              type="range"
+              min={0}
+              max={1}
+              step={0.05}
+              value={vol}
+              onChange={(e) => persist(type, parseFloat(e.target.value))}
+              className="w-full"
+              disabled={type === "none"}
+            />
+          </Field>
+          <div className="flex justify-between gap-2 pt-1">
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={() => playChatSound({ type, vol })}
+              disabled={type === "none"}
+            >
+              <Volume2 className="h-4 w-4" /> Test
+            </Button>
+            <Button
+              type="button"
+              variant="brand"
+              size="sm"
+              onClick={() => onOpenChange(false)}
+            >
+              Done
+            </Button>
+          </div>
+          <p className="text-[11px] text-slate-400">
+            Saved on this device/browser. Plays when a new chat message
+            arrives while PhDapp is open.
+          </p>
+        </div>
+      </DialogContent>
+    </Dialog>
   );
 }
 
