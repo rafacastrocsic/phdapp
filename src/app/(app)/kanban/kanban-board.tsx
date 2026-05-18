@@ -154,6 +154,10 @@ export function KanbanBoard({
   const [view, setView] = useState<"board" | "list" | "gantt">("board");
   const [recentlyDeleted, setRecentlyDeleted] =
     useState<Ticket[]>(initialDeleted);
+  // The student-scope of the previous successful poll. Only diff for
+  // deletions when it's unchanged — otherwise switching the student
+  // filter wrongly flags the other students' tasks as "deleted".
+  const pollKeyRef = useRef<string>("");
   const [undo, setUndo] = useState<Ticket | null>(null);
   const router = useRouter();
   useEffect(() => {
@@ -217,24 +221,28 @@ export function KanbanBoard({
       // Skip while dragging or while a dialog is open to avoid yanking state.
       if (!draggingId && !newOpen && !openId) {
         try {
+          const pollKey = studentFilter || "__all__";
           const r = await fetch(
             `/api/tickets/list${studentFilter ? `?student=${encodeURIComponent(studentFilter)}` : ""}`,
             { cache: "no-store" },
           );
           if (!cancelled && r.ok) {
             const j = await r.json();
-            // Diff local state against server to detect deletes done by others
-            // since our last poll. Keep the old objects around as "ghosts"
-            // until the user dismisses them.
+            // Only diff for genuine deletions when the student scope is the
+            // same as the previous poll. A different key = the user changed
+            // the student filter, not a deletion.
             setTickets((prev) => {
               const newIds = new Set<string>(j.tickets.map((t: Ticket) => t.id));
-              const gone = prev.filter((t) => !newIds.has(t.id));
-              if (gone.length > 0) {
-                setRecentlyDeleted((rd) => {
-                  const have = new Set(rd.map((t) => t.id));
-                  return [...rd, ...gone.filter((t) => !have.has(t.id))];
-                });
+              if (pollKeyRef.current === pollKey) {
+                const gone = prev.filter((t) => !newIds.has(t.id));
+                if (gone.length > 0) {
+                  setRecentlyDeleted((rd) => {
+                    const have = new Set(rd.map((t) => t.id));
+                    return [...rd, ...gone.filter((t) => !have.has(t.id))];
+                  });
+                }
               }
+              pollKeyRef.current = pollKey;
               return j.tickets;
             });
             setHighlightByTicket(j.highlightByTicket ?? {});
@@ -464,7 +472,11 @@ export function KanbanBoard({
               </div>
               <div className="flex-1 overflow-y-auto px-2 pb-3 space-y-2">
                 {recentlyDeleted
-                  .filter((t) => t.status === col.id)
+                  .filter(
+                    (t) =>
+                      t.status === col.id &&
+                      (!studentFilter || t.student.id === studentFilter),
+                  )
                   .map((t) => (
                     <GhostTaskCard
                       key={`deleted-${t.id}`}
