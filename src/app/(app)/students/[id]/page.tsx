@@ -49,6 +49,18 @@ function Linkedin({ className }: { className?: string }) {
     </svg>
   );
 }
+function Orcid({ className }: { className?: string }) {
+  return (
+    <svg viewBox="0 0 256 256" aria-hidden className={className}>
+      <circle cx="128" cy="128" r="128" fill="#A6CE39" />
+      <g fill="#fff">
+        <path d="M86.3 186.2H70.9V79.1h15.4v107.1z" />
+        <path d="M108.9 79.1h41.6c39.6 0 57 28.3 57 53.6 0 27.5-21.5 53.6-56.8 53.6h-41.8V79.1zm15.4 93.3h24.5c34.9 0 42.9-26.5 42.9-39.7 0-21.5-13.7-39.7-43.7-39.7h-23.7v79.4z" />
+        <circle cx="78.6" cy="56.8" r="9.9" />
+      </g>
+    </svg>
+  );
+}
 import { format } from "date-fns";
 import { relativeTime, displayName } from "@/lib/utils";
 import { EditStudentDialog } from "./edit-student-dialog";
@@ -155,19 +167,25 @@ export default async function StudentDetail({
       <div
         className="rounded-2xl bg-white border shadow-sm overflow-hidden"
       >
-        <div className="h-24 brand-bg relative">
+        <div
+          className="h-24 relative"
+          style={{
+            background:
+              "linear-gradient(135deg, var(--c-violet) 0%, var(--c-blue) 100%)",
+          }}
+        >
           <div className="absolute inset-0 dotgrid opacity-15" />
         </div>
-        <div className="px-6 pb-6 -mt-12 relative">
-          <div className="flex items-end gap-4 flex-wrap">
+        <div className="px-6 pb-6 relative">
+          <div className="flex items-start gap-4 flex-wrap">
             <Avatar
               name={student.fullName}
               src={student.avatarUrl}
               color={student.color}
               size="lg"
-              className="!h-20 !w-20 !text-xl ring-4 ring-white"
+              className="!h-20 !w-20 !text-xl ring-4 ring-white -mt-12 shrink-0"
             />
-            <div className="flex-1 min-w-0 pb-2">
+            <div className="flex-1 min-w-0 pt-3">
               <div className="flex items-center gap-2 flex-wrap">
                 <h1
                   className="text-2xl font-bold text-slate-900"
@@ -212,6 +230,23 @@ export default async function StudentDetail({
                     LinkedIn
                   </a>
                 )}
+                {student.orcidId && (
+                  <a
+                    href={
+                      student.orcidId.startsWith("http")
+                        ? student.orcidId
+                        : `https://orcid.org/${student.orcidId}`
+                    }
+                    target="_blank"
+                    rel="noopener"
+                    className="flex items-center gap-1 hover:underline"
+                    style={{ color: "#A6CE39" }}
+                    title={`ORCID: ${student.orcidId}`}
+                  >
+                    <Orcid className="h-3.5 w-3.5" />
+                    <span className="text-slate-600">ORCID</span>
+                  </a>
+                )}
                 {student.websiteUrl && (
                   <a
                     href={student.websiteUrl}
@@ -225,7 +260,7 @@ export default async function StudentDetail({
                 )}
               </div>
             </div>
-            <div className="flex gap-2 flex-wrap pb-2">
+            <div className="flex gap-2 flex-wrap pt-3">
               {canEdit && (
                 <EditStudentDialog
                   canDelete={canDelete}

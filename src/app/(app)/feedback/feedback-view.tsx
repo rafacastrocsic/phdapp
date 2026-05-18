@@ -1,5 +1,5 @@
 "use client";
-import { useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
   Megaphone,
   Bug,
@@ -70,7 +70,28 @@ export function FeedbackView({
 
   const [statusFilter, setStatusFilter] = useState("");
   const [kindFilter, setKindFilter] = useState("");
-  const [collapsed, setCollapsed] = useState<Set<string>>(new Set());
+  // Persist collapsed entries so they stay collapsed across navigation.
+  const COLLAPSE_KEY = "phdapp.feedbackCollapsed";
+  const [collapsed, setCollapsed] = useState<Set<string>>(() => {
+    if (typeof window === "undefined") return new Set();
+    try {
+      const raw = window.localStorage.getItem(COLLAPSE_KEY);
+      const arr = raw ? (JSON.parse(raw) as string[]) : [];
+      return new Set(Array.isArray(arr) ? arr : []);
+    } catch {
+      return new Set();
+    }
+  });
+  useEffect(() => {
+    try {
+      window.localStorage.setItem(
+        COLLAPSE_KEY,
+        JSON.stringify([...collapsed]),
+      );
+    } catch {
+      // ignore (private mode / quota)
+    }
+  }, [collapsed]);
 
   function toggleCollapse(id: string) {
     setCollapsed((prev) => {

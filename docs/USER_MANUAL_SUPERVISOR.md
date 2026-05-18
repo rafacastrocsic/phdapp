@@ -63,7 +63,7 @@ Click **Students** in the sidebar. You see:
 
 Click a student card to open their profile page. There you'll find:
 
-- **Profile** — name, email, photo, color, program year, status, expected end date, thesis title.
+- **Profile** — name, email, photo, color, program year, status, expected end date, thesis title. The header also shows quick clickable links when set: email, **LinkedIn**, **ORCID** (green iD icon → orcid.org), and Website.
 - **Tasks** — short list of recent tasks for this student.
 - **Calendar** — events for them.
 - **Drive folder** — Google Drive link if shared.
