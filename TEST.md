@@ -444,5 +444,37 @@ accessForStudent/teamLevel for controls — correct).
 - BUG-01 fixed (S1) · BUG-02 fixed read-only (S2) · BUG-03 fixed, students may
   channel **only their own supervisors** (S2) · BUG-04 accepted+documented (S3)
   · BUG-05 accepted, FUTURE hardening logged (S3) · lint/Prisma-7 = S3/S4 debt.
-- Next: **Mode B** (Neon branch + a prod-disabled test-login route) for the
-  runtime + direct-API negative pass — pending your go-ahead.
+## 12. Mode B run — runtime + access-control matrix (2026-05-18)
+
+Executed against a disposable Neon **schema-only branch** (`modeb-test`),
+seeded with the §3 cast (A–H, S1/S2/S3), via a dev-only env-guarded
+test-login route and `scripts/modeb-test.sh` (49 scripted assertions over
+HTTP as each role).
+
+**Result: PASS=49 / FAIL=0 — ALL GREEN.** No new bugs. Runtime confirmed
+every §7 access-control cell + key §5/§6/§8 logic, including the Mode-A
+fixes:
+
+- BUG-01: `D manage S1 team = 404` (team advisor cannot manage the team).
+- BUG-02: `D read S1 channel = 403` (team advisor has no chat access).
+- BUG-03: student channel create — `general = 403`, `w/ non-supervisor =
+  403`, `w/ own supervisor = 200`.
+- Subtask-deadline rule: after-task-due = 400, before = 200.
+- Visibility/isolation: cross-student reads 404; wellbeing visible only to
+  supervisor-level + observer + self; search results scoped per role.
+- Unassigned event supervisor-only; digest cron dormant.
+
+**Conclusion:** Mode A (static + authz audit, all bugs fixed) is now
+**runtime-verified**. Security/access-control pass is complete. Remaining
+TEST.md items are Mode-C only (real Google OAuth/Drive/Calendar sync,
+browser-visual/print/responsive) — manual, run on the deployed app as
+needed.
+
+### Scaffolding teardown (post-run)
+All Mode-B scaffolding is temporary and removed after the run: `.env.test`,
+`.env.local`, `src/app/api/test-login/`, `prisma/seed-modeb.ts`,
+`scripts/modeb-*`, `.modeb/`, `modeb-results.txt` deleted; `src/proxy.ts`
+reverted to its committed state; `.git/info/exclude` cleaned. **None of it
+was ever committed.** The user deletes the Neon `modeb-test` branch.
+
+### Status — all Mode A items resolved + Mode B green
