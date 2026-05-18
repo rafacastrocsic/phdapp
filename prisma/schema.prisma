@@ -322,6 +322,7 @@ model Ticket {
   tags         TicketTag[]
   dueEvent     Event?    @relation("TaskDueEvent")
   subtaskDueEvents Event[] @relation("SubtaskDueEvents")
+  linkedEvents Event[]   @relation("RelatedTaskEvents")
   // Dependencies: this task waits on `dependsOn`; `dependents` wait on it.
   dependsOn    TaskDependency[] @relation("Dependent")
   dependents   TaskDependency[] @relation("DependsOn")
@@ -407,6 +408,13 @@ model Event {
   ticketId  String?  @unique
   ticket    Ticket?  @relation("TaskDueEvent", fields: [ticketId], references: [id], onDelete: Cascade)
 
+  // Optional MANUAL link to a Task this event relates to (e.g. a meeting
+  // to discuss a task's progress, scheduled before its due date). Distinct
+  // from `ticketId`, which is the automatic mirror of a task's DUE date.
+  // SetNull so deleting/archiving the task leaves the event intact.
+  linkedTaskId String?
+  linkedTask   Ticket? @relation("RelatedTaskEvents", fields: [linkedTaskId], references: [id], onDelete: SetNull)
+
   // If this event mirrors a SUB-task's deadline: the parent task + which
   // subtask (its id within the task's subtasks JSON). One event per
   // (parent task, subtask). Cascades when the parent task is hard-deleted.
@@ -419,6 +427,7 @@ model Event {
   updatedAt DateTime @updatedAt
 
   @@unique([subtaskParentId, subtaskKey])
+  @@index([linkedTaskId])
 }
 
 model EventAttendee {

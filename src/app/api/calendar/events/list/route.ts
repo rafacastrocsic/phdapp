@@ -57,6 +57,7 @@ export async function GET(req: Request) {
     include: {
       student: { select: { id: true, fullName: true, alias: true, color: true } },
       ticket: { select: { id: true, priority: true } },
+      linkedTask: { select: { id: true, title: true } },
     },
     orderBy: { startsAt: "asc" },
   });
@@ -113,6 +114,8 @@ export async function GET(req: Request) {
       googleCalendarId: e.googleCalendarId,
       ticketId: e.ticketId,
       taskPriority: e.ticket?.priority ?? null,
+      linkedTaskId: e.linkedTaskId,
+      linkedTaskTitle: e.linkedTask?.title ?? null,
     })),
     highlightByEvent,
   });

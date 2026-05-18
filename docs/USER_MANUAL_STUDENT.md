@@ -126,6 +126,7 @@ The **Calendar** module (teal icon) shows:
 
 - **Real events** — meetings, deadlines your supervisor created. Solid colored chip with a time.
 - **Task events** — every task with a due date appears as an outlined chip with a small circle icon and a single-letter priority tag (L/M/H/U). Its name is prefixed **`[Task]_`** (and sub-task deadlines show as **`[Sub-task]_…`**) so it's clearly task-derived, including on a synced Google Calendar. Click it to see the task in a quick view **without leaving the Calendar**; close it and you're still on the Calendar. Use **Open in Tasks board** in that view to go to the full task on the Tasks board.
+- **Events linked to a task** — a normal event can also be *connected* to a task without being its deadline. For example, a task "Finish the slides" is due next month, but a supervision meeting this week will partly be about how those slides are going — that meeting can be linked to the task. Open such an event and you'll see a **Related task: …** line; click it to peek at the task. (This is separate from the automatic `[Task]_` due-date entry above.)
 
 ### Four views
 
@@ -147,7 +148,7 @@ On the calendar you may see grey **⊘ Unavailable** blocks on some days — tha
 
 You usually don't need to — your supervisor schedules things. But if you want to add something personal, click **New event** top-right.
 
-If the event has a Google Calendar push enabled, it lands on your supervisor's shared calendar too. The **Repeats** option makes an event recur (daily/weekly/monthly until a date) — handy for a standing weekly slot.
+If the event has a Google Calendar push enabled, it lands on your supervisor's shared calendar too. The **Repeats** option makes an event recur (daily/weekly/monthly until a date) — handy for a standing weekly slot. The **Related task (optional)** picker lets you connect the event to one of your tasks (e.g. a work session or meeting about that task); it doesn't change the task's own deadline.
 
 To change an event afterwards, click it → **Edit**, adjust the date, time, location, link or description, then **Save changes** (you don't need to delete and recreate it).
 

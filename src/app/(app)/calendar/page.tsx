@@ -6,6 +6,7 @@ import {
   type Role,
 } from "@/lib/access";
 import { clearDismissedEventIds } from "@/lib/calendar-dismissed";
+import { displayName } from "@/lib/utils";
 import { CalendarView } from "./calendar-view";
 import { startOfMonth, endOfMonth, subMonths, addMonths } from "date-fns";
 
@@ -46,8 +47,25 @@ export default async function CalendarPage({
     include: {
       student: { select: { id: true, fullName: true, alias: true, color: true } },
       ticket: { select: { id: true, priority: true } },
+      linkedTask: { select: { id: true, title: true } },
     },
     orderBy: { startsAt: "asc" },
+  });
+
+  // Tasks the user may link an event to (visible, non-archived). Powers the
+  // task picker in the new/edit-event dialogs.
+  const linkableTasks = await prisma.ticket.findMany({
+    where: {
+      archivedAt: null,
+      student: studentVisibilityWhereAllForAdmin(session.user.id, role),
+    },
+    select: {
+      id: true,
+      title: true,
+      status: true,
+      student: { select: { id: true, fullName: true, alias: true } },
+    },
+    orderBy: [{ student: { fullName: "asc" } }, { createdAt: "desc" }],
   });
 
   // Supervisor availability: the supervisors/team of the visible students.
@@ -166,6 +184,15 @@ export default async function CalendarPage({
         googleCalendarId: e.googleCalendarId,
         ticketId: e.ticketId,
         taskPriority: e.ticket?.priority ?? null,
+        linkedTaskId: e.linkedTaskId,
+        linkedTaskTitle: e.linkedTask?.title ?? null,
+      }))}
+      tasks={linkableTasks.map((t) => ({
+        id: t.id,
+        title: t.title,
+        status: t.status,
+        studentId: t.student.id,
+        studentName: displayName(t.student),
       }))}
       availability={availability}
       myAvailability={myAvailability}

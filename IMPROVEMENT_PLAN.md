@@ -277,6 +277,20 @@ Per-user, per-type preferences (extend the Settings page; a `NotificationPref` m
 
 ---
 
+## 17. Event ↔ Task manual link  ✅ COMPLETED (2026-05-18, user request)
+
+**What:** when creating/editing a calendar Event, optionally connect it to an existing Task. Distinct from the existing automatic behaviour where a task's *due date* is mirrored as a `[Task]_` calendar entry — this is for events that merely *relate to* a task (e.g. a supervision meeting whose agenda includes a task due later).
+
+**Data model:** new nullable `Event.linkedTaskId` + relation `linkedTask Ticket? @relation("RelatedTaskEvents", onDelete: SetNull)`, Ticket back-relation `linkedEvents`, `@@index([linkedTaskId])`. Hand-written additive migration `20260518140000_event_linked_task`. Deliberately a **separate column from `Event.ticketId`**: `ticketId` is `@unique` + cascade (one auto due-event per task, relation `TaskDueEvent`); `linkedTaskId` is many-events-to-one-task, SetNull (the meeting outlives the task), and is never rendered as a task-event chip.
+
+**API:** `POST /api/calendar/events` and `PATCH /api/calendar/events/[id]` accept `linkedTaskId` (string | null). Validated: the ticket must exist, be `archivedAt: null`, and pass `studentVisibilityWhereAllForAdmin` for the caller (else 400). `/calendar` page + `/api/calendar/events/list` poll now `include` `linkedTask {id,title}` and expose `linkedTaskId` / `linkedTaskTitle`; the page also hands `CalendarView` a `tasks` list (visible non-archived tickets) for the picker.
+
+**UI:** a **Related task** picker (`Select`) in the New- and Edit-event dialogs — scoped to the chosen/event student, otherwise all visible tasks prefixed with the student name. The edit form pins the current link into the option list even if it falls outside the student scope, so editing unrelated fields can't silently unlink. The event-detail dialog shows a **Related task: …** row that opens the existing in-place `TaskPeek` (the handler closes the event dialog first to avoid stacked modals — consistent with the Calendar/Log task-peek pattern).
+
+**Scope/risk:** low–medium, additive migration. No change to the existing task-due sync path. Main care taken: not overloading `ticketId`, validating link visibility server-side, and the don't-silently-unlink guard in the edit form.
+
+---
+
 ## Recommended sequence
 
 1. **§0** access helper — tiny, unblocks §3/§7/§10.

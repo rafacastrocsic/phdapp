@@ -17,7 +17,7 @@ import {
   subMonths,
   subWeeks,
 } from "date-fns";
-import { ChevronLeft, ChevronRight, Plus, RefreshCw, ExternalLink, MapPin, Video, Trash2, Clock, Users as UsersIcon, X as XIcon } from "lucide-react";
+import { ChevronLeft, ChevronRight, Plus, RefreshCw, ExternalLink, MapPin, Video, Trash2, Clock, Users as UsersIcon, X as XIcon, KanbanSquare } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -75,14 +75,25 @@ interface Event {
   googleCalendarId: string | null;
   ticketId: string | null;
   taskPriority: string | null;
+  linkedTaskId: string | null;
+  linkedTaskTitle: string | null;
   recurring?: boolean; // synthetic occurrence flag (client-only)
 }
+
+type LinkableTask = {
+  id: string;
+  title: string;
+  status: string;
+  studentId: string;
+  studentName: string;
+};
 
 export function CalendarView({
   viewerRole,
   viewerStudentId,
   students,
   events: initial,
+  tasks,
   availability,
   myAvailability,
   initialStudent,
@@ -92,6 +103,7 @@ export function CalendarView({
   viewerStudentId: string | null;
   students: Student[];
   events: Event[];
+  tasks: LinkableTask[];
   availability: {
     id: string;
     startsAt: string;
@@ -853,6 +865,7 @@ export function CalendarView({
         open={newOpen}
         onOpenChange={setNewOpen}
         students={students}
+        tasks={tasks}
         defaultDate={selectedDay}
         defaultStudentId={
           isStudent && viewerStudentId
@@ -869,7 +882,12 @@ export function CalendarView({
       <EventDetailDialog
         event={openEvent}
         open={!!openEvent}
+        tasks={tasks}
         onOpenChange={(o) => !o && setOpenEventId(null)}
+        onPeekTask={(id) => {
+          setOpenEventId(null);
+          setPeekTicketId(id);
+        }}
         onDeleted={(id) => {
           setEvents((prev) => prev.filter((e) => e.id !== id));
           setOpenEventId(null);
@@ -887,12 +905,16 @@ export function CalendarView({
 function EventDetailDialog({
   event,
   open,
+  tasks,
   onOpenChange,
+  onPeekTask,
   onDeleted,
 }: {
   event: Event | null;
   open: boolean;
+  tasks: LinkableTask[];
   onOpenChange: (b: boolean) => void;
+  onPeekTask: (ticketId: string) => void;
   onDeleted: (id: string) => void;
 }) {
   const [deleting, setDeleting] = useState(false);
@@ -971,6 +993,7 @@ function EventDetailDialog({
         {editing && (
           <EventEditForm
             event={event}
+            tasks={tasks}
             onCancel={() => setEditing(false)}
             onSaved={() => {
               setEditing(false);
@@ -995,6 +1018,20 @@ function EventDetailDialog({
             <div className="flex items-center gap-2 text-slate-700">
               <UsersIcon className="h-4 w-4 text-slate-400" />
               <Badge color={event.student.color}>{displayName(event.student)}</Badge>
+            </div>
+          )}
+
+          {event.linkedTaskId && (
+            <div className="flex items-center gap-2 text-slate-700">
+              <KanbanSquare className="h-4 w-4 text-slate-400" />
+              <button
+                type="button"
+                onClick={() => onPeekTask(event.linkedTaskId!)}
+                className="text-[var(--c-teal)] hover:underline text-left"
+                title="Open the related task"
+              >
+                Related task: {event.linkedTaskTitle ?? "View task"}
+              </button>
             </div>
           )}
 
@@ -1107,14 +1144,39 @@ function EventDetailDialog({
 
 function EventEditForm({
   event,
+  tasks,
   onCancel,
   onSaved,
 }: {
   event: Event;
+  tasks: LinkableTask[];
   onCancel: () => void;
   onSaved: () => void;
 }) {
   const linkedToGoogle = !!event.googleEventId;
+  const [linkedTaskId, setLinkedTaskId] = useState(event.linkedTaskId ?? "");
+  const taskOptions = (
+    event.student
+      ? tasks.filter((t) => t.studentId === event.student!.id)
+      : tasks
+  ).slice();
+  // Keep the currently-linked task selectable even if it falls outside the
+  // student-scoped list (so editing other fields doesn't silently unlink it).
+  if (
+    event.linkedTaskId &&
+    !taskOptions.some((t) => t.id === event.linkedTaskId)
+  ) {
+    const cur = tasks.find((t) => t.id === event.linkedTaskId);
+    if (cur) taskOptions.unshift(cur);
+    else if (event.linkedTaskTitle)
+      taskOptions.unshift({
+        id: event.linkedTaskId,
+        title: event.linkedTaskTitle,
+        status: "",
+        studentId: event.student?.id ?? "",
+        studentName: "",
+      });
+  }
   const s = new Date(event.startsAt);
   const en = new Date(event.endsAt);
   const [title, setTitle] = useState(event.title);
@@ -1145,6 +1207,7 @@ function EventEditForm({
         location: location.trim() || null,
         meetingUrl: meetingUrl.trim() || null,
         description: description.trim() || null,
+        linkedTaskId: linkedTaskId || null,
         pushToGoogle: linkedToGoogle,
       }),
     });
@@ -1196,6 +1259,19 @@ function EventEditForm({
           onChange={(e) => setDescription(e.target.value)}
         />
       </Field>
+      <Field label="Related task">
+        <Select
+          value={linkedTaskId}
+          onChange={(e) => setLinkedTaskId(e.target.value)}
+        >
+          <option value="">Not linked to a task</option>
+          {taskOptions.map((t) => (
+            <option key={t.id} value={t.id}>
+              {event.student ? t.title : `${t.studentName} — ${t.title}`}
+            </option>
+          ))}
+        </Select>
+      </Field>
       {err && (
         <div className="text-sm text-[var(--c-red)] bg-red-50 rounded-lg p-3">
           {err}
@@ -1227,6 +1303,7 @@ function NewEventDialog({
   open,
   onOpenChange,
   students,
+  tasks,
   defaultDate,
   defaultStudentId,
   isStudent,
@@ -1235,6 +1312,7 @@ function NewEventDialog({
   open: boolean;
   onOpenChange: (b: boolean) => void;
   students: Student[];
+  tasks: LinkableTask[];
   defaultDate: Date | null;
   defaultStudentId: string | null;
   isStudent: boolean;
@@ -1247,6 +1325,15 @@ function NewEventDialog({
   const [recurInterval, setRecurInterval] = useState(1);
   const [recurUntil, setRecurUntil] = useState("");
   const [isMeeting, setIsMeeting] = useState(false);
+  const [studentId, setStudentId] = useState(defaultStudentId ?? "");
+  const [linkedTaskId, setLinkedTaskId] = useState("");
+
+  // Tasks offered in the picker: scoped to the chosen student when one is
+  // set, otherwise all visible tasks (labelled with the student name).
+  const effectiveStudentId = isStudent ? defaultStudentId : studentId || null;
+  const taskOptions = effectiveStudentId
+    ? tasks.filter((t) => t.studentId === effectiveStudentId)
+    : tasks;
 
   const dateStr = defaultDate
     ? format(defaultDate, "yyyy-MM-dd")
@@ -1259,6 +1346,7 @@ function NewEventDialog({
     const fd = new FormData(e.currentTarget);
     const payload = Object.fromEntries(fd.entries()) as Record<string, string>;
     if (isStudent && defaultStudentId) payload.studentId = defaultStudentId;
+    if (linkedTaskId) payload.linkedTaskId = linkedTaskId;
     payload.pushToGoogle = pushGoogle ? "1" : "";
     const rrule = buildRRule(recurFreq, recurInterval, recurUntil || null);
     if (rrule) payload.recurrenceRule = rrule;
@@ -1299,7 +1387,14 @@ function NewEventDialog({
           </Field>
           {!isStudent && (
             <Field label="Student">
-              <Select name="studentId" defaultValue={defaultStudentId ?? ""}>
+              <Select
+                name="studentId"
+                value={studentId}
+                onChange={(e) => {
+                  setStudentId(e.target.value);
+                  setLinkedTaskId(""); // task list is student-scoped
+                }}
+              >
                 <option value="">No specific student</option>
                 {students.map((s) => (
                   <option key={s.id} value={s.id}>{displayName(s)}</option>
@@ -1326,6 +1421,25 @@ function NewEventDialog({
           </Field>
           <Field label="Description (optional)">
             <Textarea name="description" rows={2} />
+          </Field>
+          <Field label="Related task (optional)">
+            <Select
+              value={linkedTaskId}
+              onChange={(e) => setLinkedTaskId(e.target.value)}
+            >
+              <option value="">Not linked to a task</option>
+              {taskOptions.map((t) => (
+                <option key={t.id} value={t.id}>
+                  {effectiveStudentId
+                    ? t.title
+                    : `${t.studentName} — ${t.title}`}
+                </option>
+              ))}
+            </Select>
+            <p className="text-[11px] text-slate-400 mt-1">
+              Link this event to a task (e.g. a meeting about its progress).
+              This is separate from the task’s own due-date entry.
+            </p>
           </Field>
           <Field label="Repeats">
             <div className="flex flex-wrap items-center gap-2">

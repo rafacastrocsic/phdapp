@@ -4,7 +4,13 @@ import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
 import { calendarForUser } from "@/lib/google";
 import { normalizeCalendarId } from "@/lib/calendar-id";
-import { accessForStudent, canWriteForStudent, isAdmin, type Role } from "@/lib/access";
+import {
+  accessForStudent,
+  canWriteForStudent,
+  isAdmin,
+  studentVisibilityWhereAllForAdmin,
+  type Role,
+} from "@/lib/access";
 import { logActivity } from "@/lib/activity-log";
 
 const Body = z.object({
@@ -19,6 +25,8 @@ const Body = z.object({
   recurrenceRule: z.string().optional().nullable(),
   isMeeting: z.string().optional(),
   pushToGoogle: z.string().optional(),
+  // Optional manual link to a task this event relates to.
+  linkedTaskId: z.string().optional().nullable(),
 });
 
 export async function POST(req: Request) {
@@ -50,6 +58,28 @@ export async function POST(req: Request) {
       { error: "Only supervisors can create unassigned events" },
       { status: 403 },
     );
+  }
+
+  // Validate an optional manual task link: the task must exist, be live,
+  // and be visible to this user.
+  const linkedTaskId = d.linkedTaskId || null;
+  if (linkedTaskId) {
+    const tk = await prisma.ticket.findFirst({
+      where: {
+        id: linkedTaskId,
+        archivedAt: null,
+        student: studentVisibilityWhereAllForAdmin(
+          session.user.id,
+          session.user.role as Role,
+        ),
+      },
+      select: { id: true },
+    });
+    if (!tk)
+      return NextResponse.json(
+        { error: "Linked task not found or not visible to you" },
+        { status: 400 },
+      );
   }
 
   const student = d.studentId
@@ -144,10 +174,14 @@ export async function POST(req: Request) {
       isMeeting: d.isMeeting === "1",
       ownerId: session.user.id,
       studentId: d.studentId || null,
+      linkedTaskId,
       googleEventId,
       googleCalendarId,
     },
-    include: { student: { select: { id: true, fullName: true, alias: true, color: true } } },
+    include: {
+      student: { select: { id: true, fullName: true, alias: true, color: true } },
+      linkedTask: { select: { id: true, title: true } },
+    },
   });
 
   await logActivity({
@@ -172,6 +206,8 @@ export async function POST(req: Request) {
       student: event.student,
       googleEventId: event.googleEventId,
       googleCalendarId: event.googleCalendarId,
+      linkedTaskId: event.linkedTaskId,
+      linkedTaskTitle: event.linkedTask?.title ?? null,
     },
     googleWarning,
     pushedToGoogle: !!googleEventId,

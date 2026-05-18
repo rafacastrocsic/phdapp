@@ -6,6 +6,7 @@ import { calendarForUser } from "@/lib/google";
 import {
   accessForStudent,
   canWriteForStudent,
+  studentVisibilityWhereAllForAdmin,
   type Role,
 } from "@/lib/access";
 import { logActivity } from "@/lib/activity-log";
@@ -41,6 +42,8 @@ const Patch = z.object({
     .optional(),
   meetingNotes: z.string().nullable().optional(),
   pushToGoogle: z.boolean().optional(),
+  // Manual task link: a task id to link, or null to unlink.
+  linkedTaskId: z.string().nullable().optional(),
 });
 
 export async function PATCH(
@@ -76,6 +79,28 @@ export async function PATCH(
   if (d.isMeeting !== undefined) data.isMeeting = d.isMeeting;
   if (d.agenda !== undefined) data.agenda = JSON.stringify(d.agenda);
   if (d.meetingNotes !== undefined) data.meetingNotes = d.meetingNotes;
+  if (d.linkedTaskId !== undefined) {
+    const linkedTaskId = d.linkedTaskId || null;
+    if (linkedTaskId) {
+      const tk = await prisma.ticket.findFirst({
+        where: {
+          id: linkedTaskId,
+          archivedAt: null,
+          student: studentVisibilityWhereAllForAdmin(
+            session.user.id,
+            session.user.role as Role,
+          ),
+        },
+        select: { id: true },
+      });
+      if (!tk)
+        return NextResponse.json(
+          { error: "Linked task not found or not visible to you" },
+          { status: 400 },
+        );
+    }
+    data.linkedTaskId = linkedTaskId;
+  }
 
   // If user changed date or times, recompute starts/ends.
   if (d.date || d.startTime || d.endTime) {

@@ -201,7 +201,10 @@ Top-right toggle: **Year / Month / Week / Day**.
 4. Meeting URL (optional)
 5. Student to attach it to
 6. Description
-7. **Push to Google Calendar** checkbox — if checked, it lands on the student's shared Google Calendar too.
+7. **Related task (optional)** — link the event to one of that student's tasks (the picker is scoped to the chosen student; with no student selected it lists all visible tasks prefixed by student name). Use this for events that *relate to* a task but aren't its deadline — e.g. a meeting where one agenda point is "how are the slides going?" for a task due later. This is independent of the automatic `[Task]_` due-date entry: linking here doesn't move or create the task's deadline, and deleting/archiving the task leaves the event in place (the link just clears).
+8. **Push to Google Calendar** checkbox — if checked, it lands on the student's shared Google Calendar too.
+
+Opening a linked event shows a **Related task: …** line — click it for an in-place task peek (you stay on the Calendar). You can add, change, or remove the link later via the event's **Edit** form.
 
 ### Structured 1:1 meetings
 
