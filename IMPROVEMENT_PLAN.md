@@ -351,6 +351,16 @@ Per-user, per-type preferences (extend the Settings page; a `NotificationPref` m
 
 ---
 
+## 23. Browser-tab chat alerts  ✅ COMPLETED (2026-05-18, Bruno request)
+
+**What:** like Google Chat — tab title + favicon change on unread chat, plus a sound, so messages aren't missed when PhDapp isn't the focused tab.
+
+**Implementation:** `TabAlerts` client component (mounted once in the `(app)` layout) polls `/api/chat/unread` every 5 s. Unread > 0 → `document.title = "(N) <sender> messaged you – <base>"` + a canvas-drawn favicon with a red count badge (`<link id="phdapp-fav">`); cleared at 0. A short two-tone WebAudio beep on count increase (not first poll), muted via `localStorage["phdapp.muteChat"]="1"`. `/api/chat/unread` extended with `latestSender`. No assets/schema/migration.
+
+**Scope/risk:** low. Chat-only. Audio is best-effort (browser autoplay policy — caught). Favicon is generated at runtime (no prior favicon existed, so this also gives the app one).
+
+---
+
 ## Recommended sequence
 
 1. **§0** access helper — tiny, unblocks §3/§7/§10.

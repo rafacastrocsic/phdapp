@@ -3,6 +3,7 @@ import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
 import { Sidebar } from "@/components/app-shell/sidebar";
 import { Topbar } from "@/components/app-shell/topbar";
+import { TabAlerts } from "@/components/app-shell/tab-alerts";
 import {
   isSupervisingUser,
   studentVisibilityWhereAllForAdmin,
@@ -90,6 +91,7 @@ export default async function AppLayout({
 
   return (
     <div className="flex h-screen overflow-hidden print:block print:h-auto print:overflow-visible">
+      <TabAlerts />
       <Sidebar
         role={session.user.role}
         showLog={showLog}

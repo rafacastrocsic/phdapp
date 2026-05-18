@@ -169,6 +169,7 @@ The **Chat** module (green icon) is for direct messages with your supervisor and
 - **Message box at the bottom**: type, press Enter to send. Click the paperclip to attach a file (max 25 MB; chat attachments are auto-deleted after 7 days).
 - **Bold channel name + pink dot** in the sidebar = unread.
 - **Delivery ticks** (WhatsApp-style) on the messages you send: **one grey ✓** = sent; **two grey ✓✓** = delivered (the channel has someone to receive it); **two blue ✓✓** = seen (someone else has read up to that message). Ticks turn blue within a few seconds of the other person opening the channel.
+- **Browser-tab alerts** — when you have unread messages, the browser tab title shows **"(N) … messaged you"** and the favicon gets a red badge with the count, so you notice even when PhDapp isn't the tab you're looking at. A short sound also plays when a new message arrives. (To silence the sound, set `phdapp.muteChat` to `1` in your browser's localStorage; the title/favicon badge stay.)
 - **Start a new channel** with the **+** at the top of the channels column. You can only create one with **your own supervisor(s)** — not with team/external advisors, committee members, or other students.
 
 You can collapse the channels column to icons-only with the small chevron at the top of that column. Same trick on the main left sidebar.
