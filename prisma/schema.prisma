@@ -50,6 +50,7 @@ model User {
   availability          Availability[]
   teamNotes             TeamNote[]       @relation("TeamNoteAuthor")
   advisorSuggestions    AdvisorSuggestion[] @relation("AdvisorSuggestionAuthor")
+  taskGroupsCreated     TaskGroup[]      @relation("TaskGroupCreatedBy")
   notifications         Notification[]
 
   createdAt DateTime @default(now())
@@ -131,6 +132,7 @@ model Student {
   supervisorNotes SupervisorNote[]
   readingItems    ReadingItem[]
   checkIns        CheckIn[]
+  taskGroups      TaskGroup[]
 
   createdAt       DateTime  @default(now())
   updatedAt       DateTime  @updatedAt
@@ -305,6 +307,10 @@ model Ticket {
   studentId    String
   student      Student   @relation(fields: [studentId], references: [id], onDelete: Cascade)
 
+  // Optional parent group → 3-level hierarchy: Group > Task > Subtask.
+  groupId      String?
+  group        TaskGroup? @relation(fields: [groupId], references: [id], onDelete: SetNull)
+
   assigneeId   String?
   assignee     User?     @relation("TicketAssignee", fields: [assigneeId], references: [id])
 
@@ -320,6 +326,20 @@ model Ticket {
 
   createdAt    DateTime  @default(now())
   updatedAt    DateTime  @updatedAt
+}
+
+// Top of the 3-level hierarchy: a named group of tasks for one student.
+model TaskGroup {
+  id          String   @id @default(cuid())
+  name        String
+  color       String   @default("#6366f1")
+  studentId   String
+  student     Student  @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  createdById String
+  createdBy   User     @relation("TaskGroupCreatedBy", fields: [createdById], references: [id])
+  tickets     Ticket[]
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
 }
 
 model TicketTag {

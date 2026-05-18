@@ -589,7 +589,7 @@ export function CalendarView({
                           const isTask = !!e.ticketId;
                           if (isTask) {
                             const pColor = taskPriorityColor(e.taskPriority);
-                            const cleanTitle = e.title.replace(/^\[Task\]\s*/, "");
+                            const cleanTitle = e.title;
                             return (
                               <button
                                 key={e.id}
@@ -672,7 +672,7 @@ export function CalendarView({
                           </div>
                         )}
                         {ghosts.map((e) => {
-                          const cleanTitle = e.title.replace(/^\[Task\]\s*/, "");
+                          const cleanTitle = e.title;
                           return (
                             <div
                               key={`del-${e.id}`}

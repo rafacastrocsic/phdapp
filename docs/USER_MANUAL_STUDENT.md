@@ -66,9 +66,13 @@ The **Tasks** module (orange icon, sidebar) is where most of the day-to-day work
 ### Two views
 
 - **Board** (default) — Kanban columns from "Backlog" to "Done". Drag cards left/right to change their status.
-- **List** — same tasks as a flat table grouped by student (you only see your own). Useful for scanning many tasks at once.
+- **List** — your tasks as a table, showing the full **Group → Task → Subtask** hierarchy: subtasks are listed under each task, and tasks can be organised into named **Groups**.
 
 Toggle between the two with the **Board / List** switch at the top right.
+
+### Grouping tasks (List view)
+
+In **List** view each task row has a checkbox. Tick the tasks you want, type a **group name** in the bar that appears, and click **Create group** — they're collected under that group heading. (You can only group tasks that are all yours, which they always are for you.) On a group heading you can **rename** or **disband** it (disbanding just ungroups the tasks, it doesn't delete them); each grouped task has a small **ungroup** link. Groups are purely organisational — they don't change a task's status, due date, etc.
 
 ### What's on a task
 
@@ -108,7 +112,7 @@ Inside a task dialog → red **Delete** button at the bottom-left. You'll be ask
 The **Calendar** module (teal icon) shows:
 
 - **Real events** — meetings, deadlines your supervisor created. Solid colored chip with a time.
-- **Task events** — every task with a due date appears as an outlined chip with a small circle icon and a single-letter priority tag (L/M/H/U). Click it to see the task in a quick view **without leaving the Calendar**; close it and you're still on the Calendar. Use **Open in Tasks board** in that view to go to the full task on the Tasks board.
+- **Task events** — every task with a due date appears as an outlined chip with a small circle icon and a single-letter priority tag (L/M/H/U). Its name is prefixed **`[Task]_`** (and sub-task deadlines show as **`[Sub-task]_…`**) so it's clearly task-derived, including on a synced Google Calendar. Click it to see the task in a quick view **without leaving the Calendar**; close it and you're still on the Calendar. Use **Open in Tasks board** in that view to go to the full task on the Tasks board.
 
 ### Four views
 

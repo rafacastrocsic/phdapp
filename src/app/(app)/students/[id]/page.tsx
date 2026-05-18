@@ -27,6 +27,7 @@ import {
   ExternalLink,
   Mail,
   GraduationCap,
+  Flag,
   Globe,
   BookOpen,
   Star,
@@ -190,8 +191,12 @@ export default async function StudentDetail({
                   Year {student.programYear}
                 </span>
                 {student.expectedEndDate && (
-                  <span>
-                    expected {format(student.expectedEndDate, "MMM yyyy")}
+                  <span className="flex items-center gap-1">
+                    <Flag className="h-3.5 w-3.5" />
+                    <span className="uppercase tracking-wide text-[11px] font-semibold text-slate-400">
+                      Expected end
+                    </span>
+                    <span>{format(student.expectedEndDate, "MMM yyyy")}</span>
                   </span>
                 )}
                 {student.linkedinUrl && (

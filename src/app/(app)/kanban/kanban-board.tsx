@@ -1,5 +1,5 @@
 "use client";
-import { useEffect, useMemo, useRef, useState, useTransition } from "react";
+import { Fragment, useEffect, useMemo, useRef, useState, useTransition } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { format, isBefore, isToday, isTomorrow } from "date-fns";
@@ -58,6 +58,7 @@ export interface Ticket {
   tags: { id: string; label: string; color: string }[];
   subtasks: Subtask[];
   completionRequestedAt?: string | null;
+  group?: { id: string; name: string; color: string } | null;
   updatedAt: string;
 }
 
@@ -266,6 +267,21 @@ export function KanbanBoard({
     }
   }
 
+  async function refetchTickets() {
+    try {
+      const r = await fetch(
+        `/api/tickets/list${studentFilter ? `?student=${encodeURIComponent(studentFilter)}` : ""}`,
+        { cache: "no-store" },
+      );
+      if (r.ok) {
+        const j = await r.json();
+        setTickets(j.tickets);
+      }
+    } catch {
+      /* ignore — the 8s poll will catch up */
+    }
+  }
+
   const openTicket = tickets.find((t) => t.id === openId) ?? null;
 
   return (
@@ -312,18 +328,20 @@ export function KanbanBoard({
               className="!h-9 !w-full !pl-8"
             />
           </div>
-          <Select
-            value={studentFilter}
-            onChange={(e) => setStudentFilter(e.target.value)}
-            className="!w-auto grow-0 basis-44 max-w-xs"
-          >
-            <option value="">All students</option>
-            {students.map((s) => (
-              <option key={s.id} value={s.id}>
-                {displayName(s)}
-              </option>
-            ))}
-          </Select>
+          {!isStudent && (
+            <Select
+              value={studentFilter}
+              onChange={(e) => setStudentFilter(e.target.value)}
+              className="!w-auto grow-0 basis-44 max-w-xs"
+            >
+              <option value="">All students</option>
+              {students.map((s) => (
+                <option key={s.id} value={s.id}>
+                  {displayName(s)}
+                </option>
+              ))}
+            </Select>
+          )}
           <Select
             value={priorityFilter}
             onChange={(e) => setPriorityFilter(e.target.value)}
@@ -356,6 +374,7 @@ export function KanbanBoard({
           tickets={filtered}
           students={students}
           onOpen={(id) => setOpenId(id)}
+          onMutated={refetchTickets}
         />
       ) : (
       <div className="flex-1 min-w-0 overflow-x-auto">
@@ -1534,24 +1553,84 @@ function TaskListView({
   tickets,
   students,
   onOpen,
+  onMutated,
 }: {
   tickets: Ticket[];
   students: Props["students"];
   onOpen: (id: string) => void;
+  onMutated: () => void;
 }) {
-  const groups = useMemo(() => {
-    const byStudent: Record<string, Ticket[]> = {};
-    for (const t of tickets) {
-      (byStudent[t.student.id] ??= []).push(t);
-    }
-    // Keep student order from the students prop (alphabetical),
-    // and only include students that actually have tickets.
+  const [selected, setSelected] = useState<string[]>([]);
+  const [groupName, setGroupName] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState<string | null>(null);
+
+  const byStudent = useMemo(() => {
+    const m: Record<string, Ticket[]> = {};
+    for (const t of tickets) (m[t.student.id] ??= []).push(t);
     return students
-      .map((s) => ({ student: s, tickets: byStudent[s.id] ?? [] }))
+      .map((s) => ({ student: s, tickets: m[s.id] ?? [] }))
       .filter((g) => g.tickets.length > 0);
   }, [tickets, students]);
 
-  if (groups.length === 0) {
+  const selSet = new Set(selected);
+  const selTickets = tickets.filter((t) => selSet.has(t.id));
+  const selStudentIds = [...new Set(selTickets.map((t) => t.student.id))];
+  const sameStudent = selStudentIds.length === 1;
+
+  function toggle(id: string) {
+    setSelected((p) =>
+      p.includes(id) ? p.filter((x) => x !== id) : [...p, id],
+    );
+  }
+
+  async function createGroup() {
+    const name = groupName.trim();
+    if (!name || selected.length === 0) return;
+    setBusy(true);
+    setErr(null);
+    const r = await fetch("/api/task-groups", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ name, ticketIds: selected }),
+    });
+    setBusy(false);
+    if (!r.ok) {
+      const j = await r.json().catch(() => ({}));
+      setErr(j.error ?? "Could not create the group.");
+      return;
+    }
+    setSelected([]);
+    setGroupName("");
+    onMutated();
+  }
+
+  async function renameGroup(id: string, current: string) {
+    const name = window.prompt("Rename group", current);
+    if (!name || name.trim() === current) return;
+    await fetch(`/api/task-groups/${id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ name: name.trim() }),
+    });
+    onMutated();
+  }
+  async function disbandGroup(id: string) {
+    if (!window.confirm("Disband this group? The tasks stay, just ungrouped."))
+      return;
+    await fetch(`/api/task-groups/${id}`, { method: "DELETE" });
+    onMutated();
+  }
+  async function removeFromGroup(ticketId: string) {
+    await fetch(`/api/tickets/${ticketId}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ groupId: null }),
+    });
+    onMutated();
+  }
+
+  if (byStudent.length === 0) {
     return (
       <div className="flex-1 flex items-center justify-center text-sm text-slate-400">
         No tasks match the current filters.
@@ -1559,114 +1638,266 @@ function TaskListView({
     );
   }
 
+  const COLS = 6;
+
+  function Row({ t }: { t: Ticket }) {
+    const due = t.dueDate ? new Date(t.dueDate) : null;
+    const overdue = due && isBefore(due, new Date()) && t.status !== "done";
+    const checked = selSet.has(t.id);
+    return (
+      <>
+        <tr
+          onClick={() => onOpen(t.id)}
+          className={cn(
+            "cursor-pointer hover:bg-slate-50",
+            checked && "bg-violet-50/60",
+          )}
+        >
+          <td className="px-2 py-2 w-8" onClick={(e) => e.stopPropagation()}>
+            <input
+              type="checkbox"
+              checked={checked}
+              onChange={() => toggle(t.id)}
+              className="h-4 w-4 rounded border-slate-300"
+              aria-label="Select task"
+            />
+          </td>
+          <td className="px-3 py-2">
+            <div className="flex items-center gap-2 min-w-0">
+              <span className="font-medium text-slate-900 truncate">
+                {t.title}
+              </span>
+              {t.group && (
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    removeFromGroup(t.id);
+                  }}
+                  className="shrink-0 text-[10px] text-slate-400 hover:text-[var(--c-red)]"
+                  title={`Remove from “${t.group.name}”`}
+                >
+                  ungroup
+                </button>
+              )}
+            </div>
+            {t.subtasks.length > 0 && (
+              <ul className="mt-1 space-y-0.5">
+                {t.subtasks.map((s) => (
+                  <li
+                    key={s.id}
+                    className="flex items-center gap-1.5 text-[11px] text-slate-500 pl-3"
+                  >
+                    <span className="text-slate-400">{s.done ? "☑" : "☐"}</span>
+                    <span className={s.done ? "line-through" : ""}>{s.text}</span>
+                    {s.due && (
+                      <span className="text-[10px] text-slate-400">
+                        ·{" "}
+                        {new Date(s.due + "T00:00:00").toLocaleDateString(
+                          undefined,
+                          { month: "short", day: "numeric" },
+                        )}
+                      </span>
+                    )}
+                  </li>
+                ))}
+              </ul>
+            )}
+          </td>
+          <td className="px-3 py-2">
+            <Badge color={statusColor(t.status)}>
+              {STATUSES.find((s) => s.id === t.status)?.label ?? t.status}
+            </Badge>
+          </td>
+          <td className="px-3 py-2">
+            <Badge color={priorityColor(t.priority)} variant="solid">
+              {t.priority[0]!.toUpperCase()}
+            </Badge>
+          </td>
+          <td className="px-3 py-2">
+            <Badge color={categoryColor(t.category)}>
+              {CATEGORIES.find((c) => c.id === t.category)?.label ??
+                t.category}
+            </Badge>
+          </td>
+          <td className="px-3 py-2">
+            {t.assignee ? (
+              <div className="flex items-center gap-1.5">
+                <Avatar
+                  name={t.assignee.name}
+                  src={t.assignee.image}
+                  color={t.assignee.color}
+                  size="xs"
+                />
+                <span className="truncate text-xs text-slate-700">
+                  {t.assignee.name}
+                </span>
+              </div>
+            ) : (
+              <span className="text-xs text-slate-400">Unassigned</span>
+            )}
+          </td>
+          <td className="px-3 py-2">
+            {due ? (
+              <span
+                className={cn(
+                  "text-xs",
+                  overdue
+                    ? "text-[var(--c-red)] font-semibold"
+                    : "text-slate-600",
+                )}
+              >
+                {isToday(due)
+                  ? "Today"
+                  : isTomorrow(due)
+                    ? "Tomorrow"
+                    : format(due, "MMM d")}
+              </span>
+            ) : (
+              <span className="text-xs text-slate-300">—</span>
+            )}
+          </td>
+        </tr>
+      </>
+    );
+  }
+
   return (
     <div className="flex-1 min-w-0 overflow-auto p-6 lg:p-8 space-y-6">
-      {groups.map((g) => (
-        <section key={g.student.id} className="space-y-2">
-          <div className="flex items-center gap-2">
-            <span
-              className="h-3 w-3 rounded-full"
-              style={{ background: g.student.color }}
-            />
-            <h2 className="text-sm font-bold text-slate-900">
-              {displayName(g.student)}
-            </h2>
-            <span className="text-xs text-slate-500">
-              · {g.tickets.length} task{g.tickets.length === 1 ? "" : "s"}
+      {selected.length > 0 && (
+        <div className="sticky top-0 z-10 -mt-2 mb-2 flex flex-wrap items-center gap-2 rounded-xl border bg-white px-3 py-2 shadow-sm">
+          <span className="text-sm font-medium text-slate-700">
+            {selected.length} selected
+          </span>
+          <Input
+            value={groupName}
+            onChange={(e) => setGroupName(e.target.value)}
+            placeholder="New group name…"
+            className="!h-8 !w-56"
+          />
+          <Button
+            type="button"
+            size="sm"
+            variant="brand"
+            disabled={busy || !groupName.trim() || !sameStudent}
+            onClick={createGroup}
+          >
+            Create group
+          </Button>
+          <Button
+            type="button"
+            size="sm"
+            variant="outline"
+            onClick={() => {
+              setSelected([]);
+              setErr(null);
+            }}
+          >
+            Clear
+          </Button>
+          {!sameStudent && (
+            <span className="text-xs text-[var(--c-red)]">
+              Select tasks of a single student to group them.
             </span>
-          </div>
-          <div className="overflow-hidden rounded-xl border bg-white">
-            <table className="w-full text-sm">
-              <thead className="bg-slate-50 text-[10px] uppercase tracking-wide text-slate-500">
-                <tr>
-                  <th className="px-3 py-2 text-left font-semibold">Task</th>
-                  <th className="px-3 py-2 text-left font-semibold">Status</th>
-                  <th className="px-3 py-2 text-left font-semibold">Priority</th>
-                  <th className="px-3 py-2 text-left font-semibold">Category</th>
-                  <th className="px-3 py-2 text-left font-semibold">Assignee</th>
-                  <th className="px-3 py-2 text-left font-semibold">Due date</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y">
-                {g.tickets.map((t) => {
-                  const due = t.dueDate ? new Date(t.dueDate) : null;
-                  const overdue = due && isBefore(due, new Date()) && t.status !== "done";
-                  return (
-                    <tr
-                      key={t.id}
-                      onClick={() => onOpen(t.id)}
-                      className="cursor-pointer hover:bg-slate-50"
-                    >
-                      <td className="px-3 py-2">
-                        <div className="font-medium text-slate-900 truncate">
-                          {t.title}
-                        </div>
-                        {t.subtasks.length > 0 && (
-                          <div className="text-[10px] text-slate-400 mt-0.5">
-                            {t.subtasks.filter((s) => s.done).length}/{t.subtasks.length} subtasks
-                          </div>
-                        )}
-                      </td>
-                      <td className="px-3 py-2">
-                        <Badge color={statusColor(t.status)}>
-                          {STATUSES.find((s) => s.id === t.status)?.label ?? t.status}
-                        </Badge>
-                      </td>
-                      <td className="px-3 py-2">
-                        <Badge color={priorityColor(t.priority)} variant="solid">
-                          {t.priority[0]!.toUpperCase()}
-                        </Badge>
-                      </td>
-                      <td className="px-3 py-2">
-                        <Badge color={categoryColor(t.category)}>
-                          {t.category}
-                        </Badge>
-                      </td>
-                      <td className="px-3 py-2">
-                        {t.assignee ? (
-                          <div className="flex items-center gap-1.5">
-                            <Avatar
-                              name={t.assignee.name}
-                              src={t.assignee.image}
-                              color={t.assignee.color}
-                              size="xs"
+          )}
+          {err && (
+            <span className="text-xs text-[var(--c-red)]">{err}</span>
+          )}
+        </div>
+      )}
+
+      {byStudent.map((g) => {
+        // Order within a student: each group block, then ungrouped tasks.
+        const groupsMap = new Map<
+          string,
+          { group: NonNullable<Ticket["group"]>; tasks: Ticket[] }
+        >();
+        const ungrouped: Ticket[] = [];
+        for (const t of g.tickets) {
+          if (t.group) {
+            const e = groupsMap.get(t.group.id);
+            if (e) e.tasks.push(t);
+            else groupsMap.set(t.group.id, { group: t.group, tasks: [t] });
+          } else ungrouped.push(t);
+        }
+        const groupBlocks = [...groupsMap.values()].sort((a, b) =>
+          a.group.name.localeCompare(b.group.name),
+        );
+        return (
+          <section key={g.student.id} className="space-y-2">
+            <div className="flex items-center gap-2">
+              <span
+                className="h-3 w-3 rounded-full"
+                style={{ background: g.student.color }}
+              />
+              <h2 className="text-sm font-bold text-slate-900">
+                {displayName(g.student)}
+              </h2>
+              <span className="text-xs text-slate-500">
+                · {g.tickets.length} task{g.tickets.length === 1 ? "" : "s"}
+              </span>
+            </div>
+            <div className="overflow-hidden rounded-xl border bg-white">
+              <table className="w-full text-sm">
+                <thead className="bg-slate-50 text-[10px] uppercase tracking-wide text-slate-500">
+                  <tr>
+                    <th className="px-2 py-2 w-8"></th>
+                    <th className="px-3 py-2 text-left font-semibold">Task</th>
+                    <th className="px-3 py-2 text-left font-semibold">Status</th>
+                    <th className="px-3 py-2 text-left font-semibold">Priority</th>
+                    <th className="px-3 py-2 text-left font-semibold">Category</th>
+                    <th className="px-3 py-2 text-left font-semibold">Assignee</th>
+                    <th className="px-3 py-2 text-left font-semibold">Due date</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y">
+                  {groupBlocks.map(({ group, tasks }) => (
+                    <Fragment key={group.id}>
+                      <tr className="bg-slate-50/80">
+                        <td colSpan={COLS + 1} className="px-3 py-1.5">
+                          <div className="flex items-center gap-2">
+                            <span
+                              className="h-2.5 w-2.5 rounded-sm"
+                              style={{ background: group.color }}
                             />
-                            <span className="truncate text-xs text-slate-700">
-                              {t.assignee.name}
+                            <span className="text-xs font-bold text-slate-700">
+                              {group.name}
                             </span>
+                            <span className="text-[10px] text-slate-400">
+                              · {tasks.length} task
+                              {tasks.length === 1 ? "" : "s"}
+                            </span>
+                            <button
+                              type="button"
+                              onClick={() => renameGroup(group.id, group.name)}
+                              className="ml-2 text-[10px] text-slate-400 hover:text-slate-700"
+                            >
+                              rename
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => disbandGroup(group.id)}
+                              className="text-[10px] text-slate-400 hover:text-[var(--c-red)]"
+                            >
+                              disband
+                            </button>
                           </div>
-                        ) : (
-                          <span className="text-xs text-slate-400">Unassigned</span>
-                        )}
-                      </td>
-                      <td className="px-3 py-2">
-                        {due ? (
-                          <span
-                            className={cn(
-                              "text-xs",
-                              overdue
-                                ? "text-[var(--c-red)] font-semibold"
-                                : "text-slate-600",
-                            )}
-                          >
-                            {isToday(due)
-                              ? "Today"
-                              : isTomorrow(due)
-                                ? "Tomorrow"
-                                : format(due, "MMM d")}
-                          </span>
-                        ) : (
-                          <span className="text-xs text-slate-300">—</span>
-                        )}
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
-        </section>
-      ))}
+                        </td>
+                      </tr>
+                      {tasks.map((t) => (
+                        <Row key={t.id} t={t} />
+                      ))}
+                    </Fragment>
+                  ))}
+                  {ungrouped.map((t) => (
+                    <Row key={t.id} t={t} />
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </section>
+        );
+      })}
     </div>
   );
 }

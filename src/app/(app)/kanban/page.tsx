@@ -30,6 +30,7 @@ export default async function KanbanPage({
     include: {
       assignee: { select: { id: true, name: true, image: true, color: true } },
       student: { select: { id: true, fullName: true, alias: true, color: true } },
+      group: { select: { id: true, name: true, color: true } },
       tags: true,
       _count: { select: { comments: true } },
     },
@@ -150,6 +151,7 @@ export default async function KanbanPage({
         tags: t.tags,
         subtasks: parseSubtasks(t.subtasks),
         completionRequestedAt: t.completionRequestedAt?.toISOString() ?? null,
+        group: t.group,
         updatedAt: t.updatedAt.toISOString(),
       }))}
       students={students}

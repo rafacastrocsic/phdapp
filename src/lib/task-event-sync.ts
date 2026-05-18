@@ -2,8 +2,8 @@ import { prisma } from "./prisma";
 import { calendarForUser } from "./google";
 import { parseSubtasks } from "./subtasks";
 
-const TITLE_PREFIX = "[Task] ";
-const SUBTASK_PREFIX = "[Sub-task] ";
+const TITLE_PREFIX = "[Task]_";
+const SUBTASK_PREFIX = "[Sub-task]_";
 
 function googleAllDayBody(title: string, description: string | null, dueDate: Date) {
   // Google all-day events use start.date and end.date (inclusive / exclusive).

@@ -27,6 +27,8 @@ const Patch = z.object({
   assignee: z.any().optional(), // ignored — client field
   // Student action: "Mark as completed" — requests a supervisor to set Done.
   requestCompletion: z.boolean().optional(),
+  // null = remove from its group.
+  groupId: z.string().nullable().optional(),
 });
 
 async function load(id: string, userId: string, role: Role) {
@@ -144,6 +146,7 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
   if (d.assigneeId !== undefined) data.assigneeId = d.assigneeId;
   if (d.dueDate !== undefined) data.dueDate = d.dueDate ? new Date(d.dueDate) : null;
   if (d.driveFolderUrl !== undefined) data.driveFolderUrl = d.driveFolderUrl;
+  if (d.groupId !== undefined) data.groupId = d.groupId;
   if (d.subtasks !== undefined) data.subtasks = JSON.stringify(d.subtasks);
   // "Mark as completed" (no status change) — flag it for supervisor review.
   const requestedCompletion =

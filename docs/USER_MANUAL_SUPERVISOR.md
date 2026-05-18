@@ -100,16 +100,20 @@ The **Tasks** module is the heart of the app. Tasks are work items you assign to
 ### Two views
 
 - **Board** — Kanban columns from Backlog → To do → In progress → Review → Blocked → Done. Drag cards to change status.
-- **List** — flat table grouped by student, showing status, priority, category, assignee, due date.
+- **List** — table per student showing the full **Group → Task → Subtask** hierarchy (subtasks listed under each task), with status, priority, category, assignee, due date.
 
 Toggle with **Board / List** at the top right.
+
+### Grouping tasks (List view)
+
+In **List** view, tick the checkbox on any tasks (they must all belong to the **same student**), enter a **group name** in the bar that appears, and **Create group**. The tasks then sit under that group heading. On the heading: **rename** or **disband** (disband only ungroups — tasks are kept); each task has an **ungroup** link. Groups are organisational only — they don't affect status/due/assignee. (Students get the same grouping for their own tasks.)
 
 ### Filters
 
 Above the board:
 
 - **Search** — by title or description text.
-- **All students** — narrow to one student.
+- **All students** — narrow to one student. *(Students don't see this filter — they only ever have their own tasks.)*
 - **Any priority** — filter by L/M/H/Urgent.
 - **Any category** — filter by category (Other matches custom labels too).
 
@@ -157,7 +161,7 @@ Clicking the card acknowledges it (the ring drops).
 Events come from two places:
 
 1. **Real events** you (or anyone with write access) create — meetings, deadlines.
-2. **Task due-date events** auto-generated when a task gets a due date. They have a different look: outlined chip with a circle icon and a priority-color stripe. Clicking one opens a quick task view **in place** (you stay on the Calendar); from there **Open in Tasks board** takes you to the full editable task.
+2. **Task due-date events** auto-generated when a task gets a due date. They have a different look: outlined chip with a circle icon and a priority-color stripe, and the title is prefixed **`[Task]_`** (sub-task deadlines: **`[Sub-task]_…`**) so they're recognisable even on a synced Google Calendar. Clicking one opens a quick task view **in place** (you stay on the Calendar); from there **Open in Tasks board** takes you to the full editable task.
 
 ### My availability
 
