@@ -33,13 +33,21 @@ export default async function StudentsPage() {
       supervisor: true,
       coSupervisors: { include: { user: true } },
       // Exclude soft-deleted (archived) tasks so the count reflects what's
-      // actually on the board; count only UPCOMING events (past ones grow
-      // unbounded and aren't a useful indicator) — matches the profile's
-      // "Upcoming meetings". Mirrors the dashboard/team filtering.
+      // actually on the board. For events: only UPCOMING (past ones grow
+      // unbounded), and only *real* calendar events — exclude the
+      // auto-generated task due-date mirrors (`ticketId`) and sub-task
+      // deadline events (`subtaskParentId`), which would otherwise inflate
+      // the number well beyond the events the user actually created.
       _count: {
         select: {
           tickets: { where: { archivedAt: null } },
-          events: { where: { startsAt: { gte: now } } },
+          events: {
+            where: {
+              startsAt: { gte: now },
+              ticketId: null,
+              subtaskParentId: null,
+            },
+          },
         },
       },
     },
