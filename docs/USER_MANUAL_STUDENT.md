@@ -16,6 +16,7 @@ A short guide to using PhDapp as a PhD student. Read top to bottom the first tim
 - [Annual review](#annual-review)
 - [Your profile](#your-profile)
 - [Notifications](#notifications)
+- [Feedback & suggestions](#feedback--suggestions)
 - [Tips](#tips)
 - [If something breaks](#if-something-breaks)
 
@@ -226,6 +227,16 @@ Other places that show "you have new stuff":
 3. **Calendar events** with new/updated activity have a red/blue ring around them until you click them.
 
 Click an item to acknowledge — the badge clears next time you reload.
+
+## Feedback & suggestions
+
+The **Feedback** entry in the sidebar (📣 megaphone) is a direct line to the app's administrators. Use it to:
+
+- **Report a bug** — something broke or behaves wrong. Say what happened, what you expected, and how to reproduce it.
+- **Suggest an improvement** — an idea to make PhDapp better.
+- **Other** — anything else you want the admins to know.
+
+Pick the type, add a short summary and a message, and **Send to admins**. Your submissions stay on that page so you can track them: each shows a **status** (Open → Planned → In progress → Done, or Declined) and, when an admin writes back, their **reply** appears right under your message. You'll get a sidebar badge (and an email, if email is configured) when an admin responds. You can delete your own submissions any time.
 
 ## Tips
 

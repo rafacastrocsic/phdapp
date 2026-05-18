@@ -55,6 +55,7 @@ The app assumes one human admin who is also a developer. If you delegate develop
 
 ### Feature surfaces added since launch
 
+- **Feedback / suggestion mailbox** — new `Feedback` model (`authorId` → User cascade, `kind` `bug|idea|other`, `subject`, `body`, `status` `open|planned|in_progress|done|declined`, `adminReply`, `repliedById`→User SetNull, `repliedAt`, timestamps; indices on authorId/status/createdAt) + `User.feedbackLastSeenAt`; hand-written additive migration `20260518150000_feedback`. `POST /api/feedback` (any authed user; zod-validated kind/subject/body) notifies **every** `role:"admin"` via `notify()` (Notification row + best-effort Resend email, type `feedback.new`). `GET /api/feedback` returns all items to admins (optional `?status=&kind=` filters) but **only the caller's own** to non-admins, and author identity is omitted from non-admin payloads. `PATCH /api/feedback/[id]` is **admin-only** (status and/or `adminReply`; sets `repliedById/repliedAt` when the reply text actually changes; `notify()`s the submitter, type `feedback.reply`). `DELETE` allowed for the author (own) or any admin. `/api/feedback/unread` drives a violet **Feedback** sidebar entry bubble (visible to all roles): admins → submissions by others since `feedbackLastSeenAt`; everyone else → their own items replied-to since then; opening `/feedback` bumps the timestamp. Client `/feedback` page: a kind/subject/body composer for everyone; admins additionally get status/kind filters, an inline status `Select`, a reply box, and author attribution. Not wired into the 🔔 bell (which is ActivityLog-derived) — the dedicated sidebar bubble + email are the surfaces, mirroring the advisor-suggestions pattern.
 - **Thesis & publications tracker** (per student profile): `ThesisChapter` + `Publication` tables. Supervisors and the student edit; external advisors/committee read-only. Items can link a Drive file/folder via a picker rooted at the student's shared folder.
 - **Private supervisor notes** (per student profile): `SupervisorNote` table. Server-gated by `canSeeSupervisorPrivate(teamLevelForStudent())` — supervisors + admin only; the API returns 404 (not 403) to students/advisors/committee so the feature isn't even discoverable, and the page never sends the data to them. As admin you see and can delete notes on every student.
 - New permission helper `teamLevelForStudent()` in `src/lib/access.ts` distinguishes supervisor vs advisor vs committee vs self (the older `accessForStudent()` collapsed them). Use it for any future feature that must treat those roles differently.
@@ -95,6 +96,7 @@ Routine things you do as admin:
 | Pushing a code change | `git commit && git push` to `main` | Local terminal |
 | Investigating a bug | Check Vercel **Logs** for the failing route | Vercel dashboard |
 | Watching costs | Vercel Usage + Neon Compute hours + Blob Storage | Each provider's dashboard |
+| Triaging user feedback | Open **Feedback** (sidebar, violet bubble = new since last visit); set each item's status and optionally reply (the submitter is notified) | `/feedback` |
 
 ## The Admin panel
 

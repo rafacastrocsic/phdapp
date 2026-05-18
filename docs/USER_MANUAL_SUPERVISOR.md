@@ -22,6 +22,7 @@ This manual is for anyone supervising or advising a PhD student in PhDapp. The f
 - [Annual review export](#annual-review-export)
 - [Activity log](#activity-log)
 - [Notifications](#notifications)
+- [Feedback & suggestions](#feedback--suggestions)
 - [Your profile](#your-profile)
 - [Permissions cheat sheet](#permissions-cheat-sheet)
 - [Tips](#tips)
@@ -321,6 +322,10 @@ Each entry shows: actor, action, timestamp, student involved, and (for task entr
 ## Notifications
 
 The **🔔 bell** in the top bar carries a red **unread count badge** and lists recent activity from your students and co-supervisors — a task or event someone created/updated/deleted, a reading added or a proposal awaiting your decision, a co-supervisor's away period, etc. It only shows changes *others* made (never your own actions) and only for students you can see. Click an item to jump to it, or **"Mark all read"** to clear the badge. This is in addition to the weekly email digest and the sidebar/board highlight badges. (Per-event emails also go out if the admin configured Resend.)
+
+## Feedback & suggestions
+
+The **Feedback** entry in the sidebar (📣 megaphone) sends a bug report, improvement idea, or general feedback straight to the app's administrators. Choose the type, add a summary and message, and **Send to admins**. Your submissions stay on that page with a status (Open / Planned / In progress / Done / Declined) and any **admin reply** shown inline; you get a sidebar badge (and an email if Resend is configured) when an admin responds. Available to everyone, including students. (If *you* are also an admin you'll instead see the triage view — see the admin manual.)
 
 ## Your profile
 

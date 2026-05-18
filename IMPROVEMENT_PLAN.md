@@ -291,6 +291,20 @@ Per-user, per-type preferences (extend the Settings page; a `NotificationPref` m
 
 ---
 
+## 18. Feedback / suggestion mailbox  ✅ COMPLETED (2026-05-18, user request)
+
+**What:** any user (student, supervisor, co-supervisor, advisor, committee, admin) can send the administrators a **bug report**, **improvement suggestion**, or **other** feedback. Admins triage with a status and can reply; submitters track their own items and see replies.
+
+**Data model:** new `Feedback` (`authorId`→User cascade, `kind` `bug|idea|other`, `subject`, `body`, `status` `open|planned|in_progress|done|declined`, `adminReply?`, `repliedById?`→User SetNull, `repliedAt?`, timestamps; `@@index` authorId/status/createdAt) + `User.feedbackLastSeenAt`. Hand-written additive migration `20260518150000_feedback`.
+
+**API:** `POST /api/feedback` (any authed user; zod kind/subject/body) → notifies every `role:"admin"` via `notify()` (Notification row + best-effort email). `GET /api/feedback` → all to admins (optional `status`/`kind` filters), own-only to non-admins (author identity withheld from non-admins). `PATCH /api/feedback/[id]` admin-only (status / reply; stamps `repliedById`+`repliedAt` on real reply change; notifies the submitter). `DELETE` = author (own) or admin. `/api/feedback/unread` → violet sidebar bubble (admins: others' new submissions since `feedbackLastSeenAt`; others: own items replied-to since), reset when `/feedback` is opened.
+
+**UI:** new sidebar entry **Feedback** (📣, all roles). `/feedback` page: kind/subject/body composer for everyone; admins additionally get status+kind filters, an inline status `Select`, a reply box, and author attribution. Submitter sees their items with status + inline admin reply.
+
+**Scope/risk:** low. Additive migration, no changes to existing modules. Not wired into the ActivityLog-derived 🔔 bell — the dedicated sidebar bubble + best-effort email are the surfaces (mirrors the advisor-suggestions design).
+
+---
+
 ## Recommended sequence
 
 1. **§0** access helper — tiny, unblocks §3/§7/§10.

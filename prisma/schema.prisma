@@ -27,6 +27,7 @@ model User {
   readingLastSeenAt DateTime?
   notificationsLastSeenAt DateTime?
   teamSuggestionsLastSeenAt DateTime?
+  feedbackLastSeenAt DateTime?
 
   accounts Account[]
   sessions Session[]
@@ -52,6 +53,8 @@ model User {
   advisorSuggestions    AdvisorSuggestion[] @relation("AdvisorSuggestionAuthor")
   taskGroupsCreated     TaskGroup[]      @relation("TaskGroupCreatedBy")
   notifications         Notification[]
+  feedbackSubmitted     Feedback[]       @relation("FeedbackAuthor")
+  feedbackHandled       Feedback[]       @relation("FeedbackRepliedBy")
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -232,6 +235,28 @@ model AdvisorSuggestion {
   createdAt  DateTime @default(now())
   updatedAt  DateTime @updatedAt
 
+  @@index([createdAt])
+}
+
+// Suggestion mailbox: any user can send the admins a bug report,
+// improvement idea, or other feedback. Admins triage (status) and reply.
+model Feedback {
+  id          String    @id @default(cuid())
+  authorId    String
+  author      User      @relation("FeedbackAuthor", fields: [authorId], references: [id], onDelete: Cascade)
+  kind        String    @default("idea") // "bug" | "idea" | "other"
+  subject     String
+  body        String
+  status      String    @default("open") // "open" | "planned" | "in_progress" | "done" | "declined"
+  adminReply  String?
+  repliedById String?
+  repliedBy   User?     @relation("FeedbackRepliedBy", fields: [repliedById], references: [id])
+  repliedAt   DateTime?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  @@index([authorId])
+  @@index([status])
   @@index([createdAt])
 }
 

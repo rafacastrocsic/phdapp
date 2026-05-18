@@ -15,6 +15,7 @@ import {
   ScrollText,
   Shield,
   BookOpen,
+  Megaphone,
   ChevronLeft,
   ChevronRight,
 } from "lucide-react";
@@ -40,6 +41,7 @@ const NAV: Nav[] = [
   { href: "/chat", label: "Chat", icon: MessagesSquare, color: "var(--c-green)" },
   { href: "/log", label: "Log book", icon: ScrollText, color: "var(--c-red)" },
   { href: "/team", label: "Team", icon: Users, color: "var(--c-yellow)", hideFor: ["student"] },
+  { href: "/feedback", label: "Feedback", icon: Megaphone, color: "var(--c-violet)" },
 ];
 
 export function Sidebar({
@@ -62,6 +64,7 @@ export function Sidebar({
   const [unreadCalendar, setUnreadCalendar] = useState(initialUnreadCalendar);
   const [unreadReading, setUnreadReading] = useState(0);
   const [unreadTeam, setUnreadTeam] = useState(0);
+  const [unreadFeedback, setUnreadFeedback] = useState(0);
   const [collapsed, setCollapsed] = useState(false);
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -83,13 +86,15 @@ export function Sidebar({
     let cancelled = false;
 
     async function fetchCounts() {
-      const [chat, kanban, calendar, reading, team] = await Promise.all([
-        fetch("/api/chat/unread", { cache: "no-store" }),
-        fetch("/api/kanban/unread", { cache: "no-store" }),
-        fetch("/api/calendar/unread", { cache: "no-store" }),
-        fetch("/api/reading/unread", { cache: "no-store" }),
-        fetch("/api/team/unread", { cache: "no-store" }),
-      ]);
+      const [chat, kanban, calendar, reading, team, feedback] =
+        await Promise.all([
+          fetch("/api/chat/unread", { cache: "no-store" }),
+          fetch("/api/kanban/unread", { cache: "no-store" }),
+          fetch("/api/calendar/unread", { cache: "no-store" }),
+          fetch("/api/reading/unread", { cache: "no-store" }),
+          fetch("/api/team/unread", { cache: "no-store" }),
+          fetch("/api/feedback/unread", { cache: "no-store" }),
+        ]);
       if (!cancelled && chat.ok) {
         const j = await chat.json();
         setUnreadChat(j.count ?? 0);
@@ -109,6 +114,10 @@ export function Sidebar({
       if (!cancelled && team.ok) {
         const j = await team.json();
         setUnreadTeam(j.count ?? 0);
+      }
+      if (!cancelled && feedback.ok) {
+        const j = await feedback.json();
+        setUnreadFeedback(j.count ?? 0);
       }
     }
 
@@ -177,7 +186,9 @@ export function Sidebar({
                     ? unreadReading
                     : item.href === "/team"
                       ? unreadTeam
-                      : 0;
+                      : item.href === "/feedback"
+                        ? unreadFeedback
+                        : 0;
           const unreadColor =
             item.href === "/chat"
               ? "var(--c-pink)"
@@ -187,7 +198,9 @@ export function Sidebar({
                   ? "var(--c-violet)"
                   : item.href === "/team"
                     ? "var(--c-yellow)"
-                    : "var(--c-teal)";
+                    : item.href === "/feedback"
+                      ? "var(--c-violet)"
+                      : "var(--c-teal)";
           const unreadLabel =
             item.href === "/chat"
               ? `${unread} unread message${unread === 1 ? "" : "s"}`
@@ -197,7 +210,9 @@ export function Sidebar({
                   ? `${unread} reading update${unread === 1 ? "" : "s"}`
                   : item.href === "/team"
                     ? `${unread} new advisor suggestion${unread === 1 ? "" : "s"}`
-                    : `${unread} new event change${unread === 1 ? "" : "s"}`;
+                    : item.href === "/feedback"
+                      ? `${unread} feedback update${unread === 1 ? "" : "s"}`
+                      : `${unread} new event change${unread === 1 ? "" : "s"}`;
           return (
             <Link
               key={item.href}
