@@ -31,7 +31,9 @@ export default async function StudentsPage() {
     include: {
       supervisor: true,
       coSupervisors: { include: { user: true } },
-      _count: { select: { tickets: true, events: true } },
+      // Exclude soft-deleted (archived) tasks so the count reflects what's
+      // actually on the board — matches the dashboard/team page logic.
+      _count: { select: { tickets: { where: { archivedAt: null } }, events: true } },
     },
     orderBy: { fullName: "asc" },
   });
