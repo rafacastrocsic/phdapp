@@ -361,6 +361,18 @@ Per-user, per-type preferences (extend the Settings page; a `NotificationPref` m
 
 ---
 
+## 24. Auto team channel + calendar ghost-event fix + alias consistency  ✅ COMPLETED (2026-05-18, user request)
+
+**Calendar ghost bug:** the live poll flagged any event missing from the latest result as a deleted "ghost" — but the result is windowed (month/year) and student-filtered, so navigating/filtering wrongly ghosted out-of-scope events (the reported bug). Fix: only diff for deletions when the `from|to|student|view` poll key is unchanged between consecutive polls; exclude task/sub-task mirror events, recurring synthetics, and linked-task events (they disappear for non-deletion reasons). Real same-window deletions still surface.
+
+**Auto team channel:** `ensureTeamChannel(studentId)` (idempotent) creates a `Team · <displayName>` channel (`kind:"student"`, members = supervisor + non-team-advisor co-sups + student user). Called on `POST /api/students` (replaces the old creator-only "1:1" channel); existing students backfilled via admin-only `POST /api/admin/backfill-team-channels` + an Admin → Maintenance button (no duplicates — skips students that already have a channel).
+
+**Alias consistency:** display already used the alias-aware `displayName()` app-wide; switched the last few raw-`fullName` non-profile strings (a toast, a Google-access warning, the delete activity summary) to `alias || fullName`. Profile/edit/annual-review intentionally keep the legal full name.
+
+**Scope/risk:** low. No schema/migration (channels/relations already exist). Backfill is idempotent and admin-gated.
+
+---
+
 ## Recommended sequence
 
 1. **§0** access helper — tiny, unblocks §3/§7/§10.

@@ -157,7 +157,7 @@ export async function POST(req: Request) {
             googleEventId = r2.data.id ?? null;
             googleCalendarId = "primary";
             googleWarning =
-              `You don't have write access to ${student?.fullName ?? "the linked"}'s calendar, ` +
+              `You don't have write access to ${(student?.alias?.trim() || student?.fullName) ?? "the linked"}'s calendar, ` +
               `so the event was added to your own primary Google Calendar instead. ` +
               `Ask them to share their calendar with you with permission "Make changes to events" ` +
               `to push events directly to it next time.`;

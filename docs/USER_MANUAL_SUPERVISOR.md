@@ -239,6 +239,7 @@ When you add someone to a supervision team, the system tries to share the studen
 
 The **Chat** module is for ongoing conversation with each student and their team.
 
+- **Auto team channel**: every student gets a **"Team · ‹name›"** channel created automatically when they're added — shared by the whole supervision team (primary + co-supervisors, minus read-only team advisors) and the student. (Already-existing students can be backfilled by the admin from **Admin → Maintenance**.)
 - **Channels** column (left): a list of every channel you're a member of. Click the **+** to create a new one (per-student, custom names possible).
 - **Messages**: type at the bottom, Enter to send. **Paperclip** for attachments (25 MB max; chat attachments are auto-purged after 7 days).
 - **Edit / delete** your own messages via the kebab menu on the message.

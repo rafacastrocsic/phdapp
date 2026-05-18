@@ -136,7 +136,7 @@ export async function DELETE(_req: Request, { params }: { params: Promise<{ id: 
     action: "student.delete",
     entityType: "student",
     entityId: idForDelete,
-    summary: `deleted the student record (${existing.fullName})`,
+    summary: `deleted the student record (${existing.alias?.trim() || existing.fullName})`,
   });
   await prisma.student.delete({ where: { id: idForDelete } });
   return NextResponse.json({ ok: true });

@@ -162,7 +162,7 @@ To change an event afterwards, click it → **Edit**, adjust the date, time, loc
 
 ## Chat
 
-The **Chat** module (green icon) is for direct messages with your supervisor and co-supervisors.
+The **Chat** module (green icon) is for direct messages with your supervisor and co-supervisors. You automatically have a **"Team"** channel shared with your whole supervision team, and you can also start your own channels.
 
 - **Left column**: list of channels. Click one to open it.
 - **Top header**: who's in the channel.

@@ -1,5 +1,5 @@
 "use client";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
   addDays,
   addMonths,
@@ -164,6 +164,11 @@ export function CalendarView({
   const [peekTicketId, setPeekTicketId] = useState<string | null>(null);
   const [view, setView] = useState<"year" | "month" | "week" | "day">("month");
   const [recentlyDeleted, setRecentlyDeleted] = useState<Event[]>([]);
+  // Identifies the current poll's window+filter. We only treat an event as
+  // "deleted" when it vanishes between two polls of the SAME window/filter
+  // — otherwise navigating months or switching the student filter would
+  // wrongly flag out-of-scope events as deleted.
+  const pollKeyRef = useRef<string>("");
   const router = useRouter();
   const openEvent = events.find((e) => e.id === openEventId) ?? null;
 
@@ -304,6 +309,7 @@ export function CalendarView({
         ).toISOString();
         const params = new URLSearchParams({ from, to });
         if (studentFilter) params.set("student", studentFilter);
+        const pollKey = `${from}|${to}|${studentFilter}|${view}`;
         try {
           const r = await fetch(`/api/calendar/events/list?${params.toString()}`, {
             cache: "no-store",
@@ -312,13 +318,27 @@ export function CalendarView({
             const j = await r.json();
             setEvents((prev) => {
               const newIds = new Set<string>(j.events.map((e: Event) => e.id));
-              const gone = prev.filter((e) => !newIds.has(e.id));
-              if (gone.length > 0) {
-                setRecentlyDeleted((rd) => {
-                  const have = new Set(rd.map((e) => e.id));
-                  return [...rd, ...gone.filter((e) => !have.has(e.id))];
-                });
+              // Only diff for genuine deletions within the SAME window/filter
+              // as the previous poll. A different key = navigation or a
+              // filter change, not a deletion. Task/sub-task deadline
+              // mirrors are excluded — they vanish when a task's due date
+              // changes, which isn't a user deleting an event.
+              if (pollKeyRef.current === pollKey) {
+                const gone = prev.filter(
+                  (e) =>
+                    !newIds.has(e.id) &&
+                    !e.recurring &&
+                    !e.ticketId &&
+                    !e.linkedTaskId,
+                );
+                if (gone.length > 0) {
+                  setRecentlyDeleted((rd) => {
+                    const have = new Set(rd.map((e) => e.id));
+                    return [...rd, ...gone.filter((e) => !have.has(e.id))];
+                  });
+                }
               }
+              pollKeyRef.current = pollKey;
               return j.events;
             });
             setHighlightByEvent(j.highlightByEvent ?? {});

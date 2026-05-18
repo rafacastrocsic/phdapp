@@ -66,7 +66,10 @@ export function AddTeamMember({ students }: { students: StudentOpt[] }) {
     }
     const j = await r.json();
     const stmsg = j.linkedStudentId
-      ? ` and linked to ${students.find((s) => s.id === j.linkedStudentId)?.fullName ?? "the student"}`
+      ? ` and linked to ${(() => {
+          const s = students.find((x) => x.id === j.linkedStudentId);
+          return s ? s.alias?.trim() || s.fullName : "the student";
+        })()}`
       : "";
     setMsg({
       type: "ok",

@@ -4,6 +4,7 @@ import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
 import { colorFor } from "@/lib/utils";
 import { normalizeCalendarId } from "@/lib/calendar-id";
+import { ensureTeamChannel } from "@/lib/team-channel";
 
 const Body = z.object({
   fullName: z.string().min(1),
@@ -59,16 +60,9 @@ export async function POST(req: Request) {
     },
   });
 
-  // Create a default 1:1 channel between supervisor and (future) student
-  await prisma.channel.create({
-    data: {
-      name: `1:1 · ${student.fullName}`,
-      kind: "student",
-      color: student.color,
-      studentId: student.id,
-      members: { create: [{ userId: session.user.id }] },
-    },
-  });
+  // Auto-create a general team channel for this student (supervisor +
+  // co-supervisors + the student share it).
+  await ensureTeamChannel(student.id);
 
   return NextResponse.json({ student });
 }
