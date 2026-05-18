@@ -162,7 +162,7 @@ The **Chat** module (green icon) is for direct messages with your supervisor and
 - **Top header**: who's in the channel.
 - **Message box at the bottom**: type, press Enter to send. Click the paperclip to attach a file (max 25 MB; chat attachments are auto-deleted after 7 days).
 - **Bold channel name + pink dot** in the sidebar = unread.
-- **Seen receipts**: under your most recent message you'll see **"Seen by"** with a small avatar once someone else in the channel has read up to it (it updates within a few seconds of them viewing). No indicator yet = not read by anyone else.
+- **Delivery ticks** (WhatsApp-style) on the messages you send: **one grey ✓** = sent; **two grey ✓✓** = delivered (the channel has someone to receive it); **two blue ✓✓** = seen (someone else has read up to that message). Ticks turn blue within a few seconds of the other person opening the channel.
 - **Start a new channel** with the **+** at the top of the channels column. You can only create one with **your own supervisor(s)** — not with team/external advisors, committee members, or other students.
 
 You can collapse the channels column to icons-only with the small chevron at the top of that column. Same trick on the main left sidebar.
@@ -237,7 +237,7 @@ The **Feedback** entry in the sidebar (📣 megaphone) is a direct line to the a
 - **Suggest an improvement** — an idea to make PhDapp better.
 - **Other** — anything else you want the admins to know.
 
-Pick the type, add a short summary and a message, and **Send to admins**. Your submissions stay on that page so you can track them: each shows a **status** (Open → Planned → In progress → Done, or Declined) and, when an admin writes back, their **reply** appears right under your message. You'll get a sidebar badge (and an email, if email is configured) when an admin responds. You can delete your own submissions any time.
+Pick the type, add a short summary and a message — and optionally **attach a photo** (e.g. a screenshot of the problem; PNG/JPG/WEBP/GIF) — then **Send to admins**. Your submissions stay on that page so you can track them: each shows a **status** (Open → Planned → In progress → Done, or Declined) and, when an admin writes back, their **reply** appears right under your message. You'll get a sidebar badge (and an email, if email is configured) when an admin responds. You can delete your own submissions any time.
 
 ## Tips
 

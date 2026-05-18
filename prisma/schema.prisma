@@ -248,6 +248,7 @@ model Feedback {
   subject     String
   body        String
   status      String    @default("open") // "open" | "planned" | "in_progress" | "done" | "declined"
+  imageUrl    String?   // optional screenshot/photo to illustrate the report
   adminReply  String?
   repliedById String?
   repliedBy   User?     @relation("FeedbackRepliedBy", fields: [repliedById], references: [id])

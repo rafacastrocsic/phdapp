@@ -234,7 +234,7 @@ The **Chat** module is for ongoing conversation with each student and their team
 - **Channels** column (left): a list of every channel you're a member of. Click the **+** to create a new one (per-student, custom names possible).
 - **Messages**: type at the bottom, Enter to send. **Paperclip** for attachments (25 MB max; chat attachments are auto-purged after 7 days).
 - **Edit / delete** your own messages via the kebab menu on the message.
-- **Seen receipts**: a small **"Seen by"** avatar appears under your latest message once another channel member has read up to it (updates within a few seconds of them opening the channel).
+- **Delivery ticks** on messages you send (WhatsApp-style): **one grey ✓** sent · **two grey ✓✓** delivered · **two blue ✓✓** seen by another member (updates within a few seconds of them opening the channel).
 
 You can collapse the channels column with the chevron at the top of that column. Same with the main left sidebar.
 
@@ -330,7 +330,7 @@ The **🔔 bell** in the top bar carries a red **unread count badge** and lists 
 
 ## Feedback & suggestions
 
-The **Feedback** entry in the sidebar (📣 megaphone) sends a bug report, improvement idea, or general feedback straight to the app's administrators. Choose the type, add a summary and message, and **Send to admins**. Your submissions stay on that page with a status (Open / Planned / In progress / Done / Declined) and any **admin reply** shown inline; you get a sidebar badge (and an email if Resend is configured) when an admin responds. Available to everyone, including students. (If *you* are also an admin you'll instead see the triage view — see the admin manual.)
+The **Feedback** entry in the sidebar (📣 megaphone) sends a bug report, improvement idea, or general feedback straight to the app's administrators. Choose the type, add a summary and message, optionally **attach a photo/screenshot**, and **Send to admins**. Your submissions stay on that page with a status (Open / Planned / In progress / Done / Declined) and any **admin reply** shown inline; you get a sidebar badge (and an email if Resend is configured) when an admin responds. Available to everyone, including students. (If *you* are also an admin you'll instead see the triage view — see the admin manual.)
 
 ## Your profile
 

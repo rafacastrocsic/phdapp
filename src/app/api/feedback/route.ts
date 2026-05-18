@@ -12,6 +12,7 @@ const Body = z.object({
   kind: z.enum(KINDS),
   subject: z.string().trim().min(1).max(160),
   body: z.string().trim().min(1).max(5000),
+  imageUrl: z.string().url().nullable().optional(),
 });
 
 // Any authenticated user can send the admins feedback.
@@ -32,6 +33,7 @@ export async function POST(req: Request) {
       kind: d.kind,
       subject: d.subject,
       body: d.body,
+      imageUrl: d.imageUrl || null,
     },
   });
 
@@ -91,6 +93,7 @@ export async function GET(req: Request) {
       subject: f.subject,
       body: f.body,
       status: f.status,
+      imageUrl: f.imageUrl,
       adminReply: f.adminReply,
       repliedBy: f.repliedBy,
       repliedAt: f.repliedAt?.toISOString() ?? null,

@@ -32,6 +32,7 @@ export default async function FeedbackPage() {
         subject: f.subject,
         body: f.body,
         status: f.status,
+        imageUrl: f.imageUrl,
         adminReply: f.adminReply,
         repliedBy: f.repliedBy,
         repliedAt: f.repliedAt?.toISOString() ?? null,

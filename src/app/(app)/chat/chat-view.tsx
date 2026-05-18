@@ -19,6 +19,8 @@ import {
   Download,
   ChevronLeft,
   ChevronRight,
+  Check,
+  CheckCheck,
 } from "lucide-react";
 
 const CHANNELS_COLLAPSE_KEY = "phdapp.chat-channels-collapsed";
@@ -129,26 +131,26 @@ export function ChatView({
 
   const active = channels.find((c) => c.id === activeId) ?? null;
 
-  // "Seen" receipt: find my most recent message and which OTHER members
-  // have read up to (or past) it. Shown under that one message only.
-  const seenInfo = useMemo(() => {
-    let idx = -1;
-    for (let i = messages.length - 1; i >= 0; i--) {
-      if (messages[i].author.id === meId) {
-        idx = i;
-        break;
-      }
-    }
-    if (idx === -1) return null;
-    const msgTime = new Date(messages[idx].createdAt).getTime();
-    const seenBy = reads.filter(
-      (r) =>
-        r.userId !== meId &&
-        new Date(r.lastRead).getTime() >= msgTime &&
-        !Number.isNaN(new Date(r.lastRead).getTime()),
-    );
-    return seenBy.length > 0 ? { idx, seenBy } : null;
-  }, [messages, reads, meId]);
+  // WhatsApp-style delivery state for MY messages:
+  //  - "sent"      → ✓  (grey)  : on the server, no other participant yet
+  //  - "delivered" → ✓✓ (grey)  : another member exists (will receive it)
+  //  - "seen"      → ✓✓ (blue)  : another member has read up to this message
+  const otherReads = useMemo(
+    () => reads.filter((r) => r.userId !== meId),
+    [reads, meId],
+  );
+  function tickState(createdAt: string): "sent" | "delivered" | "seen" {
+    const t = new Date(createdAt).getTime();
+    if (Number.isNaN(t)) return "sent";
+    if (
+      otherReads.some((r) => {
+        const lr = new Date(r.lastRead).getTime();
+        return !Number.isNaN(lr) && lr >= t;
+      })
+    )
+      return "seen";
+    return otherReads.length > 0 ? "delivered" : "sent";
+  }
 
   // Load + poll messages for active channel.
   // Mark as read when opening the channel and whenever the tab is visible
@@ -602,27 +604,35 @@ export function ChatView({
                             ))}
                           </div>
                         )}
+                        {mine &&
+                          (() => {
+                            const st = tickState(m.createdAt);
+                            const blue = st === "seen";
+                            const Icon = st === "sent" ? Check : CheckCheck;
+                            return (
+                              <div
+                                className="mt-0.5 flex justify-end"
+                                title={
+                                  st === "seen"
+                                    ? "Seen"
+                                    : st === "delivered"
+                                      ? "Delivered"
+                                      : "Sent"
+                                }
+                              >
+                                <Icon
+                                  className={cn(
+                                    "h-3.5 w-3.5",
+                                    blue
+                                      ? "text-[var(--c-blue)]"
+                                      : "text-slate-400",
+                                  )}
+                                />
+                              </div>
+                            );
+                          })()}
                       </div>
                     </div>
-                    {seenInfo && i === seenInfo.idx && (
-                      <div className="mt-1 flex items-center justify-end gap-1 pr-10 text-[11px] text-slate-400">
-                        <span>Seen by</span>
-                        <div className="flex -space-x-1">
-                          {seenInfo.seenBy.slice(0, 4).map((r) => (
-                            <Avatar
-                              key={r.userId}
-                              name={r.name}
-                              src={r.image}
-                              color={r.color}
-                              size="xs"
-                            />
-                          ))}
-                        </div>
-                        {seenInfo.seenBy.length === 1 && (
-                          <span>{seenInfo.seenBy[0].name ?? ""}</span>
-                        )}
-                      </div>
-                    )}
                     </div>
                   );
                 })

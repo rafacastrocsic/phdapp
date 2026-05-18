@@ -1,6 +1,14 @@
 "use client";
-import { useMemo, useState } from "react";
-import { Megaphone, Bug, Lightbulb, MessageSquare, Trash2 } from "lucide-react";
+import { useMemo, useRef, useState } from "react";
+import {
+  Megaphone,
+  Bug,
+  Lightbulb,
+  MessageSquare,
+  Trash2,
+  ImagePlus,
+  X as XIcon,
+} from "lucide-react";
 import { Avatar } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -16,6 +24,7 @@ type Item = {
   subject: string;
   body: string;
   status: string;
+  imageUrl: string | null;
   adminReply: string | null;
   repliedBy: { id: string; name: string | null } | null;
   repliedAt: string | null;
@@ -51,6 +60,9 @@ export function FeedbackView({
   const [kind, setKind] = useState<Kind>("idea");
   const [subject, setSubject] = useState("");
   const [body, setBody] = useState("");
+  const [imageUrl, setImageUrl] = useState<string | null>(null);
+  const [uploading, setUploading] = useState(false);
+  const fileRef = useRef<HTMLInputElement>(null);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -65,6 +77,21 @@ export function FeedbackView({
     }
   }
 
+  async function uploadPhoto(file: File) {
+    setUploading(true);
+    setError(null);
+    const fd = new FormData();
+    fd.append("file", file);
+    const r = await fetch("/api/feedback/upload", { method: "POST", body: fd });
+    setUploading(false);
+    const j = await r.json().catch(() => ({}));
+    if (!r.ok) {
+      setError(j.error ?? "Could not upload the image.");
+      return;
+    }
+    setImageUrl(j.url as string);
+  }
+
   async function submit(e: React.FormEvent) {
     e.preventDefault();
     if (!subject.trim() || !body.trim()) {
@@ -76,7 +103,12 @@ export function FeedbackView({
     const r = await fetch("/api/feedback", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ kind, subject: subject.trim(), body: body.trim() }),
+      body: JSON.stringify({
+        kind,
+        subject: subject.trim(),
+        body: body.trim(),
+        imageUrl,
+      }),
     });
     setSubmitting(false);
     if (!r.ok) {
@@ -87,6 +119,8 @@ export function FeedbackView({
     setSubject("");
     setBody("");
     setKind("idea");
+    setImageUrl(null);
+    if (fileRef.current) fileRef.current.value = "";
     await refresh();
   }
 
@@ -176,13 +210,58 @@ export function FeedbackView({
               onChange={(e) => setBody(e.target.value)}
               maxLength={5000}
             />
+            <input
+              ref={fileRef}
+              type="file"
+              accept="image/png,image/jpeg,image/webp,image/gif"
+              className="hidden"
+              onChange={(e) => {
+                const f = e.target.files?.[0];
+                if (f) uploadPhoto(f);
+              }}
+            />
+            {imageUrl ? (
+              <div className="relative inline-block">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img
+                  src={imageUrl}
+                  alt="attached"
+                  className="max-h-48 rounded-lg border"
+                />
+                <button
+                  type="button"
+                  onClick={() => {
+                    setImageUrl(null);
+                    if (fileRef.current) fileRef.current.value = "";
+                  }}
+                  className="absolute -right-2 -top-2 flex h-6 w-6 items-center justify-center rounded-full bg-white shadow border text-slate-500 hover:text-[var(--c-red)]"
+                  title="Remove photo"
+                >
+                  <XIcon className="h-3.5 w-3.5" />
+                </button>
+              </div>
+            ) : (
+              <button
+                type="button"
+                onClick={() => fileRef.current?.click()}
+                disabled={uploading}
+                className="flex items-center gap-1.5 text-sm text-slate-500 hover:text-slate-800 disabled:opacity-50"
+              >
+                <ImagePlus className="h-4 w-4" />
+                {uploading ? "Uploading…" : "Attach a photo (optional)"}
+              </button>
+            )}
             {error && (
               <div className="text-sm text-[var(--c-red)] bg-red-50 rounded-lg p-3">
                 {error}
               </div>
             )}
             <div className="flex justify-end">
-              <Button type="submit" variant="brand" disabled={submitting}>
+              <Button
+                type="submit"
+                variant="brand"
+                disabled={submitting || uploading}
+              >
                 {submitting ? "Sending…" : "Send to admins"}
               </Button>
             </div>
@@ -265,6 +344,22 @@ export function FeedbackView({
                 <p className="whitespace-pre-wrap text-sm text-slate-700">
                   {f.body}
                 </p>
+
+                {f.imageUrl && (
+                  <a
+                    href={f.imageUrl}
+                    target="_blank"
+                    rel="noopener"
+                    title="Open full image"
+                  >
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img
+                      src={f.imageUrl}
+                      alt="attached"
+                      className="max-h-64 rounded-lg border hover:opacity-90"
+                    />
+                  </a>
+                )}
 
                 {isAdmin && f.author && (
                   <div className="flex items-center gap-2 text-xs text-slate-500">

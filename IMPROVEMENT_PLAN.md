@@ -329,6 +329,18 @@ Per-user, per-type preferences (extend the Settings page; a `NotificationPref` m
 
 ---
 
+## 21. Chat WhatsApp ticks + feedback photo  ✅ COMPLETED (2026-05-18, user + Bruno request)
+
+**What:** (a) replace the chat "Seen by avatar" with WhatsApp-style delivery ticks; (b) let a feedback submission include an optional photo (Bruno's suggestion: "upload an optional photo to better address the problem").
+
+**Ticks:** purely client-side over the existing `reads` payload (no schema). Per the sender's own message: one grey ✓ = sent (no other member yet), two grey ✓✓ = delivered (≥1 other `ChannelMember`), two blue ✓✓ = seen (a member's `lastRead ≥ message.createdAt`). Caveat: no real device-delivery signal exists (opening a channel marks read almost instantly here), so "delivered" ≈ "channel has another participant" — honest given the data, matches the WhatsApp visual.
+
+**Feedback photo:** additive `Feedback.imageUrl` (migration `20260518160000_feedback_image`); image-only `POST /api/feedback/upload` (Vercel Blob `feedback/…`, 10 MB, png/jpg/webp/gif); composer attach-with-preview; `POST /api/feedback` accepts `imageUrl`; item + admin triage render the screenshot with click-to-open.
+
+**Scope/risk:** low. One additive migration. Ticks no migration. Reused the existing Blob upload pattern.
+
+---
+
 ## Recommended sequence
 
 1. **§0** access helper — tiny, unblocks §3/§7/§10.
