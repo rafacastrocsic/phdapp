@@ -333,6 +333,24 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
         coalesce: !significant,
         coalesceWindowMs: 3 * 60_000,
       });
+
+      // Push a notification to the student for *meaningful* changes
+      // (status / priority / assignee / due date / dependencies) so they
+      // hear about it even when away. notify() skips the actor, so a
+      // student editing their own task isn't notified.
+      if (significant) {
+        const stu = await prisma.student.findUnique({
+          where: { id: t.studentId },
+          select: { userId: true },
+        });
+        if (stu?.userId)
+          await notify([stu.userId], {
+            type: "task.update",
+            message: `Your task “${t.title}” was updated — ${parts.join(", ")}`,
+            link: `/kanban?ticket=${id}`,
+            actorId: session.user.id,
+          }).catch(() => {});
+      }
     }
   }
 

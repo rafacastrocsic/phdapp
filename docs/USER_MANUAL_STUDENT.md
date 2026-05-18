@@ -239,6 +239,8 @@ Other places that show "you have new stuff":
 
 Click an item to acknowledge — the badge clears next time you reload.
 
+Specifically: whenever a supervisor **comments** on one of your tasks, or makes a **meaningful change** to it (moves its status, changes priority or assignee, sets/clears the due date, or edits its dependencies), you're notified directly — it shows in the 🔔 bell and the orange Tasks badge, and (if the admin has email set up) you also get an email — even if you weren't the task's assignee or its creator. So you won't miss a supervisor's comment or update on your work.
+
 ## Feedback & suggestions
 
 The **Feedback** entry in the sidebar (📣 megaphone) is a direct line to the app's administrators. Use it to:

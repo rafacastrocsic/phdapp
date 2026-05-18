@@ -60,7 +60,14 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
 
   {
     const { notify } = await import("@/lib/notify");
-    await notify([ok.assigneeId, ok.createdById], {
+    // Always include the task's student (their own user account) — they're
+    // often neither the assignee nor the creator of a supervisor-made task,
+    // but they still need to hear about comments on their work.
+    const stu = await prisma.student.findUnique({
+      where: { id: ok.studentId },
+      select: { userId: true },
+    });
+    await notify([ok.assigneeId, ok.createdById, stu?.userId], {
       type: "task.comment",
       message: `New comment on “${ok.title}”`,
       link: `/kanban?ticket=${id}`,
