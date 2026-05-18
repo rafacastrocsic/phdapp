@@ -1564,6 +1564,25 @@ function DriveFolderField({
   onChange: (url: string | null) => void;
 }) {
   const id = driveUrlToId(value);
+  // Resolve the folder's display name from its ID so the picker shows the
+  // name, not the raw ID. Derived (not sync setState) to stay lint-clean.
+  const [resolved, setResolved] = useState<{ id: string; name: string } | null>(
+    null,
+  );
+  useEffect(() => {
+    if (!id) return;
+    let cancelled = false;
+    fetch(`/api/drive/folder?id=${encodeURIComponent(id)}`)
+      .then((r) => (r.ok ? r.json() : null))
+      .then((j) => {
+        if (!cancelled && j?.name) setResolved({ id, name: j.name });
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, [id]);
+  const valueName = resolved && resolved.id === id ? resolved.name : null;
   return (
     <div className="space-y-2">
       {value && (
@@ -1578,6 +1597,7 @@ function DriveFolderField({
       )}
       <DriveFolderPicker
         value={id}
+        valueName={valueName}
         onChange={(folderId) =>
           onChange(
             folderId

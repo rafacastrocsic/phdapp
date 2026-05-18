@@ -26,10 +26,15 @@ interface DriveFolder {
 
 export function DriveFolderPicker({
   value,
+  valueName,
   onChange,
   triggerLabel = "Pick from Drive",
 }: {
   value: string | null;
+  // Display name for the current `value` when it wasn't just picked in
+  // this session (e.g. resolved from a stored folder ID). Falls back to
+  // the raw value only if neither a picked nor a supplied name exists.
+  valueName?: string | null;
   onChange: (folderId: string | null, folderName: string | null) => void;
   triggerLabel?: string;
 }) {
@@ -126,7 +131,7 @@ export function DriveFolderPicker({
           <div className="flex items-center gap-2 rounded-lg border bg-slate-50 px-3 py-1.5 text-sm">
             <Folder className="h-3.5 w-3.5 text-[var(--c-blue)] shrink-0" />
             <span className="truncate font-medium text-slate-700">
-              {pickedName ?? value}
+              {pickedName ?? valueName ?? value}
             </span>
             <a
               href={`https://drive.google.com/drive/folders/${value}`}
