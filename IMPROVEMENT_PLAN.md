@@ -373,6 +373,16 @@ Per-user, per-type preferences (extend the Settings page; a `NotificationPref` m
 
 ---
 
+## 25. Calendar overlap layout + "+N more" + collapsible feedback  ✅ COMPLETED (2026-05-18, user request)
+
+**What:** (1) overlapping week/day events sit side-by-side instead of stacking; (2) Month "+N more" opens that day's Day view; (3) feedback entries can be collapsed.
+
+**Implementation:** `layoutDay(evs)` greedily column-packs each overlap cluster → `{top,height,leftPct,widthPct}`; week/day events positioned with computed `left/width` + `hover:z-20`. Month "+N more" became a button calling `setCursor(day)`+`setView("day")`. Feedback: a `collapsed` id-Set with a clickable chevron header per card and an Expand/Collapse-all toggle; collapsed cards show only the title row.
+
+**Scope/risk:** low. Pure presentational; no schema/API/migration.
+
+---
+
 ## Recommended sequence
 
 1. **§0** access helper — tiny, unblocks §3/§7/§10.

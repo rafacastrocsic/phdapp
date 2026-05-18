@@ -198,7 +198,7 @@ When creating an event, the **Repeats** control lets you make it recur: *Daily /
 Top-right toggle: **Year / Month / Week / Day**.
 
 - **Year** — the whole calendar year as 12 mini-month grids with colored dots per day. Click a day to drop into Month view.
-- **Month / Week / Day** — standard calendar views.
+- **Month / Week / Day** — standard calendar views. In Month view a day shows the first few items and a **"+N more"** link that opens that day's **Day view**. In Week/Day, overlapping events are laid out **side by side in columns** rather than stacked, so concurrent meetings stay readable.
 
 ### Creating an event
 
@@ -340,7 +340,7 @@ The **🔔 bell** in the top bar carries a red **unread count badge** and lists 
 
 ## Feedback & suggestions
 
-The **Feedback** entry in the sidebar (📣 megaphone) sends a bug report, improvement idea, or general feedback straight to the app's administrators. Choose the type, add a summary and message, optionally **attach a photo/screenshot**, and **Send to admins**. Your submissions stay on that page with a status (Open / Planned / In progress / Done / Declined) and any **admin reply** shown inline; you get a sidebar badge (and an email if Resend is configured) when an admin responds. Available to everyone, including students. (If *you* are also an admin you'll instead see the triage view — see the admin manual.)
+The **Feedback** entry in the sidebar (📣 megaphone) sends a bug report, improvement idea, or general feedback straight to the app's administrators. Choose the type, add a summary and message, optionally **attach a photo/screenshot**, and **Send to admins**. Your submissions stay on that page with a status (Open / Planned / In progress / Done / Declined) and any **admin reply** shown inline; you get a sidebar badge (and an email if Resend is configured) when an admin responds. Available to everyone, including students. (If *you* are also an admin you'll instead see the triage view — see the admin manual.) Entries can be **collapsed** (click the header, or **Collapse all**) to a single title line to keep a long list manageable.
 
 ## Your profile
 

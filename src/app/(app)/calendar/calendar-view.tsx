@@ -699,9 +699,18 @@ export function CalendarView({
                           );
                         })}
                         {evs.length > 3 && (
-                          <div className="text-[10px] text-slate-500 pl-1">
+                          <button
+                            type="button"
+                            onClick={(ev) => {
+                              ev.stopPropagation();
+                              setCursor(day);
+                              setView("day");
+                            }}
+                            className="block w-full rounded px-1 py-0.5 text-left text-[10px] font-semibold text-[var(--c-violet)] hover:bg-violet-50"
+                            title={`Show all ${evs.length} on this day`}
+                          >
                             +{evs.length - 3} more
-                          </div>
+                          </button>
                         )}
                         {ghosts.map((e) => {
                           const cleanTitle = e.title;
@@ -2142,28 +2151,32 @@ function TimeGrid({
                 ))}
                 {/* now-line */}
                 {isSameDay(d, new Date()) && <NowLine />}
-                {/* events */}
-                {dayEvs.map((ev) => {
-                  const layout = layoutEvent(ev);
+                {/* events (overlaps packed into side-by-side columns) */}
+                {(() => {
+                  const laid = layoutDay(dayEvs);
+                  return dayEvs.map((ev, idx) => {
+                  const layout = laid[idx];
                   if (!layout) return null;
                   const kind = effectiveKind(ev.id);
                   const baseBg = `${ev.student?.color ?? "#6366f1"}26`;
                   const baseBorder = ev.student?.color ?? "#6366f1";
                   return (
                     <button
-                      key={ev.id}
+                      key={`${ev.id}-${idx}`}
                       onClick={(e) => {
                         e.stopPropagation();
                         onEventClick(ev.id);
                       }}
                       className={cn(
-                        "absolute left-1 right-1 rounded-md p-1.5 text-left text-[11px] font-medium overflow-hidden hover:shadow-md transition-shadow",
+                        "absolute rounded-md p-1.5 text-left text-[11px] font-medium overflow-hidden hover:shadow-md hover:z-20 transition-shadow",
                         kind === "new" && "ring-2 ring-[var(--c-red)] animate-pulse-red",
                         kind === "updated" && "ring-2 ring-[var(--c-blue)] animate-pulse-blue",
                       )}
                       style={{
                         top: layout.top,
                         height: layout.height,
+                        left: `calc(${layout.leftPct}% + 2px)`,
+                        width: `calc(${layout.widthPct}% - 4px)`,
                         background:
                           kind === "new" ? "#fee2e2" : kind === "updated" ? "#dbeafe" : baseBg,
                         color: ev.student?.color ?? "#6366f1",
@@ -2198,7 +2211,8 @@ function TimeGrid({
                       )}
                     </button>
                   );
-                })}
+                  });
+                })()}
               </div>
             );
           })}
@@ -2218,6 +2232,68 @@ function layoutEvent(ev: Event): { top: number; height: number } | null {
   const bottom = Math.min((LAST_HOUR - FIRST_HOUR + 1) * HOUR_PX, (endMinutes / 60) * HOUR_PX);
   const height = Math.max(22, bottom - top);
   return { top, height };
+}
+
+type Placed = {
+  top: number;
+  height: number;
+  leftPct: number;
+  widthPct: number;
+} | null;
+
+/**
+ * Pack a day's events into side-by-side columns so overlapping events sit
+ * next to each other instead of stacking into an unreadable pile. Returns
+ * an array aligned with the input (null = not visible in the window).
+ */
+function layoutDay(evs: Event[]): Placed[] {
+  const items = evs
+    .map((ev, i) => {
+      const l = layoutEvent(ev);
+      return l ? { i, top: l.top, height: l.height, end: l.top + l.height } : null;
+    })
+    .filter((x): x is { i: number; top: number; height: number; end: number } => !!x)
+    .sort((a, b) => a.top - b.top || a.end - b.end);
+
+  const result: Placed[] = new Array(evs.length).fill(null);
+  let cluster: { i: number; top: number; end: number; height: number }[] = [];
+  let clusterEnd = -1;
+
+  const flush = () => {
+    if (cluster.length === 0) return;
+    const colEnds: number[] = []; // last visual end per column
+    const colOf = new Map<number, number>();
+    for (const it of cluster) {
+      let col = colEnds.findIndex((e) => e <= it.top + 0.01);
+      if (col === -1) {
+        col = colEnds.length;
+        colEnds.push(it.end);
+      } else {
+        colEnds[col] = it.end;
+      }
+      colOf.set(it.i, col);
+    }
+    const n = colEnds.length;
+    for (const it of cluster) {
+      const col = colOf.get(it.i)!;
+      result[it.i] = {
+        top: it.top,
+        height: it.height,
+        leftPct: (col * 100) / n,
+        widthPct: 100 / n,
+      };
+    }
+    cluster = [];
+    clusterEnd = -1;
+  };
+
+  for (const it of items) {
+    if (cluster.length > 0 && it.top >= clusterEnd) flush();
+    cluster.push(it);
+    clusterEnd = Math.max(clusterEnd, it.end);
+  }
+  flush();
+  return result;
 }
 
 function NowLine() {

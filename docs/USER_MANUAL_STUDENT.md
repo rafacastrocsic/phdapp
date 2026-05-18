@@ -141,8 +141,8 @@ The **Calendar** module (teal icon) shows:
 Top-right toggle: **Year / Month / Week / Day**.
 
 - **Year** — 12 mini-months with dots per day, useful for big-picture planning.
-- **Month** — the standard month grid.
-- **Week / Day** — hour-by-hour timetable with current-time line.
+- **Month** — the standard month grid. A day shows the first few items; click **"+N more"** to jump into that day's **Day view** and see everything.
+- **Week / Day** — hour-by-hour timetable with current-time line. Events that overlap in time are placed **side by side** in columns instead of stacking on top of each other, so a busy day stays readable.
 
 ### 1:1 meetings
 
@@ -244,7 +244,7 @@ The **Feedback** entry in the sidebar (📣 megaphone) is a direct line to the a
 - **Suggest an improvement** — an idea to make PhDapp better.
 - **Other** — anything else you want the admins to know.
 
-Pick the type, add a short summary and a message — and optionally **attach a photo** (e.g. a screenshot of the problem; PNG/JPG/WEBP/GIF) — then **Send to admins**. Your submissions stay on that page so you can track them: each shows a **status** (Open → Planned → In progress → Done, or Declined) and, when an admin writes back, their **reply** appears right under your message. You'll get a sidebar badge (and an email, if email is configured) when an admin responds. You can delete your own submissions any time.
+Pick the type, add a short summary and a message — and optionally **attach a photo** (e.g. a screenshot of the problem; PNG/JPG/WEBP/GIF) — then **Send to admins**. Your submissions stay on that page so you can track them: each shows a **status** (Open → Planned → In progress → Done, or Declined) and, when an admin writes back, their **reply** appears right under your message. You'll get a sidebar badge (and an email, if email is configured) when an admin responds. You can delete your own submissions any time. Click an entry's header (or **Collapse all**) to **collapse** it down to just its title — handy when the list gets long.
 
 ## Tips
 

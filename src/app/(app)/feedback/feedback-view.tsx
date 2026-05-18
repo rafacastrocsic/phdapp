@@ -8,6 +8,8 @@ import {
   Trash2,
   ImagePlus,
   X as XIcon,
+  ChevronDown,
+  ChevronRight,
 } from "lucide-react";
 import { Avatar } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
@@ -68,6 +70,16 @@ export function FeedbackView({
 
   const [statusFilter, setStatusFilter] = useState("");
   const [kindFilter, setKindFilter] = useState("");
+  const [collapsed, setCollapsed] = useState<Set<string>>(new Set());
+
+  function toggleCollapse(id: string) {
+    setCollapsed((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  }
 
   async function refresh() {
     const r = await fetch("/api/feedback", { cache: "no-store" });
@@ -298,6 +310,26 @@ export function FeedbackView({
         </div>
       )}
 
+      {filtered.length > 0 && (
+        <div className="flex justify-end -mb-1">
+          <button
+            type="button"
+            onClick={() =>
+              setCollapsed((prev) =>
+                prev.size >= filtered.length
+                  ? new Set()
+                  : new Set(filtered.map((f) => f.id)),
+              )
+            }
+            className="text-xs font-medium text-slate-500 hover:text-slate-800"
+          >
+            {collapsed.size >= filtered.length
+              ? "Expand all"
+              : "Collapse all"}
+          </button>
+        </div>
+      )}
+
       <div className="space-y-4">
         {filtered.length === 0 && (
           <p className="text-sm text-slate-400">
@@ -309,6 +341,7 @@ export function FeedbackView({
         {filtered.map((f) => {
           const KM = KIND_META[f.kind] ?? KIND_META.other;
           const SM = STATUS_META[f.status] ?? STATUS_META.open;
+          const isCollapsed = collapsed.has(f.id);
           return (
             <Card
               key={f.id}
@@ -317,22 +350,41 @@ export function FeedbackView({
             >
               <CardContent className="pt-5 space-y-3">
                 <div className="flex items-start justify-between gap-3">
-                  <div className="min-w-0">
-                    <div className="flex flex-wrap items-center gap-2">
-                      <Badge color={KM.color} variant="soft">
-                        {KM.label}
-                      </Badge>
-                      <Badge color={SM.color} variant="solid">
-                        {SM.label}
-                      </Badge>
-                      <span className="text-xs text-slate-400">
-                        {relativeTime(f.createdAt)}
+                  <button
+                    type="button"
+                    onClick={() => toggleCollapse(f.id)}
+                    className="flex min-w-0 flex-1 items-start gap-2 text-left"
+                    title={isCollapsed ? "Expand" : "Collapse"}
+                  >
+                    <span className="mt-0.5 shrink-0 text-slate-400">
+                      {isCollapsed ? (
+                        <ChevronRight className="h-4 w-4" />
+                      ) : (
+                        <ChevronDown className="h-4 w-4" />
+                      )}
+                    </span>
+                    <span className="min-w-0">
+                      <span className="flex flex-wrap items-center gap-2">
+                        <Badge color={KM.color} variant="soft">
+                          {KM.label}
+                        </Badge>
+                        <Badge color={SM.color} variant="solid">
+                          {SM.label}
+                        </Badge>
+                        <span className="text-xs text-slate-400">
+                          {relativeTime(f.createdAt)}
+                        </span>
                       </span>
-                    </div>
-                    <h3 className="mt-1.5 font-semibold text-slate-900">
-                      {f.subject}
-                    </h3>
-                  </div>
+                      <span
+                        className={cn(
+                          "mt-1.5 block font-semibold text-slate-900",
+                          isCollapsed && "truncate",
+                        )}
+                      >
+                        {f.subject}
+                      </span>
+                    </span>
+                  </button>
                   {(isAdmin || f.mine) && (
                     <button
                       type="button"
@@ -344,6 +396,9 @@ export function FeedbackView({
                     </button>
                   )}
                 </div>
+
+                {!isCollapsed && (
+                  <>
 
                 <p className="whitespace-pre-wrap text-sm text-slate-700">
                   {f.body}
@@ -421,6 +476,8 @@ export function FeedbackView({
                       </p>
                     </div>
                   )
+                )}
+                  </>
                 )}
               </CardContent>
             </Card>
