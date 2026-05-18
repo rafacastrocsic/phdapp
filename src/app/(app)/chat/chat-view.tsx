@@ -59,6 +59,13 @@ interface Message {
   author: { id: string; name: string | null; image: string | null; color: string };
   attachments?: Attachment[];
 }
+interface Read {
+  userId: string;
+  name: string | null;
+  image: string | null;
+  color: string;
+  lastRead: string;
+}
 interface Member {
   id: string;
   name: string | null;
@@ -96,6 +103,7 @@ export function ChatView({
     null;
   const [activeId, setActiveId] = useState<string | null>(initialId);
   const [messages, setMessages] = useState<Message[]>([]);
+  const [reads, setReads] = useState<Read[]>([]);
   const [body, setBody] = useState("");
   const [search, setSearch] = useState("");
   const [channelsCollapsed, setChannelsCollapsed] = useState(false);
@@ -120,6 +128,27 @@ export function ChatView({
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const active = channels.find((c) => c.id === activeId) ?? null;
+
+  // "Seen" receipt: find my most recent message and which OTHER members
+  // have read up to (or past) it. Shown under that one message only.
+  const seenInfo = useMemo(() => {
+    let idx = -1;
+    for (let i = messages.length - 1; i >= 0; i--) {
+      if (messages[i].author.id === meId) {
+        idx = i;
+        break;
+      }
+    }
+    if (idx === -1) return null;
+    const msgTime = new Date(messages[idx].createdAt).getTime();
+    const seenBy = reads.filter(
+      (r) =>
+        r.userId !== meId &&
+        new Date(r.lastRead).getTime() >= msgTime &&
+        !Number.isNaN(new Date(r.lastRead).getTime()),
+    );
+    return seenBy.length > 0 ? { idx, seenBy } : null;
+  }, [messages, reads, meId]);
 
   // Load + poll messages for active channel.
   // Mark as read when opening the channel and whenever the tab is visible
@@ -151,6 +180,7 @@ export function ChatView({
       if (!cancelled && r.ok) {
         const j = await r.json();
         setMessages(j.messages);
+        setReads(j.reads ?? []);
         // Auto-mark as read only while the tab is actually visible AND new
         // messages have arrived since last poll.
         if (
@@ -517,8 +547,8 @@ export function ChatView({
                   const sameAuthor = prev?.author.id === m.author.id;
                   const mine = m.author.id === meId;
                   return (
+                    <div key={m.id}>
                     <div
-                      key={m.id}
                       className={cn(
                         "flex gap-2",
                         mine && "flex-row-reverse",
@@ -573,6 +603,26 @@ export function ChatView({
                           </div>
                         )}
                       </div>
+                    </div>
+                    {seenInfo && i === seenInfo.idx && (
+                      <div className="mt-1 flex items-center justify-end gap-1 pr-10 text-[11px] text-slate-400">
+                        <span>Seen by</span>
+                        <div className="flex -space-x-1">
+                          {seenInfo.seenBy.slice(0, 4).map((r) => (
+                            <Avatar
+                              key={r.userId}
+                              name={r.name}
+                              src={r.image}
+                              color={r.color}
+                              size="xs"
+                            />
+                          ))}
+                        </div>
+                        {seenInfo.seenBy.length === 1 && (
+                          <span>{seenInfo.seenBy[0].name ?? ""}</span>
+                        )}
+                      </div>
+                    )}
                     </div>
                   );
                 })

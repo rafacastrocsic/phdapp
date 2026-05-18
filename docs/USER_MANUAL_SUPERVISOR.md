@@ -232,6 +232,7 @@ The **Chat** module is for ongoing conversation with each student and their team
 - **Channels** column (left): a list of every channel you're a member of. Click the **+** to create a new one (per-student, custom names possible).
 - **Messages**: type at the bottom, Enter to send. **Paperclip** for attachments (25 MB max; chat attachments are auto-purged after 7 days).
 - **Edit / delete** your own messages via the kebab menu on the message.
+- **Seen receipts**: a small **"Seen by"** avatar appears under your latest message once another channel member has read up to it (updates within a few seconds of them opening the channel).
 
 You can collapse the channels column with the chevron at the top of that column. Same with the main left sidebar.
 
@@ -318,6 +319,8 @@ The **Log book** (red icon, sidebar) is a chronological record of everything tha
 - You want a quick view of what your co-supervisor has been up to.
 
 Each entry shows: actor, action, timestamp, student involved, and (for task entries) an **open task** link. That link shows the task in a quick view **without leaving the Log book** — close it and you're still in the Log; use **Open in Tasks board** there to jump to the full task.
+
+Entries are kept **clean and self-explanatory**: only *actual* changes are recorded (opening a task and leaving a field unchanged, or reverting an edit, logs nothing), and a summary reads like "*"Draft intro" — moved to In progress, due May 20*" rather than a list of internal field names. Because the task editor auto-saves, a burst of small text edits to the same task is **collapsed into a single entry** that reflects the final state; meaningful workflow changes (status, priority, assignee, due date, dependencies) each keep their own distinct entry so nothing important is hidden.
 
 ## Notifications
 

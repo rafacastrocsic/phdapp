@@ -43,6 +43,16 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
     take: 200,
   });
 
+  // Read receipts: each channel member + how far they've read (lastRead).
+  const reads = await prisma.channelMember.findMany({
+    where: { channelId: id },
+    select: {
+      userId: true,
+      lastRead: true,
+      user: { select: { name: true, image: true, color: true } },
+    },
+  });
+
   return NextResponse.json({
     messages: messages.map((m) => ({
       id: m.id,
@@ -50,6 +60,13 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
       createdAt: m.createdAt.toISOString(),
       author: m.author,
       attachments: parseAttachments(m.attachments),
+    })),
+    reads: reads.map((r) => ({
+      userId: r.userId,
+      name: r.user.name,
+      image: r.user.image,
+      color: r.user.color,
+      lastRead: r.lastRead.toISOString(),
     })),
   });
 }

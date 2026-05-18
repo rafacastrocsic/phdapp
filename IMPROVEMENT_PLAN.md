@@ -305,6 +305,18 @@ Per-user, per-type preferences (extend the Settings page; a `NotificationPref` m
 
 ---
 
+## 19. Chat "Seen" receipts + leaner activity log  ✅ COMPLETED (2026-05-18, user request)
+
+**What:** (a) WhatsApp-style **"Seen by"** receipts in chat; (b) the activity log records **only material, confirmed changes** with **succinct, self-explanatory** summaries (it was logging every auto-save with raw field names).
+
+**Chat seen:** no schema change — `ChannelMember.lastRead` already exists and is kept fresh by the `/read` POST + message send. `GET /api/channels/[id]/messages` now also returns `reads` (each member's `userId`, `lastRead`, and `{name,image,color}`). `chat-view` finds the viewer's latest message and the other members who've read up to it, showing one **"Seen by" + xs avatar(s)** line under that message. Latency ≈ the existing 3.5 s poll.
+
+**Leaner log:** `logActivity()` gained optional `coalesce`/`coalesceWindowMs` — a same actor/action/entity row within the window is updated in place (summary/details/createdAt bumped, `readBy` reset) instead of inserting. The `ticket.update` handler now diffs the patch against the current ticket and **skips logging entirely when nothing materially changed** (no-op blurs, reverted edits), and builds a human summary (`“Title” — moved to In progress, due May 20`) from `kanban-constants` labels + date-fns instead of `updated task (status, completionRequestedAt)`. Minor text edits coalesce (3-min window) into one row; significant workflow changes (status/priority/assignee/due/deps) stay as separate entries.
+
+**Scope/risk:** low. No schema/migration. Coalescing is opt-in per call site (only `ticket.update` uses it so far); other log call sites unchanged. Pre-existing log rows are not retro-edited.
+
+---
+
 ## Recommended sequence
 
 1. **§0** access helper — tiny, unblocks §3/§7/§10.

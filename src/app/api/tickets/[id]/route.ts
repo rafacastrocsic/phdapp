@@ -6,6 +6,13 @@ import { accessForStudent, canWriteForStudent, studentVisibilityWhereAllForAdmin
 import { logActivity } from "@/lib/activity-log";
 import { notify } from "@/lib/notify";
 import { parseSubtasks, subtaskDueViolation } from "@/lib/subtasks";
+import { STATUSES, PRIORITIES, CATEGORIES } from "@/lib/kanban-constants";
+import { format } from "date-fns";
+
+const labelOf = (
+  list: readonly { readonly id: string; readonly label: string }[],
+  id: string | null | undefined,
+) => list.find((x) => x.id === id)?.label ?? id ?? "";
 
 const SubtaskItem = z.object({
   id: z.string(),
@@ -234,19 +241,99 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
       actorId: session.user.id,
     }).catch(() => {});
   } else {
-    await logActivity({
-      actorId: session.user.id,
-      actorRole: session.user.role,
-      studentId: t.studentId,
-      action: "ticket.update",
-      entityType: "ticket",
-      entityId: id,
-      summary:
-        d.status && d.status !== t.status
-          ? `moved task “${t.title}” → ${d.status.replace("_", " ")}`
-          : `updated task “${t.title}” (${Object.keys(data).join(", ")})`,
-      details: data,
-    });
+    // Only log MATERIAL changes (so opening the form / a no-op blur / a
+    // reverted value never produces a log entry), with a succinct,
+    // self-explanatory summary. "Significant" workflow changes (status,
+    // priority, assignee, due date, dependencies) each get their own entry;
+    // minor text edits coalesce so an auto-saving form yields one row.
+    const parts: string[] = [];
+    let significant = false;
+
+    if (d.status !== undefined && d.status !== t.status) {
+      parts.push(`moved to ${labelOf(STATUSES, d.status)}`);
+      significant = true;
+    }
+    if (d.priority !== undefined && d.priority !== t.priority) {
+      parts.push(`priority → ${labelOf(PRIORITIES, d.priority)}`);
+      significant = true;
+    }
+    if (d.category !== undefined && d.category !== t.category) {
+      parts.push(`category → ${labelOf(CATEGORIES, d.category)}`);
+    }
+    if (d.dueDate !== undefined) {
+      const nd = d.dueDate ? new Date(d.dueDate).getTime() : null;
+      const od = t.dueDate ? t.dueDate.getTime() : null;
+      if (nd !== od) {
+        parts.push(
+          d.dueDate
+            ? `due ${format(new Date(d.dueDate), "MMM d")}`
+            : "due date cleared",
+        );
+        significant = true;
+      }
+    }
+    if (
+      d.assigneeId !== undefined &&
+      (d.assigneeId ?? null) !== (t.assigneeId ?? null)
+    ) {
+      let who = "someone";
+      if (d.assigneeId) {
+        const u = await prisma.user.findUnique({
+          where: { id: d.assigneeId },
+          select: { name: true },
+        });
+        who = u?.name ?? "someone";
+        parts.push(`assigned to ${who}`);
+      } else {
+        parts.push("unassigned");
+      }
+      significant = true;
+    }
+    if (d.title !== undefined && d.title !== t.title) parts.push("renamed");
+    if (
+      d.description !== undefined &&
+      (d.description ?? null) !== (t.description ?? null)
+    )
+      parts.push("edited the description");
+    if (
+      d.subtasks !== undefined &&
+      JSON.stringify(d.subtasks) !== (t.subtasks ?? "[]")
+    )
+      parts.push("updated the checklist");
+    if (
+      d.driveFolderUrl !== undefined &&
+      (d.driveFolderUrl ?? null) !== (t.driveFolderUrl ?? null)
+    )
+      parts.push(
+        d.driveFolderUrl ? "linked a Drive folder" : "removed the Drive folder",
+      );
+    if (
+      d.groupId !== undefined &&
+      (d.groupId ?? null) !== (t.groupId ?? null)
+    )
+      parts.push(d.groupId ? "moved to a group" : "removed from its group");
+    if (d.dependsOnIds !== undefined) {
+      parts.push("updated dependencies");
+      significant = true;
+    }
+
+    // Nothing actually changed → don't pollute the log.
+    if (parts.length > 0) {
+      await logActivity({
+        actorId: session.user.id,
+        actorRole: session.user.role,
+        studentId: t.studentId,
+        action: "ticket.update",
+        entityType: "ticket",
+        entityId: id,
+        summary: `“${t.title}” — ${parts.join(", ")}`,
+        details: data,
+        // Burst of text-field auto-saves merges into one row; discrete
+        // workflow changes stay as their own entries.
+        coalesce: !significant,
+        coalesceWindowMs: 3 * 60_000,
+      });
+    }
   }
 
   return NextResponse.json({ ok: true });

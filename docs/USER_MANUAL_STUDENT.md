@@ -162,6 +162,7 @@ The **Chat** module (green icon) is for direct messages with your supervisor and
 - **Top header**: who's in the channel.
 - **Message box at the bottom**: type, press Enter to send. Click the paperclip to attach a file (max 25 MB; chat attachments are auto-deleted after 7 days).
 - **Bold channel name + pink dot** in the sidebar = unread.
+- **Seen receipts**: under your most recent message you'll see **"Seen by"** with a small avatar once someone else in the channel has read up to it (it updates within a few seconds of them viewing). No indicator yet = not read by anyone else.
 - **Start a new channel** with the **+** at the top of the channels column. You can only create one with **your own supervisor(s)** — not with team/external advisors, committee members, or other students.
 
 You can collapse the channels column to icons-only with the small chevron at the top of that column. Same trick on the main left sidebar.
