@@ -844,7 +844,18 @@ function NewTicketDialog({
   const [studentId, setStudentId] = useState<string>(defaultStudentId ?? "");
   const [deps, setDeps] = useState<string[]>([]);
   const [driveFolderUrl, setDriveFolderUrl] = useState<string | null>(null);
+  // "" = no group · "__new__" = create one named newGroupName · <id> = existing
+  const [groupId, setGroupId] = useState<string>("");
+  const [newGroupName, setNewGroupName] = useState<string>("");
   const effStudentId = isStudent ? defaultStudentId : studentId || null;
+  // Existing groups for the chosen student (groups are per-student).
+  const studentGroups = (() => {
+    const m = new Map<string, { id: string; name: string; color: string }>();
+    for (const t of tickets)
+      if (t.group && effStudentId && t.student.id === effStudentId)
+        m.set(t.group.id, t.group);
+    return [...m.values()].sort((a, b) => a.name.localeCompare(b.name));
+  })();
 
   // Use teamMembers var to satisfy unused-var when we don't render the full list
   void teamMembers;
@@ -870,15 +881,38 @@ function NewTicketDialog({
         ...payload,
         dependsOnIds: deps,
         driveFolderUrl,
+        // Assign to an existing group inline; a brand-new group is created
+        // right after (it needs the new task's id).
+        groupId: groupId && groupId !== "__new__" ? groupId : null,
       }),
     });
-    setSubmitting(false);
     if (!res.ok) {
+      setSubmitting(false);
       const j = await res.json().catch(() => ({}));
       setError(j.error ?? "Could not create task");
       return;
     }
     const { ticket } = await res.json();
+    if (groupId === "__new__" && newGroupName.trim()) {
+      const gr = await fetch("/api/task-groups", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          name: newGroupName.trim(),
+          ticketIds: [ticket.id],
+        }),
+      });
+      if (gr.ok) {
+        const gj = await gr.json().catch(() => ({}));
+        if (gj?.group?.id)
+          ticket.group = {
+            id: gj.group.id,
+            name: gj.group.name,
+            color: "#6366f1",
+          };
+      }
+    }
+    setSubmitting(false);
     onCreated(ticket);
   }
 
@@ -904,6 +938,8 @@ function NewTicketDialog({
                   onChange={(e) => {
                     setStudentId(e.target.value);
                     setDeps([]);
+                    setGroupId("");
+                    setNewGroupName("");
                   }}
                   required
                 >
@@ -975,6 +1011,34 @@ function NewTicketDialog({
               value={driveFolderUrl}
               onChange={setDriveFolderUrl}
             />
+          </Field>
+          <Field label="Group (optional)">
+            {effStudentId ? (
+              <>
+                <Select
+                  value={groupId}
+                  onChange={(e) => setGroupId(e.target.value)}
+                >
+                  <option value="">No group</option>
+                  {studentGroups.map((g) => (
+                    <option key={g.id} value={g.id}>
+                      {g.name}
+                    </option>
+                  ))}
+                  <option value="__new__">+ Create new group…</option>
+                </Select>
+                {groupId === "__new__" && (
+                  <Input
+                    value={newGroupName}
+                    onChange={(e) => setNewGroupName(e.target.value)}
+                    placeholder="New group name"
+                    className="mt-1.5"
+                  />
+                )}
+              </>
+            ) : (
+              <p className="text-xs text-slate-400">Pick a student first.</p>
+            )}
           </Field>
           <Field label="Depends on (optional)">
             <DependencyPicker

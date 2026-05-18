@@ -17,6 +17,7 @@ const Body = z.object({
   dueDate: z.string().optional().nullable(),
   driveFolderUrl: z.string().optional().nullable(),
   dependsOnIds: z.array(z.string()).optional(),
+  groupId: z.string().optional().nullable(),
 });
 
 export async function POST(req: Request) {
@@ -48,6 +49,19 @@ export async function POST(req: Request) {
       { status: 403 },
     );
 
+  // If assigning to an existing group, it must belong to the same student.
+  if (d.groupId) {
+    const grp = await prisma.taskGroup.findFirst({
+      where: { id: d.groupId, studentId: d.studentId },
+      select: { id: true },
+    });
+    if (!grp)
+      return NextResponse.json(
+        { error: "That group doesn't belong to this student." },
+        { status: 400 },
+      );
+  }
+
   const created = await prisma.ticket.create({
     data: {
       title: d.title,
@@ -59,11 +73,13 @@ export async function POST(req: Request) {
       category: d.category,
       dueDate: d.dueDate ? new Date(d.dueDate) : null,
       driveFolderUrl: d.driveFolderUrl || null,
+      groupId: d.groupId || null,
       createdById: session.user.id,
     },
     include: {
       assignee: { select: { id: true, name: true, image: true, color: true } },
       student: { select: { id: true, fullName: true, alias: true, color: true } },
+      group: { select: { id: true, name: true, color: true } },
       tags: true,
       _count: { select: { comments: true } },
     },
@@ -126,6 +142,7 @@ export async function POST(req: Request) {
       commentCount: created._count.comments,
       assignee: created.assignee,
       student: created.student,
+      group: created.group,
       tags: created.tags,
       subtasks: [] as { id: string; text: string; done: boolean }[],
       dependsOnIds: d.dependsOnIds ?? [],

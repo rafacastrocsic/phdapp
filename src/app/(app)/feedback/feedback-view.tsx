@@ -298,7 +298,7 @@ export function FeedbackView({
         </div>
       )}
 
-      <div className="space-y-3">
+      <div className="space-y-4">
         {filtered.length === 0 && (
           <p className="text-sm text-slate-400">
             {isAdmin
@@ -310,7 +310,11 @@ export function FeedbackView({
           const KM = KIND_META[f.kind] ?? KIND_META.other;
           const SM = STATUS_META[f.status] ?? STATUS_META.open;
           return (
-            <Card key={f.id}>
+            <Card
+              key={f.id}
+              className="overflow-hidden shadow-sm hover:shadow-md transition-shadow"
+              style={{ borderLeftWidth: 4, borderLeftColor: KM.color }}
+            >
               <CardContent className="pt-5 space-y-3">
                 <div className="flex items-start justify-between gap-3">
                   <div className="min-w-0">

@@ -76,6 +76,8 @@ Toggle between them with the **Board / List / Gantt** switch at the top right.
 
 **Create a group:** in **List** view each task row has a checkbox. Tick the tasks you want (all the same student — always you), type a **group name** in the bar that appears, and click **Create group**. If a group already exists you can instead pick **Add to existing group…** in that same bar to drop the selected tasks into it.
 
+**Set a group while creating a task:** the **New task** form has a **Group (optional)** dropdown — choose an existing group or **+ Create new group…** (type the name) so the task is grouped the moment it's created.
+
 **Change one task's group anytime:** open a task and use the **Group** dropdown — pick an existing group, choose **+ Create new group…**, or set it to **No group**. So you don't need to re-select tasks to fix grouping after the fact.
 
 On a group heading you can **rename** or **disband** it (disbanding just ungroups the tasks, it doesn't delete them); each grouped task also has a small **ungroup** link. A **group filter** in the toolbar lets you show just one group, or only **Individual (no group)** tasks. Tasks inside a group carry a coloured left bar (the group's colour); any tasks not in a group are listed under an **"Individual tasks"** heading at the bottom, so grouped and standalone tasks are easy to tell apart at a glance. Groups are purely organisational — they don't change a task's status, due date, etc.
