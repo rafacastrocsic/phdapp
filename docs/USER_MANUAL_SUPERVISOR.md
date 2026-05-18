@@ -156,7 +156,7 @@ Clicking the card acknowledges it (the ring drops).
 Events come from two places:
 
 1. **Real events** you (or anyone with write access) create — meetings, deadlines.
-2. **Task due-date events** auto-generated when a task gets a due date. They have a different look: outlined chip with a circle icon and a priority-color stripe. Clicking one jumps to the task.
+2. **Task due-date events** auto-generated when a task gets a due date. They have a different look: outlined chip with a circle icon and a priority-color stripe. Clicking one opens a quick task view **in place** (you stay on the Calendar); from there **Open in Tasks board** takes you to the full editable task.
 
 ### My availability
 
@@ -293,7 +293,7 @@ The **Log book** (red icon, sidebar) is a chronological record of everything tha
 - A student says "but I never saw that task" — check who created it and when.
 - You want a quick view of what your co-supervisor has been up to.
 
-Each entry shows: actor, action, timestamp, student involved, and a link back to the entity (if it still exists).
+Each entry shows: actor, action, timestamp, student involved, and (for task entries) an **open task** link. That link shows the task in a quick view **without leaving the Log book** — close it and you're still in the Log; use **Open in Tasks board** there to jump to the full task.
 
 ## Notifications
 

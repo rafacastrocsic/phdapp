@@ -37,6 +37,7 @@ import {
 import { PRIORITIES, CATEGORIES } from "@/lib/kanban-constants";
 import { useRouter } from "next/navigation";
 import { openCalendarUrl } from "@/components/google-calendar-picker";
+import { TaskPeek } from "@/components/task-peek";
 import { CalendarShareButton } from "../students/[id]/calendar-share-button";
 import { AlertCircle } from "lucide-react";
 
@@ -147,6 +148,8 @@ export function CalendarView({
   const [selectedDay, setSelectedDay] = useState<Date | null>(null);
   const [syncing, setSyncing] = useState(false);
   const [openEventId, setOpenEventId] = useState<string | null>(null);
+  // Task opened from a calendar task-event: shown in place (stays in Calendar).
+  const [peekTicketId, setPeekTicketId] = useState<string | null>(null);
   const [view, setView] = useState<"year" | "month" | "week" | "day">("month");
   const [recentlyDeleted, setRecentlyDeleted] = useState<Event[]>([]);
   const router = useRouter();
@@ -593,7 +596,7 @@ export function CalendarView({
                                 onClick={(ev) => {
                                   ev.stopPropagation();
                                   dismissEvent(e.id);
-                                  router.push(`/kanban?ticket=${e.ticketId}`);
+                                  setPeekTicketId(e.ticketId);
                                 }}
                                 className={cn(
                                   "group flex w-full items-center gap-1 text-left text-[11px] truncate rounded border bg-white pl-0 pr-1.5 py-0.5 font-medium hover:bg-slate-50",
@@ -744,7 +747,7 @@ export function CalendarView({
                   onClick={() => {
                     dismissEvent(e.id);
                     if (e.ticketId) {
-                      router.push(`/kanban?ticket=${e.ticketId}`);
+                      setPeekTicketId(e.ticketId);
                     } else {
                       setOpenEventId(e.id);
                     }
@@ -871,6 +874,11 @@ export function CalendarView({
           setEvents((prev) => prev.filter((e) => e.id !== id));
           setOpenEventId(null);
         }}
+      />
+
+      <TaskPeek
+        ticketId={peekTicketId}
+        onClose={() => setPeekTicketId(null)}
       />
     </div>
   );

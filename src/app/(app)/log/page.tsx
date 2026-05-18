@@ -3,6 +3,7 @@ import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
 import { isSupervisingUser, studentVisibilityWhereAllForAdmin, type Role } from "@/lib/access";
 import { LogAdminControls } from "./admin-controls";
+import { LogTaskLink } from "./log-task-link";
 import { redirect } from "next/navigation";
 import { Avatar } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
@@ -220,12 +221,7 @@ export default async function LogBookPage({
                             {l.entityType === "ticket" && l.entityId && (
                               <>
                                 <span>·</span>
-                                <Link
-                                  href={`/kanban?ticket=${l.entityId}`}
-                                  className="flex items-center gap-1 text-[var(--c-orange)] hover:underline"
-                                >
-                                  <KanbanSquare className="h-3 w-3" /> open task
-                                </Link>
+                                <LogTaskLink ticketId={l.entityId} />
                               </>
                             )}
                             {l.entityType === "event" && l.entityId && (

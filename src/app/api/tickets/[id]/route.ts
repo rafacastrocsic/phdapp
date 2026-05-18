@@ -35,6 +35,47 @@ async function load(id: string, userId: string, role: Role) {
   });
 }
 
+// Read-only single ticket (visibility-scoped) — powers the in-place
+// "task peek" opened from Calendar / Log so you don't leave that module.
+export async function GET(_req: Request, { params }: { params: Promise<{ id: string }> }) {
+  const session = await auth();
+  if (!session?.user) return NextResponse.json({ error: "unauth" }, { status: 401 });
+  const { id } = await params;
+  const t = await prisma.ticket.findFirst({
+    where: {
+      id,
+      archivedAt: null,
+      student: studentVisibilityWhereAllForAdmin(
+        session.user.id,
+        session.user.role as Role,
+      ),
+    },
+    include: {
+      assignee: { select: { id: true, name: true, image: true, color: true } },
+      student: { select: { id: true, fullName: true, alias: true, color: true } },
+      _count: { select: { comments: true } },
+    },
+  });
+  if (!t) return NextResponse.json({ error: "not found" }, { status: 404 });
+  return NextResponse.json({
+    ticket: {
+      id: t.id,
+      title: t.title,
+      description: t.description,
+      status: t.status,
+      priority: t.priority,
+      category: t.category,
+      dueDate: t.dueDate?.toISOString() ?? null,
+      driveFolderUrl: t.driveFolderUrl,
+      commentCount: t._count.comments,
+      assignee: t.assignee,
+      student: t.student,
+      subtasks: parseSubtasks(t.subtasks),
+      updatedAt: t.updatedAt.toISOString(),
+    },
+  });
+}
+
 export async function PATCH(req: Request, { params }: { params: Promise<{ id: string }> }) {
   const session = await auth();
   if (!session?.user) return NextResponse.json({ error: "unauth" }, { status: 401 });

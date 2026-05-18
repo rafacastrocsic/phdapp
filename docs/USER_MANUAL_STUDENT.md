@@ -98,7 +98,7 @@ Inside a task dialog → red **Delete** button at the bottom-left. You'll be ask
 The **Calendar** module (teal icon) shows:
 
 - **Real events** — meetings, deadlines your supervisor created. Solid colored chip with a time.
-- **Task events** — every task with a due date appears as an outlined chip with a small circle icon and a single-letter priority tag (L/M/H/U). Click it to jump straight to the task.
+- **Task events** — every task with a due date appears as an outlined chip with a small circle icon and a single-letter priority tag (L/M/H/U). Click it to see the task in a quick view **without leaving the Calendar**; close it and you're still on the Calendar. Use **Open in Tasks board** in that view to go to the full task on the Tasks board.
 
 ### Four views
 
