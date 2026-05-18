@@ -26,14 +26,22 @@ export default async function StudentsPage() {
     redirect("/");
   }
 
+  const now = new Date();
   const students = await prisma.student.findMany({
     where: studentVisibilityWhereAllForAdmin(session.user.id, role),
     include: {
       supervisor: true,
       coSupervisors: { include: { user: true } },
       // Exclude soft-deleted (archived) tasks so the count reflects what's
-      // actually on the board — matches the dashboard/team page logic.
-      _count: { select: { tickets: { where: { archivedAt: null } }, events: true } },
+      // actually on the board; count only UPCOMING events (past ones grow
+      // unbounded and aren't a useful indicator) — matches the profile's
+      // "Upcoming meetings". Mirrors the dashboard/team filtering.
+      _count: {
+        select: {
+          tickets: { where: { archivedAt: null } },
+          events: { where: { startsAt: { gte: now } } },
+        },
+      },
     },
     orderBy: { fullName: "asc" },
   });
@@ -121,7 +129,7 @@ export default async function StudentsPage() {
                     <strong className="text-slate-900">{s._count.tickets}</strong> tasks
                   </span>
                   <span>
-                    <strong className="text-slate-900">{s._count.events}</strong> events
+                    <strong className="text-slate-900">{s._count.events}</strong> upcoming
                   </span>
                 </div>
                 {s.expectedEndDate && (
