@@ -71,6 +71,10 @@ Click a student card to open their profile page. There you'll find:
 
 Only **primary supervisors** and the **admin** can edit a student's profile (Edit button at the top of the page).
 
+### Catch-up summary
+
+On a student's profile, the **Catch-up** button (✨, top action row) opens a pop-up with a plain-text digest to get you up to speed fast — without clicking through Tasks, Calendar, etc. It covers: task counts (active / in progress / overdue / recently done), the in-progress / overdue / blocked / due-soon / not-started lists, upcoming and recent calendar events, thesis chapter and publication status breakdowns, and the latest weekly check-in. There's a **Copy** button to drop it into notes or an email. It's **read-only** and available to every non-student with access to that profile — supervisors, co-supervisors, **team advisors**, external advisors, committee, and admin (students don't see it). Wellbeing score is only included for viewers allowed to see supervisor-private material (supervisors/admin/team advisors).
+
 ## Supervision teams
 
 Every student has a **primary supervisor** and optionally additional team members. Team roles (assigned **per student**, so the same person can hold different roles on different students):

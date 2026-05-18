@@ -55,6 +55,7 @@ import { EditStudentDialog } from "./edit-student-dialog";
 import { ManageTeamDialog } from "./manage-team-dialog";
 import { CalendarShareButton } from "./calendar-share-button";
 import { DriveShareButton } from "./drive-share-button";
+import { StudentCatchupButton } from "./student-catchup-button";
 
 const STATUS_COLOR: Record<string, string> = {
   active: "#00ca72",
@@ -279,6 +280,9 @@ export default async function StudentDetail({
                   Annual review
                 </Button>
               </Link>
+              {role !== "student" && !isSelfStudent && (
+                <StudentCatchupButton studentId={student.id} />
+              )}
               {isSelfStudent && (
                 <CalendarShareButton
                   studentId={student.id}

@@ -341,6 +341,16 @@ Per-user, per-type preferences (extend the Settings page; a `NotificationPref` m
 
 ---
 
+## 22. Student "Catch-up" digest  ✅ COMPLETED (2026-05-18, user request)
+
+**What:** a one-click, read-only **Catch-up** button on the student profile (non-students only) that pops a plain-text summary to get up to speed on a student fast — tasks (ongoing / future / overdue / blocked / not started / recently done), upcoming & recent events, thesis & publication status, latest check-in.
+
+**Implementation:** `GET /api/students/[id]/summary` builds the text server-side from `ticket`/`event`/`thesisChapter`/`publication`/`checkIn` reads. Events exclude the `[Task]_`/`[Sub-task]_` mirror rows. Access via `teamLevelForStudent` — denies `student`, `null`, `self`; wellbeing only for `canSeeSupervisorPrivate`. Client `StudentCatchupButton` opens a dialog, fetches on open, renders in a `<pre>` with a **Copy** button. No schema/migration (pure aggregation, like §4 Workload).
+
+**Scope/risk:** low. Read-only, visibility-gated server-side; the button's client gate is just UX (server is authoritative).
+
+---
+
 ## Recommended sequence
 
 1. **§0** access helper — tiny, unblocks §3/§7/§10.
