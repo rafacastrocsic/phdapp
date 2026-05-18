@@ -24,6 +24,7 @@ const ACTION_LABELS: Record<string, { label: string; color: string; icon: typeof
   "ticket.create": { label: "Created task", color: "#00ca72", icon: Plus },
   "ticket.update": { label: "Updated task", color: "#2196f3", icon: Pencil },
   "ticket.delete": { label: "Deleted task", color: "#e2445c", icon: Trash2 },
+  "ticket.completion_requested": { label: "Marked completed", color: "#f59e0b", icon: Pencil },
   "event.create": { label: "Created event", color: "#00d1c1", icon: Plus },
   "event.update": { label: "Updated event", color: "#2196f3", icon: Pencil },
   "event.delete": { label: "Deleted event", color: "#e2445c", icon: Trash2 },

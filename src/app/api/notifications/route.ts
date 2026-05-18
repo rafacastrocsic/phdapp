@@ -11,6 +11,7 @@ const ACTIONS = [
   "ticket.create",
   "ticket.update",
   "ticket.delete",
+  "ticket.completion_requested",
   "event.create",
   "event.update",
   "event.delete",

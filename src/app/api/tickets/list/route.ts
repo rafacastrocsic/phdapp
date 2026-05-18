@@ -84,6 +84,7 @@ export async function GET(req: Request) {
       student: t.student,
       tags: t.tags,
       subtasks: parseSubtasks(t.subtasks),
+      completionRequestedAt: t.completionRequestedAt?.toISOString() ?? null,
       updatedAt: t.updatedAt.toISOString(),
     })),
     highlightByTicket,

@@ -123,7 +123,7 @@ Above the board:
 - **Assignee** — usually the student themselves, but can be you or any team member
 - **Status** — defaults to Backlog
 - **Priority** — Low / Medium / High / Urgent
-- **Category** — one of the predefined ones, or pick **Other** and type your own one-time label
+- **Category** — one of the predefined ones (Research, Writing, **Lab work**, **IC Design**, **Coding**, Reading, Publication, Conference, Meeting, Admin), or pick **Other** and type your own one-time label
 - **Due date** — optional. **Setting a due date automatically creates a Google Calendar event** on the student's shared calendar.
 - **Drive folder URL** — link to a folder where this task's deliverables live
 
@@ -133,7 +133,8 @@ Above the board:
 
 Click a task to open it. Every field saves on change (auto-save). What you can do:
 
-- Change status, priority, category, assignee, due date.
+- Change status, priority, category, assignee, due date. **Only you (supervisors/admin) can set a task to Done** — students can't.
+- **Confirming completion**: when a student finishes a task they click *Mark as completed* (or drag it to Done). The task gets a **"✓ completion requested"** badge and you're **notified** (🔔 bell + the orange Tasks sidebar badge; an email too if the admin enabled Resend). Review it and move it to **Done** to confirm — or leave it and comment if it isn't actually done. You're likewise notified of any status change a student makes (it shows in the bell as "moved task X → …").
 - Edit the description.
 - Add **subtasks** (a small checklist) — add, rename, tick off, remove. Useful for breaking complex work into discrete steps. Each subtask can carry **its own deadline**; it must be on or before the task's deadline (an error appears otherwise and it isn't saved). Subtasks **with** a deadline appear on the Calendar as `[Sub-task] … · <task>` (in-app calendar only — not pushed to Google); subtasks without one stay off the calendar.
 - Drop comments. Every comment also marks the task as "updated" for the other team members (they'll see a blue ring around the card next time they visit Tasks).

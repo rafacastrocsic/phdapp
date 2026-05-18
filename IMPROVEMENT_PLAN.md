@@ -297,6 +297,8 @@ Each ships as its own commit + deploy, verified before moving on.
 - **§10**: review packet **never** includes private supervisor notes or wellbeing scores (no toggle). External advisors and committee **may view the packet read-only**.
 - **§12**: ships **email + in-app notification center** (🔔 bell, unread count, mark-read) this wave; only browser/web push is deferred.
 
+**Enhancement (2026-05-18, user request): task-completion approval + category set.** Students cannot set a task to **Done** — server-enforced in `tickets` POST and `tickets/[id]` PATCH (403 unless `accessForStudent==="supervisor"`). They "Mark as completed" → `{requestCompletion:true}` sets the additive `Ticket.completionRequestedAt`, logs `ticket.completion_requested` (wired into the bell ACTIONS + `/api/kanban/unread` + the layout Tasks-badge filters) and best-effort `notify()`s the student's supervisors; a supervisor then moves it to Done (which clears the flag). Dragging a card to Done as a student is treated as the same request. Supervisors are also notified of ordinary student status changes via the existing `ticket.update` activity. Categories: `experiment` **id kept** (no data migration) but **relabelled "Lab work"**; added **"IC Design"** (`ic_design`) and **"Coding"** (`coding`); kanban card now shows the category label. Migration `..._ticket_completion_requested` (additive).
+
 ## FUTURE (deferred beyond this wave)
 
 - **AI integration** — summaries, meeting-agenda drafting, freeform→tasks, thread digests. Deferred: the supervisor team has no single shared API key, and BYOK adds too much per-user setup friction for now. Revisit if/when an org key or budget exists. Must be strictly grounded in DB data (no hallucinated progress) when built.

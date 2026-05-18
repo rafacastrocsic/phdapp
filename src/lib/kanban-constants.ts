@@ -19,7 +19,10 @@ export type PriorityId = (typeof PRIORITIES)[number]["id"];
 export const CATEGORIES = [
   { id: "research", label: "Research", color: "#6f4cff" },
   { id: "writing", label: "Writing", color: "#ec4899" },
-  { id: "experiment", label: "Experiment", color: "#00d1c1" },
+  // id kept as "experiment" (stable for existing tasks) — label only changed.
+  { id: "experiment", label: "Lab work", color: "#00d1c1" },
+  { id: "ic_design", label: "IC Design", color: "#0ea5e9" },
+  { id: "coding", label: "Coding", color: "#f59e0b" },
   { id: "reading", label: "Reading", color: "#2196f3" },
   { id: "publication", label: "Publication", color: "#a855f7" },
   { id: "conference", label: "Conference", color: "#ff7a45" },

@@ -4,6 +4,7 @@ import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
 import { accessForStudent, canWriteForStudent, studentVisibilityWhereAllForAdmin, type Role } from "@/lib/access";
 import { logActivity } from "@/lib/activity-log";
+import { notify } from "@/lib/notify";
 import { parseSubtasks, subtaskDueViolation } from "@/lib/subtasks";
 
 const SubtaskItem = z.object({
@@ -24,6 +25,8 @@ const Patch = z.object({
   driveFolderUrl: z.string().nullable().optional(),
   subtasks: z.array(SubtaskItem).optional(),
   assignee: z.any().optional(), // ignored — client field
+  // Student action: "Mark as completed" — requests a supervisor to set Done.
+  requestCompletion: z.boolean().optional(),
 });
 
 async function load(id: string, userId: string, role: Role) {
@@ -99,6 +102,18 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
   if (!parsed.success) return NextResponse.json({ error: "bad input" }, { status: 400 });
   const d = parsed.data;
 
+  const isSupervisorActor = access === "supervisor"; // supervisor or admin
+  // Students can't move a task to Done — they request it via "Mark as
+  // completed"; a supervisor reviews and sets Done.
+  if (d.status === "done" && !isSupervisorActor)
+    return NextResponse.json(
+      {
+        error:
+          "Only a supervisor can mark a task Done. Use “Mark as completed” to request it.",
+      },
+      { status: 403 },
+    );
+
   // A sub-task deadline may never fall after the task's deadline. Validate
   // the EFFECTIVE state (incoming subtasks/dueDate falling back to current)
   // so lowering the task's own due date also gets caught.
@@ -121,6 +136,8 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
     data.status = d.status;
     if (d.status === "done") data.completedAt = new Date();
     if (d.status === "in_progress" && !t.startedAt) data.startedAt = new Date();
+    // A status change resolves/supersedes any pending completion request.
+    data.completionRequestedAt = null;
   }
   if (d.priority !== undefined) data.priority = d.priority;
   if (d.category !== undefined) data.category = d.category;
@@ -128,6 +145,10 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
   if (d.dueDate !== undefined) data.dueDate = d.dueDate ? new Date(d.dueDate) : null;
   if (d.driveFolderUrl !== undefined) data.driveFolderUrl = d.driveFolderUrl;
   if (d.subtasks !== undefined) data.subtasks = JSON.stringify(d.subtasks);
+  // "Mark as completed" (no status change) — flag it for supervisor review.
+  const requestedCompletion =
+    d.requestCompletion === true && d.status === undefined;
+  if (requestedCompletion) data.completionRequestedAt = new Date();
 
   await prisma.ticket.update({ where: { id }, data });
 
@@ -152,19 +173,53 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
     );
   }
 
-  await logActivity({
-    actorId: session.user.id,
-    actorRole: session.user.role,
-    studentId: t.studentId,
-    action: "ticket.update",
-    entityType: "ticket",
-    entityId: id,
-    summary:
-      d.status && d.status !== t.status
-        ? `moved task “${t.title}” → ${d.status.replace("_", " ")}`
-        : `updated task “${t.title}” (${Object.keys(data).join(", ")})`,
-    details: data,
-  });
+  if (requestedCompletion) {
+    await logActivity({
+      actorId: session.user.id,
+      actorRole: session.user.role,
+      studentId: t.studentId,
+      action: "ticket.completion_requested",
+      entityType: "ticket",
+      entityId: id,
+      summary: `marked task “${t.title}” as completed — awaiting a supervisor to set it Done`,
+    });
+    // Best-effort ping to the student's supervisors (email if configured;
+    // the activity entry above already drives the 🔔 bell + Tasks badge).
+    const sups = await prisma.student.findUnique({
+      where: { id: t.studentId },
+      select: {
+        supervisorId: true,
+        coSupervisors: {
+          where: { role: { in: ["supervisor", "co_supervisor"] } },
+          select: { userId: true },
+        },
+      },
+    });
+    const ids = [
+      ...(sups?.supervisorId ? [sups.supervisorId] : []),
+      ...(sups?.coSupervisors.map((c) => c.userId) ?? []),
+    ];
+    await notify(ids, {
+      type: "task.completion",
+      message: `“${t.title}” was marked completed — review it and move it to Done.`,
+      link: `/kanban?ticket=${id}`,
+      actorId: session.user.id,
+    }).catch(() => {});
+  } else {
+    await logActivity({
+      actorId: session.user.id,
+      actorRole: session.user.role,
+      studentId: t.studentId,
+      action: "ticket.update",
+      entityType: "ticket",
+      entityId: id,
+      summary:
+        d.status && d.status !== t.status
+          ? `moved task “${t.title}” → ${d.status.replace("_", " ")}`
+          : `updated task “${t.title}” (${Object.keys(data).join(", ")})`,
+      details: data,
+    });
+  }
 
   return NextResponse.json({ ok: true });
 }

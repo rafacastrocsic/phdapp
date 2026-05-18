@@ -41,7 +41,14 @@ export default async function AppLayout({
           where: {
             studentId: { in: visibleIds },
             actorId: { not: session.user.id },
-            action: { in: ["ticket.create", "ticket.update", "ticket.delete"] },
+            action: {
+              in: [
+                "ticket.create",
+                "ticket.update",
+                "ticket.delete",
+                "ticket.completion_requested",
+              ],
+            },
             createdAt: { gt: me?.kanbanLastSeenAt ?? new Date(0) },
             ...(dismissedTicketIds.length > 0
               ? { NOT: { entityId: { in: dismissedTicketIds } } }

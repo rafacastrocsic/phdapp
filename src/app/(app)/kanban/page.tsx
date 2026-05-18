@@ -149,6 +149,7 @@ export default async function KanbanPage({
         student: t.student,
         tags: t.tags,
         subtasks: parseSubtasks(t.subtasks),
+        completionRequestedAt: t.completionRequestedAt?.toISOString() ?? null,
         updatedAt: t.updatedAt.toISOString(),
       }))}
       students={students}

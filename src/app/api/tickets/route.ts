@@ -39,6 +39,13 @@ export async function POST(req: Request) {
       { status: 403 },
     );
 
+  // Students can't create a task already in Done — only supervisors set Done.
+  if (d.status === "done" && access !== "supervisor")
+    return NextResponse.json(
+      { error: "Only a supervisor can mark a task Done." },
+      { status: 403 },
+    );
+
   const created = await prisma.ticket.create({
     data: {
       title: d.title,

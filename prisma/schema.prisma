@@ -287,6 +287,9 @@ model Ticket {
   dueDate      DateTime?
   startedAt    DateTime?
   completedAt  DateTime?
+  // Student requested completion ("Mark as completed"); a supervisor then
+  // moves it to Done. Cleared when status becomes done or it's un-requested.
+  completionRequestedAt DateTime?
   archivedAt   DateTime? // soft-delete: set on delete, cleared on undo (§14)
   estimateHours Float?
   actualHours   Float?

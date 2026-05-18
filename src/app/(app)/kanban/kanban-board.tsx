@@ -57,6 +57,7 @@ export interface Ticket {
   student: { id: string; fullName: string; alias: string | null; color: string };
   tags: { id: string; label: string; color: string }[];
   subtasks: Subtask[];
+  completionRequestedAt?: string | null;
   updatedAt: string;
 }
 
@@ -227,7 +228,29 @@ export function KanbanBoard({
     };
   }, [draggingId, newOpen, openId, studentFilter]);
 
+  async function requestCompletion(id: string) {
+    setTickets((prev) =>
+      prev.map((t) =>
+        t.id === id
+          ? { ...t, completionRequestedAt: new Date().toISOString() }
+          : t,
+      ),
+    );
+    const res = await fetch(`/api/tickets/${id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ requestCompletion: true }),
+    });
+    if (!res.ok) router.refresh();
+  }
+
   async function moveTicket(id: string, status: string) {
+    // Students can't move a task to Done — the gesture is treated as
+    // "Mark as completed" (a supervisor then confirms it Done).
+    if (status === "done" && isStudent) {
+      await requestCompletion(id);
+      return;
+    }
     // optimistic
     setTickets((prev) =>
       prev.map((t) => (t.id === id ? { ...t, status } : t)),
@@ -464,6 +487,7 @@ export function KanbanBoard({
       <TicketDetailDialog
         ticket={openTicket}
         open={!!openTicket}
+        isStudent={isStudent}
         onOpenChange={(o) => !o && setOpenId(null)}
         students={students}
         teamMembers={assigneeOptions}
@@ -598,8 +622,18 @@ function TicketCard({
             color={highlight ? "#ffffff" : categoryColor(ticket.category)}
             variant={highlight ? "outline" : "soft"}
           >
-            {ticket.category}
+            {CATEGORIES.find((c) => c.id === ticket.category)?.label ??
+              ticket.category}
           </Badge>
+          {ticket.completionRequestedAt && ticket.status !== "done" && (
+            <Badge
+              color={highlight ? "#ffffff" : "#f59e0b"}
+              variant={highlight ? "outline" : "soft"}
+              title="The student marked this completed — a supervisor confirms it Done"
+            >
+              ✓ completion requested
+            </Badge>
+          )}
           {ticket.tags.map((tag) => (
             <Badge
               key={tag.id}
@@ -855,6 +889,7 @@ function NewTicketDialog({
 function TicketDetailDialog({
   ticket,
   open,
+  isStudent,
   onOpenChange,
   teamMembers,
   onChange,
@@ -862,6 +897,7 @@ function TicketDetailDialog({
 }: {
   ticket: Ticket | null;
   open: boolean;
+  isStudent: boolean;
   onOpenChange: (b: boolean) => void;
   students: Props["students"];
   teamMembers: Member[];
@@ -882,7 +918,7 @@ function TicketDetailDialog({
   }, [ticket?.id, ticket?.category]);
   // Debounce timer for text fields so we save changes without one PATCH per keystroke.
   const debounceTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
-  function debouncedSave(patch: Partial<Ticket> & { dueDate?: string | null }) {
+  function debouncedSave(patch: Partial<Ticket> & { dueDate?: string | null; requestCompletion?: boolean }) {
     if (debounceTimer.current) clearTimeout(debounceTimer.current);
     debounceTimer.current = setTimeout(() => {
       // ticket may have been closed/changed in the meantime; check before calling
@@ -891,7 +927,7 @@ function TicketDetailDialog({
   }
   if (!ticket) return null;
 
-  async function update(patch: Partial<Ticket> & { dueDate?: string | null }) {
+  async function update(patch: Partial<Ticket> & { dueDate?: string | null; requestCompletion?: boolean }) {
     if (!ticket) return;
     // A sub-task deadline can't fall after the task's own deadline. Validate
     // the effective state before sending so the user gets an immediate error
@@ -983,10 +1019,45 @@ function TicketDetailDialog({
                 value={ticket.status}
                 onChange={(e) => update({ status: e.target.value })}
               >
-                {STATUSES.map((s) => (
+                {STATUSES.filter(
+                  (s) =>
+                    !isStudent || s.id !== "done" || ticket.status === "done",
+                ).map((s) => (
                   <option key={s.id} value={s.id}>{s.label}</option>
                 ))}
               </Select>
+              {ticket.status !== "done" &&
+                (ticket.completionRequestedAt ? (
+                  <p
+                    className={cn(
+                      "mt-1.5 rounded-md px-2 py-1 text-[11px]",
+                      isStudent
+                        ? "bg-slate-100 text-slate-500"
+                        : "bg-amber-50 text-amber-700 font-medium",
+                    )}
+                  >
+                    {isStudent
+                      ? "✓ Sent to your supervisor — awaiting Done"
+                      : "Student marked this completed — set status to Done to confirm"}
+                  </p>
+                ) : (
+                  isStudent && (
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      className="mt-1.5 w-full"
+                      onClick={() =>
+                        update({
+                          requestCompletion: true,
+                          completionRequestedAt: new Date().toISOString(),
+                        })
+                      }
+                    >
+                      Mark as completed
+                    </Button>
+                  )
+                ))}
             </Field>
             <Field label="Priority">
               <Select

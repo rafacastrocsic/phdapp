@@ -32,7 +32,14 @@ export async function GET() {
     where: {
       studentId: { in: studentIds },
       actorId: { not: session.user.id },
-      action: { in: ["ticket.create", "ticket.update", "ticket.delete"] },
+      action: {
+        in: [
+          "ticket.create",
+          "ticket.update",
+          "ticket.delete",
+          "ticket.completion_requested",
+        ],
+      },
       createdAt: { gt: since },
       ...(dismissed.length > 0 ? { NOT: { entityId: { in: dismissed } } } : {}),
     },

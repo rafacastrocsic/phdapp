@@ -73,13 +73,23 @@ Toggle between the two with the **Board / List** switch at the top right.
 ### What's on a task
 
 - Title and description
-- **Status** — Backlog → To do → In progress → Review → Blocked → Done
+- **Status** — Backlog → To do → In progress → Review → Blocked → Done. **You can move a task through every column except Done** — only a supervisor sets Done (see "Marking a task completed" below).
 - **Priority** — Low / Medium / High / Urgent (a colored "L/M/H/U" tag)
-- **Category** — research, writing, experiment, reading… or **Other** with your own custom label
+- **Category** — Research, Writing, Lab work, IC Design, Coding, Reading, Publication, Conference, Meeting, Admin… or **Other** with your own custom label
 - **Due date** — when you set one, an event automatically appears on your calendar
 - **Assignee** — usually you
 - **Subtasks** — a small checklist inside the task; tick items as you go. The card shows a `2/5` style progress badge. Each subtask can also be given its **own deadline** (date picker next to it). A subtask's deadline can't be later than the task's own deadline — if you pick a later date you'll get an error and it won't save. Any subtask that has a deadline also shows up on the **Calendar** as a `[Sub-task] … · <task>` entry (subtasks with no deadline don't appear on the calendar).
 - **Comments** — threaded discussion at the bottom
+
+### Marking a task completed
+
+You **can't** set a task to **Done** yourself — that's a supervisor's confirmation. When you've finished a task:
+
+1. Open it and click **Mark as completed** (or just drag the card to the Done column — it's treated the same).
+2. The task gets a **"✓ completion requested"** badge and your supervisors are **notified** (their 🔔 bell + the Tasks badge).
+3. A supervisor reviews it and moves it to **Done**. (If they think it's not done, they'll leave it and usually comment.)
+
+Your status changes in general (e.g. To do → In progress) are also visible to your supervisors, so they can follow your progress.
 
 ### Editing
 
@@ -200,7 +210,7 @@ Click an item to acknowledge — the badge clears next time you reload.
 
 ## Tips
 
-- **Drag-and-drop** tasks across columns instead of opening them and switching status.
+- **Drag-and-drop** tasks across columns instead of opening them and switching status. (Dragging to **Done** sends a completion request to your supervisor rather than completing it yourself.)
 - **Subtasks** are great for breaking "Write paper" into "draft intro / draft results / share / submit".
 - **Due dates auto-sync to your calendar** — if you want something on your calendar, give it a due date.
 - **Collapse the sidebars** when you want more room (chevron at the bottom of the main sidebar, or at the top of the chat channels column).
