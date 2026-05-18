@@ -118,7 +118,9 @@ This means you generally shouldn't drag a dependency-gated task out of Blocked b
 
 ### Grouping tasks (List view)
 
-In **List** view, tick the checkbox on any tasks (they must all belong to the **same student**), enter a **group name** in the bar that appears, and **Create group**. The tasks then sit under that group heading. On the heading: **rename** or **disband** (disband only ungroups — tasks are kept); each task has an **ungroup** link. Grouped task rows carry a coloured left bar in the group's colour, and any tasks not in a group appear under a separate **"Individual tasks"** heading at the bottom — so grouped vs standalone tasks are visually distinct. Groups are organisational only — they don't affect status/due/assignee. (Students get the same grouping for their own tasks.)
+**Create a group:** in **List** view, tick the checkbox on any tasks (they must all belong to the **same student**), enter a **group name** in the bar that appears, and **Create group**. When groups already exist for that student the same bar offers **Add to existing group…** to drop the selected tasks into one.
+
+**Edit a task's group later:** open the task → the **Group** dropdown lets you move it to another group, create a new group from it (**+ Create new group…**), or remove it (**No group**) — no need to re-select. On a group heading you can still **rename** or **disband** (disband only ungroups — tasks are kept); each task also has an **ungroup** link. The toolbar has a **group filter** (a specific group, or **Individual (no group)** only). Grouped task rows carry a coloured left bar in the group's colour, and any tasks not in a group appear under a separate **"Individual tasks"** heading at the bottom — so grouped vs standalone tasks are visually distinct. Groups are organisational only — they don't affect status/due/assignee. (Students get the same grouping for their own tasks.)
 
 The group is also surfaced on the **Board**: each grouped card carries a small **▦ group-name** chip in the group's colour, so the card's group is visible without leaving Board view.
 

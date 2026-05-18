@@ -144,6 +144,8 @@ export function KanbanBoard({
   const [studentFilter, setStudentFilter] = useState<string>(filterStudent ?? "");
   const [priorityFilter, setPriorityFilter] = useState<string>("");
   const [categoryFilter, setCategoryFilter] = useState<string>("");
+  // "" = any · "__none__" = only ungrouped/individual · <id> = that group
+  const [groupFilter, setGroupFilter] = useState<string>("");
   const [search, setSearch] = useState("");
   const [openId, setOpenId] = useState<string | null>(openTicketId);
   const [newOpen, setNewOpen] = useState(autoOpenNew);
@@ -171,6 +173,11 @@ export function KanbanBoard({
       } else if (categoryFilter && t.category !== categoryFilter) {
         return false;
       }
+      if (groupFilter === "__none__") {
+        if (t.group) return false;
+      } else if (groupFilter && t.group?.id !== groupFilter) {
+        return false;
+      }
       if (
         search &&
         !t.title.toLowerCase().includes(search.toLowerCase()) &&
@@ -179,7 +186,19 @@ export function KanbanBoard({
         return false;
       return true;
     });
-  }, [tickets, studentFilter, priorityFilter, categoryFilter, search]);
+  }, [tickets, studentFilter, priorityFilter, categoryFilter, groupFilter, search]);
+
+  // Distinct groups present in the loaded tasks (optionally scoped to the
+  // selected student), for the toolbar group filter.
+  const groupOptions = useMemo(() => {
+    const m = new Map<string, { id: string; name: string }>();
+    for (const t of tickets) {
+      if (!t.group) continue;
+      if (studentFilter && t.student.id !== studentFilter) continue;
+      m.set(t.group.id, { id: t.group.id, name: t.group.name });
+    }
+    return [...m.values()].sort((a, b) => a.name.localeCompare(b.name));
+  }, [tickets, studentFilter]);
 
   const grouped = useMemo(() => {
     const m: Record<string, Ticket[]> = {};
@@ -367,6 +386,20 @@ export function KanbanBoard({
             {CATEGORIES.map((c) => (
               <option key={c.id} value={c.id}>
                 {c.label}
+              </option>
+            ))}
+          </Select>
+          <Select
+            value={groupFilter}
+            onChange={(e) => setGroupFilter(e.target.value)}
+            className="!w-auto grow-0 basis-40 max-w-[12rem]"
+            title="Filter by task group"
+          >
+            <option value="">Any group</option>
+            <option value="__none__">Individual (no group)</option>
+            {groupOptions.map((g) => (
+              <option key={g.id} value={g.id}>
+                {g.name}
               </option>
             ))}
           </Select>
@@ -1039,6 +1072,46 @@ function TicketDetailDialog({
     }
   }
 
+  // Assign this task to an existing group (or null = remove from group).
+  async function setGroupTo(
+    g: { id: string; name: string; color: string } | null,
+  ) {
+    if (!ticket) return;
+    setErr(null);
+    onChange({ ...ticket, group: g });
+    const res = await fetch(`/api/tickets/${ticket.id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ groupId: g?.id ?? null }),
+    });
+    if (!res.ok) {
+      const j = await res.json().catch(() => ({}));
+      setErr(j.error ?? "Could not change the group.");
+    }
+  }
+
+  // Create a brand-new group containing this task.
+  async function createGroupWith(name: string) {
+    if (!ticket) return;
+    setErr(null);
+    const res = await fetch(`/api/task-groups`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ name, ticketIds: [ticket.id] }),
+    });
+    if (!res.ok) {
+      const j = await res.json().catch(() => ({}));
+      setErr(j.error ?? "Could not create the group.");
+      return;
+    }
+    const j = await res.json().catch(() => ({}));
+    if (j?.group?.id)
+      onChange({
+        ...ticket,
+        group: { id: j.group.id, name: j.group.name, color: "#6366f1" },
+      });
+  }
+
   async function del() {
     if (!ticket) return;
     if (!confirm("Delete this task?")) return;
@@ -1210,6 +1283,55 @@ function TicketDetailDialog({
               onChange={(url) => update({ driveFolderUrl: url })}
             />
           </Field>
+
+          {(() => {
+            // Existing groups for this task's student (derived from the
+            // loaded tasks — groups are per-student).
+            const m = new Map<
+              string,
+              { id: string; name: string; color: string }
+            >();
+            for (const tk of allTickets)
+              if (tk.group && tk.student.id === ticket.student.id)
+                m.set(tk.group.id, tk.group);
+            const studentGroups = [...m.values()].sort((a, b) =>
+              a.name.localeCompare(b.name),
+            );
+            return (
+              <Field label="Group">
+                <Select
+                  value={ticket.group?.id ?? ""}
+                  onChange={(e) => {
+                    const v = e.target.value;
+                    if (v === "") {
+                      setGroupTo(null);
+                    } else if (v === "__new__") {
+                      const name = window
+                        .prompt("New group name")
+                        ?.trim();
+                      if (name) createGroupWith(name);
+                    } else {
+                      const g = studentGroups.find((x) => x.id === v);
+                      if (g) setGroupTo(g);
+                    }
+                  }}
+                >
+                  <option value="">No group</option>
+                  {studentGroups.map((g) => (
+                    <option key={g.id} value={g.id}>
+                      {g.name}
+                    </option>
+                  ))}
+                  <option value="__new__">+ Create new group…</option>
+                </Select>
+                <p className="mt-1 text-[11px] text-slate-400">
+                  Collect this student&apos;s related tasks under a named
+                  group. Manage groups (rename / disband) from the{" "}
+                  <b>List</b> view.
+                </p>
+              </Field>
+            );
+          })()}
 
           <Field label="Description">
             <Textarea
@@ -1804,6 +1926,19 @@ function TaskListView({
   const selTickets = tickets.filter((t) => selSet.has(t.id));
   const selStudentIds = [...new Set(selTickets.map((t) => t.student.id))];
   const sameStudent = selStudentIds.length === 1;
+  // Existing groups belonging to the selected tasks' student (so the
+  // selection can be added to one of them, not only to a brand-new group).
+  const groupChoices = sameStudent
+    ? [
+        ...new Map(
+          tickets
+            .filter(
+              (t) => t.student.id === selStudentIds[0] && t.group,
+            )
+            .map((t) => [t.group!.id, t.group!]),
+        ).values(),
+      ].sort((a, b) => a.name.localeCompare(b.name))
+    : [];
 
   function toggle(id: string) {
     setSelected((p) =>
@@ -1829,6 +1964,28 @@ function TaskListView({
     }
     setSelected([]);
     setGroupName("");
+    onMutated();
+  }
+
+  // Add the currently-selected tasks to an already-existing group.
+  async function addSelectedToGroup(groupId: string) {
+    if (!groupId || selected.length === 0) return;
+    setBusy(true);
+    setErr(null);
+    const results = await Promise.all(
+      selected.map((id) =>
+        fetch(`/api/tickets/${id}`, {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ groupId }),
+        }),
+      ),
+    );
+    setBusy(false);
+    if (results.some((r) => !r.ok)) {
+      setErr("Some tasks couldn't be added to the group.");
+    }
+    setSelected([]);
     onMutated();
   }
 
@@ -1999,6 +2156,14 @@ function TaskListView({
 
   return (
     <div className="flex-1 min-w-0 overflow-auto p-6 lg:p-8 space-y-6">
+      <p className="text-xs text-slate-500">
+        <b>Groups:</b> tick the checkboxes on tasks of the same student, then
+        type a name and <b>Create group</b> (or pick <b>Add to existing
+        group</b>). You can also set a task&apos;s group from its detail panel
+        (open a task → <b>Group</b>). On a group heading, <b>rename</b> or{" "}
+        <b>disband</b> it. Use the <b>group filter</b> in the toolbar to show
+        one group or only individual tasks.
+      </p>
       {selected.length > 0 && (
         <div className="sticky top-0 z-10 -mt-2 mb-2 flex flex-wrap items-center gap-2 rounded-xl border bg-white px-3 py-2 shadow-sm">
           <span className="text-sm font-medium text-slate-700">
@@ -2019,6 +2184,27 @@ function TaskListView({
           >
             Create group
           </Button>
+          {sameStudent && groupChoices.length > 0 && (
+            <>
+              <span className="text-xs text-slate-400">or</span>
+              <Select
+                value=""
+                disabled={busy}
+                onChange={(e) => {
+                  if (e.target.value) addSelectedToGroup(e.target.value);
+                }}
+                className="!h-8 !w-auto"
+                title="Add the selected tasks to an existing group"
+              >
+                <option value="">Add to existing group…</option>
+                {groupChoices.map((g) => (
+                  <option key={g.id} value={g.id}>
+                    {g.name}
+                  </option>
+                ))}
+              </Select>
+            </>
+          )}
           <Button
             type="button"
             size="sm"
