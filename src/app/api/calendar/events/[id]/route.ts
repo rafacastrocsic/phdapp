@@ -35,6 +35,9 @@ const Patch = z.object({
   date: z.string().optional(),
   startTime: z.string().optional(),
   endTime: z.string().optional(),
+  // Preferred: full ISO instants computed on the client (timezone-correct).
+  startsAt: z.string().optional(),
+  endsAt: z.string().optional(),
   recurrenceRule: z.string().nullable().optional(),
   isMeeting: z.boolean().optional(),
   agenda: z
@@ -102,8 +105,22 @@ export async function PATCH(
     data.linkedTaskId = linkedTaskId;
   }
 
-  // If user changed date or times, recompute starts/ends.
-  if (d.date || d.startTime || d.endTime) {
+  // Prefer client-computed ISO instants (timezone-correct). Otherwise fall
+  // back to recomputing from wall-clock date/time strings.
+  if (d.startsAt || d.endsAt) {
+    if (d.startsAt) {
+      const s = new Date(d.startsAt);
+      if (isNaN(s.getTime()))
+        return NextResponse.json({ error: "bad startsAt" }, { status: 400 });
+      data.startsAt = s;
+    }
+    if (d.endsAt) {
+      const e = new Date(d.endsAt);
+      if (isNaN(e.getTime()))
+        return NextResponse.json({ error: "bad endsAt" }, { status: 400 });
+      data.endsAt = e;
+    }
+  } else if (d.date || d.startTime || d.endTime) {
     const date = d.date ?? event.startsAt.toISOString().slice(0, 10);
     const startTime =
       d.startTime ?? event.startsAt.toISOString().slice(11, 16);

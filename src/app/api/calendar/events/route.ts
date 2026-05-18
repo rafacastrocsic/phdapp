@@ -18,6 +18,10 @@ const Body = z.object({
   date: z.string(),
   startTime: z.string(),
   endTime: z.string(),
+  // Preferred: full ISO instants computed on the client (which knows the
+  // user's timezone). Server falls back to date+time strings if absent.
+  startsAt: z.string().optional(),
+  endsAt: z.string().optional(),
   studentId: z.string().optional().nullable(),
   location: z.string().optional().nullable(),
   meetingUrl: z.string().optional().nullable(),
@@ -38,8 +42,16 @@ export async function POST(req: Request) {
   if (!parsed.success) return NextResponse.json({ error: "bad input" }, { status: 400 });
   const d = parsed.data;
 
-  const startsAt = new Date(`${d.date}T${d.startTime}:00`);
-  const endsAt = new Date(`${d.date}T${d.endTime}:00`);
+  // Prefer the client-computed instants (correct for the user's timezone);
+  // fall back to interpreting the wall-clock strings server-side.
+  const startsAt = d.startsAt
+    ? new Date(d.startsAt)
+    : new Date(`${d.date}T${d.startTime}:00`);
+  const endsAt = d.endsAt
+    ? new Date(d.endsAt)
+    : new Date(`${d.date}T${d.endTime}:00`);
+  if (isNaN(startsAt.getTime()) || isNaN(endsAt.getTime()))
+    return NextResponse.json({ error: "bad date/time" }, { status: 400 });
 
   // Anyone linked to the student can create events for them; unassigned events are supervisor-only
   if (d.studentId) {

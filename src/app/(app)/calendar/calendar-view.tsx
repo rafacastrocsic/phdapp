@@ -1194,6 +1194,16 @@ function EventEditForm({
       setErr("Title is required.");
       return;
     }
+    // Build the exact instants from the local wall-clock values (the
+    // browser knows the user's timezone) so the round-trip is stable.
+    const sDate = new Date(`${date}T${start}:00`);
+    const eDate = new Date(`${date}T${end}:00`);
+    if (isNaN(sDate.getTime()) || isNaN(eDate.getTime())) {
+      setErr("Invalid date or time.");
+      return;
+    }
+    const startsAtISO = sDate.toISOString();
+    const endsAtISO = eDate.toISOString();
     setSaving(true);
     setErr(null);
     const r = await fetch(`/api/calendar/events/${event.id}`, {
@@ -1204,6 +1214,8 @@ function EventEditForm({
         date,
         startTime: start,
         endTime: end,
+        startsAt: startsAtISO,
+        endsAt: endsAtISO,
         location: location.trim() || null,
         meetingUrl: meetingUrl.trim() || null,
         description: description.trim() || null,
@@ -1347,6 +1359,19 @@ function NewEventDialog({
     const payload = Object.fromEntries(fd.entries()) as Record<string, string>;
     if (isStudent && defaultStudentId) payload.studentId = defaultStudentId;
     if (linkedTaskId) payload.linkedTaskId = linkedTaskId;
+    // Compute exact instants in the browser's timezone so the stored time
+    // matches what the user typed (server would otherwise parse as UTC).
+    if (payload.date && payload.startTime && payload.endTime) {
+      const sISO = new Date(`${payload.date}T${payload.startTime}:00`);
+      const eISO = new Date(`${payload.date}T${payload.endTime}:00`);
+      if (isNaN(sISO.getTime()) || isNaN(eISO.getTime())) {
+        setSubmitting(false);
+        setError("Invalid date or time.");
+        return;
+      }
+      payload.startsAt = sISO.toISOString();
+      payload.endsAt = eISO.toISOString();
+    }
     payload.pushToGoogle = pushGoogle ? "1" : "";
     const rrule = buildRRule(recurFreq, recurInterval, recurUntil || null);
     if (rrule) payload.recurrenceRule = rrule;
