@@ -1,5 +1,5 @@
 "use client";
-import { useMemo } from "react";
+import { Fragment, useMemo, useState } from "react";
 import { format } from "date-fns";
 import type { Ticket } from "./kanban-board";
 import { statusColor } from "@/lib/kanban-constants";
@@ -139,6 +139,16 @@ export function GanttView({
     return m;
   }, [tickets]);
 
+  // Task ids whose subtasks are hidden. Default = expanded (shown).
+  const [collapsed, setCollapsed] = useState<Set<string>>(new Set());
+  const toggle = (id: string) =>
+    setCollapsed((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+
   if (byStudent.length === 0) {
     return (
       <div className="flex-1 flex items-center justify-center text-sm text-slate-400">
@@ -154,7 +164,9 @@ export function GanttView({
     <div className="flex-1 min-w-0 overflow-auto p-6 lg:p-8 space-y-6">
       <p className="text-xs text-slate-500">
         Each bar runs from when the task was created to its due date. The
-        dashed line is today; ⛓ marks tasks with dependencies.
+        dashed line is today; ⛓ marks tasks with dependencies. Click a task
+        with sub-tasks (▾) to show/hide them; a ◆ marks each sub-task&apos;s
+        deadline.
       </p>
       {byStudent.map((g) => (
         <section key={g.student.id} className="space-y-1.5">
@@ -207,27 +219,37 @@ export function GanttView({
                 const deps = (t.dependsOnIds ?? [])
                   .map((id) => titleById[id])
                   .filter(Boolean);
+                const subs = t.subtasks ?? [];
+                const hasSubs = subs.length > 0;
+                const expanded = hasSubs && !collapsed.has(t.id);
                 return (
-                  <li
-                    key={t.id}
-                    className="flex items-stretch border-b last:border-b-0 hover:bg-slate-50"
-                  >
+                  <Fragment key={t.id}>
+                  <li className="flex items-stretch border-b last:border-b-0 hover:bg-slate-50">
                     <button
                       type="button"
-                      onClick={() => onOpen(t.id)}
+                      onClick={() =>
+                        hasSubs ? toggle(t.id) : onOpen(t.id)
+                      }
                       className="shrink-0 truncate py-2 pr-3 text-left text-sm text-slate-800"
                       style={{
                         width: LABEL_W,
                         paddingLeft: `${0.75 + depth * 1.1}rem`,
                       }}
                       title={
-                        depth > 0 && deps.length > 0
-                          ? `${t.title} — depends on: ${deps.join(", ")}`
-                          : t.title
+                        hasSubs
+                          ? `${t.title} — ${expanded ? "hide" : "show"} ${subs.length} sub-task${subs.length === 1 ? "" : "s"} (click the bar to open the task)`
+                          : depth > 0 && deps.length > 0
+                            ? `${t.title} — depends on: ${deps.join(", ")}`
+                            : t.title
                       }
                     >
                       {depth > 0 && (
                         <span className="mr-1 text-slate-300">↳</span>
+                      )}
+                      {hasSubs && (
+                        <span className="mr-1 inline-block w-3 text-slate-400">
+                          {expanded ? "▾" : "▸"}
+                        </span>
                       )}
                       {deps.length > 0 && (
                         <span
@@ -238,6 +260,11 @@ export function GanttView({
                         </span>
                       )}
                       {t.title}
+                      {hasSubs && (
+                        <span className="ml-1 text-[10px] text-slate-400">
+                          ({subs.filter((x) => x.done).length}/{subs.length})
+                        </span>
+                      )}
                     </button>
                     <div className="relative flex-1 py-2">
                       {todayLeft >= 0 && todayLeft <= 100 && (
@@ -268,6 +295,83 @@ export function GanttView({
                       />
                     </div>
                   </li>
+                  {expanded &&
+                    subs.map((st) => {
+                      const dueT = st.due
+                        ? new Date(st.due + "T00:00:00").getTime()
+                        : null;
+                      const inRange =
+                        dueT != null &&
+                        dueT >= range.min &&
+                        dueT <= range.max;
+                      const dl =
+                        dueT != null
+                          ? ((dueT - range.min) / range.span) * 100
+                          : null;
+                      return (
+                        <li
+                          key={`${t.id}:${st.id}`}
+                          className="flex items-stretch border-b last:border-b-0 bg-slate-50/40 hover:bg-slate-100/60"
+                        >
+                          <button
+                            type="button"
+                            onClick={() => onOpen(t.id)}
+                            className="shrink-0 truncate py-1.5 pr-3 text-left text-[12px] text-slate-500"
+                            style={{
+                              width: LABEL_W,
+                              paddingLeft: `${0.75 + depth * 1.1 + 1.6}rem`,
+                            }}
+                            title={`${st.text}${st.due ? ` — due ${format(new Date(st.due + "T00:00:00"), "MMM d")}` : " — no deadline"}`}
+                          >
+                            <span className="mr-1 text-slate-300">└</span>
+                            <span
+                              className={
+                                st.done
+                                  ? "line-through text-slate-400"
+                                  : undefined
+                              }
+                            >
+                              {st.text}
+                            </span>
+                          </button>
+                          <div className="relative flex-1 py-1.5">
+                            {todayLeft >= 0 && todayLeft <= 100 && (
+                              <div
+                                className="absolute inset-y-0 border-l border-dashed border-red-200"
+                                style={{ left: `${todayLeft}%` }}
+                              />
+                            )}
+                            {dl != null && inRange ? (
+                              <span
+                                onClick={() => onOpen(t.id)}
+                                className="absolute top-1/2 h-2.5 w-2.5 cursor-pointer"
+                                style={{
+                                  left: `${dl}%`,
+                                  transform:
+                                    "translate(-50%, -50%) rotate(45deg)",
+                                  background: st.done
+                                    ? "var(--c-green)"
+                                    : statusColor(t.status),
+                                  opacity: st.done ? 0.6 : 1,
+                                  outline:
+                                    !st.done &&
+                                    dueT != null &&
+                                    dueT < Date.now()
+                                      ? "2px solid var(--c-red)"
+                                      : undefined,
+                                }}
+                                title={`${st.text} — due ${st.due ? format(new Date(st.due + "T00:00:00"), "MMM d") : "?"}`}
+                              />
+                            ) : (
+                              <span className="absolute top-1/2 -translate-y-1/2 left-1 text-[10px] italic text-slate-300">
+                                no deadline
+                              </span>
+                            )}
+                          </div>
+                        </li>
+                      );
+                    })}
+                  </Fragment>
                 );
               })}
             </ul>

@@ -68,7 +68,7 @@ The **Tasks** module (orange icon, sidebar) is where most of the day-to-day work
 
 - **Board** (default) — Kanban columns from "Backlog" to "Done". Drag cards left/right to change their status.
 - **List** — your tasks as a table, showing the full **Group → Task → Subtask** hierarchy: subtasks are listed under each task, and tasks can be organised into named **Groups**.
-- **Gantt** — a timeline. Each task is a bar running from when it was created to its due date, grouped by student, with a dashed "today" line and weekly gridlines. Tasks are ordered by dependency: a parent task comes first and the tasks that depend on it are listed **indented underneath** it (with a ↳ marker), so you can read a chain top-to-bottom. A ⛓ icon marks tasks that depend on other tasks. Click any bar (or its label) to open the task.
+- **Gantt** — a timeline. Each task is a bar running from when it was created to its due date, grouped by student, with a dashed "today" line and weekly gridlines. Tasks are ordered by dependency: a parent task comes first and the tasks that depend on it are listed **indented underneath** it (with a ↳ marker), so you can read a chain top-to-bottom. A ⛓ icon marks tasks that depend on other tasks. A task with sub-tasks shows a **▾** and an `(done/total)` count — **click its label to show/hide its sub-tasks**, which appear as indented rows with a **◆ diamond at each sub-task's deadline** (green when done, red-outlined if overdue, or "no deadline" if none). Click a task's **bar** to open the full task (and for tasks without sub-tasks, clicking the label opens it too).
 
 Toggle between them with the **Board / List / Gantt** switch at the top right.
 
