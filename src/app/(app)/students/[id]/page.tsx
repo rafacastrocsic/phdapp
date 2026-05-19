@@ -63,6 +63,7 @@ function Orcid({ className }: { className?: string }) {
 }
 import { format } from "date-fns";
 import { expandOccurrences } from "@/lib/recurrence";
+import { LocalTime } from "@/components/local-time";
 import { relativeTime, displayName } from "@/lib/utils";
 import { EditStudentDialog } from "./edit-student-dialog";
 import { ManageTeamDialog } from "./manage-team-dialog";
@@ -768,7 +769,10 @@ export default async function StudentDetail({
                         {e.title}
                       </div>
                       <div className="text-xs text-slate-500 mt-0.5">
-                        {format(e.start, "EEE MMM d · HH:mm")}
+                        <LocalTime
+                          iso={e.start.toISOString()}
+                          fmt="EEE MMM d · HH:mm"
+                        />
                       </div>
                     </li>
                   ))}
