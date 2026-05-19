@@ -62,6 +62,7 @@ function Orcid({ className }: { className?: string }) {
   );
 }
 import { format } from "date-fns";
+import { expandOccurrences } from "@/lib/recurrence";
 import { relativeTime, displayName } from "@/lib/utils";
 import { EditStudentDialog } from "./edit-student-dialog";
 import { ManageTeamDialog } from "./manage-team-dialog";
@@ -115,9 +116,21 @@ export default async function StudentDetail({
         include: { assignee: true },
       },
       events: {
-        where: { startsAt: { gte: new Date() } },
+        // Real calendar events only (exclude the auto task / sub-task
+        // due-date mirrors — those are task deadlines, not meetings, and
+        // the Calendar renders them separately). Recurring series are
+        // kept even if their base date is past — their next occurrence is
+        // computed below, mirroring how the Calendar expands them.
+        where: {
+          ticketId: null,
+          subtaskParentId: null,
+          OR: [
+            { startsAt: { gte: new Date() } },
+            { recurrenceRule: { not: null } },
+          ],
+        },
         orderBy: { startsAt: "asc" },
-        take: 5,
+        take: 50,
       },
       channels: { include: { _count: { select: { messages: true } } } },
       favorites: {
@@ -131,6 +144,31 @@ export default async function StudentDetail({
     },
   });
   if (!student) notFound();
+
+  // Build the "Upcoming meetings" list the same way the Calendar does:
+  // recurring events are expanded to their next future occurrence; one-off
+  // events use their own start. Sorted by soonest, capped at 5.
+  const upcomingMeetings = (() => {
+    const now = new Date();
+    const horizon = new Date(now.getTime() + 366 * 86_400_000);
+    const rows: { id: string; title: string; start: Date }[] = [];
+    for (const e of student.events) {
+      if (e.recurrenceRule) {
+        const occ = expandOccurrences(
+          e.startsAt,
+          e.endsAt,
+          e.recurrenceRule,
+          now,
+          horizon,
+        ).find((o) => o.start >= now);
+        if (occ) rows.push({ id: e.id, title: e.title, start: occ.start });
+      } else if (e.startsAt >= now) {
+        rows.push({ id: e.id, title: e.title, start: e.startsAt });
+      }
+    }
+    rows.sort((a, b) => a.start.getTime() - b.start.getTime());
+    return rows.slice(0, 5);
+  })();
 
   const teamLevel = await teamLevelForStudent(id, session.user.id, role);
   const canWriteThesis = teamLevel === "supervisor" || teamLevel === "self";
@@ -718,19 +756,19 @@ export default async function StudentDetail({
               <CardTitle>Upcoming meetings</CardTitle>
             </CardHeader>
             <CardContent className="p-0">
-              {student.events.length === 0 ? (
+              {upcomingMeetings.length === 0 ? (
                 <div className="p-4 text-xs text-slate-500">
                   Nothing scheduled.
                 </div>
               ) : (
                 <ul className="divide-y">
-                  {student.events.map((e) => (
+                  {upcomingMeetings.map((e) => (
                     <li key={e.id} className="p-3">
                       <div className="text-sm font-medium text-slate-900">
                         {e.title}
                       </div>
                       <div className="text-xs text-slate-500 mt-0.5">
-                        {format(e.startsAt, "EEE MMM d · HH:mm")}
+                        {format(e.start, "EEE MMM d · HH:mm")}
                       </div>
                     </li>
                   ))}
