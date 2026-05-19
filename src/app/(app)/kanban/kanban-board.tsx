@@ -154,10 +154,6 @@ export function KanbanBoard({
   const [view, setView] = useState<"board" | "list" | "gantt">("board");
   const [recentlyDeleted, setRecentlyDeleted] =
     useState<Ticket[]>(initialDeleted);
-  // The student-scope of the previous successful poll. Only diff for
-  // deletions when it's unchanged — otherwise switching the student
-  // filter wrongly flags the other students' tasks as "deleted".
-  const pollKeyRef = useRef<string>("");
   const [undo, setUndo] = useState<Ticket | null>(null);
   const router = useRouter();
   useEffect(() => {
@@ -221,28 +217,24 @@ export function KanbanBoard({
       // Skip while dragging or while a dialog is open to avoid yanking state.
       if (!draggingId && !newOpen && !openId) {
         try {
-          const pollKey = studentFilter || "__all__";
-          const r = await fetch(
-            `/api/tickets/list${studentFilter ? `?student=${encodeURIComponent(studentFilter)}` : ""}`,
-            { cache: "no-store" },
-          );
+          // Always fetch the FULL visible set — the student filter is
+          // applied client-side (`filtered`). Scoping the fetch by student
+          // made switching back to "all"/another student show nothing
+          // until the next poll.
+          const r = await fetch(`/api/tickets/list`, { cache: "no-store" });
           if (!cancelled && r.ok) {
             const j = await r.json();
-            // Only diff for genuine deletions when the student scope is the
-            // same as the previous poll. A different key = the user changed
-            // the student filter, not a deletion.
+            // Same query scope every poll, so a ticket missing now was
+            // genuinely deleted by someone else → keep it as a ghost.
             setTickets((prev) => {
               const newIds = new Set<string>(j.tickets.map((t: Ticket) => t.id));
-              if (pollKeyRef.current === pollKey) {
-                const gone = prev.filter((t) => !newIds.has(t.id));
-                if (gone.length > 0) {
-                  setRecentlyDeleted((rd) => {
-                    const have = new Set(rd.map((t) => t.id));
-                    return [...rd, ...gone.filter((t) => !have.has(t.id))];
-                  });
-                }
+              const gone = prev.filter((t) => !newIds.has(t.id));
+              if (gone.length > 0) {
+                setRecentlyDeleted((rd) => {
+                  const have = new Set(rd.map((t) => t.id));
+                  return [...rd, ...gone.filter((t) => !have.has(t.id))];
+                });
               }
-              pollKeyRef.current = pollKey;
               return j.tickets;
             });
             setHighlightByTicket(j.highlightByTicket ?? {});
@@ -253,12 +245,14 @@ export function KanbanBoard({
       }
       if (!cancelled) timer = setTimeout(tick, 8000);
     }
-    timer = setTimeout(tick, 8000);
+    // Fetch immediately so the full set is in memory fast (the SSR
+    // `initial` may be scoped by a ?student deep-link).
+    tick();
     return () => {
       cancelled = true;
       if (timer) clearTimeout(timer);
     };
-  }, [draggingId, newOpen, openId, studentFilter]);
+  }, [draggingId, newOpen, openId]);
 
   async function requestCompletion(id: string) {
     setTickets((prev) =>
@@ -300,10 +294,8 @@ export function KanbanBoard({
 
   async function refetchTickets() {
     try {
-      const r = await fetch(
-        `/api/tickets/list${studentFilter ? `?student=${encodeURIComponent(studentFilter)}` : ""}`,
-        { cache: "no-store" },
-      );
+      // Full visible set; the student filter is applied client-side.
+      const r = await fetch(`/api/tickets/list`, { cache: "no-store" });
       if (r.ok) {
         const j = await r.json();
         setTickets(j.tickets);
