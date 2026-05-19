@@ -393,13 +393,14 @@ model TicketTag {
 }
 
 model Comment {
-  id        String   @id @default(cuid())
+  id        String    @id @default(cuid())
   body      String
   ticketId  String
   authorId  String
-  ticket    Ticket   @relation(fields: [ticketId], references: [id], onDelete: Cascade)
-  author    User     @relation(fields: [authorId], references: [id])
-  createdAt DateTime @default(now())
+  ticket    Ticket    @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+  author    User      @relation(fields: [authorId], references: [id])
+  createdAt DateTime  @default(now())
+  editedAt  DateTime? // set when the author edits; drives the "edited" mark
 }
 
 // ───────── Calendar (mirrors Google Calendar) ─────────

@@ -2,7 +2,12 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
-import { studentVisibilityWhereAllForAdmin, type Role } from "@/lib/access";
+import {
+  studentVisibilityWhereAllForAdmin,
+  accessForStudent,
+  canWriteForStudent,
+  type Role,
+} from "@/lib/access";
 import { logActivity } from "@/lib/activity-log";
 
 const Body = z.object({ body: z.string().min(1) });
@@ -29,15 +34,32 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
 
   const comments = await prisma.comment.findMany({
     where: { ticketId: id },
-    include: { author: { select: { name: true, image: true, color: true } } },
+    include: {
+      author: { select: { id: true, name: true, image: true, color: true } },
+    },
     orderBy: { createdAt: "asc" },
   });
+  // Supervisors/admin who can write this student may moderate (delete) any
+  // comment; everyone can edit/delete their own.
+  const access = await accessForStudent(
+    ok.studentId,
+    session.user.id,
+    session.user.role as Role,
+  );
+  const canModerate = canWriteForStudent(access);
   return NextResponse.json({
+    canModerate,
     comments: comments.map((c) => ({
       id: c.id,
       body: c.body,
-      author: c.author,
+      author: {
+        name: c.author.name,
+        image: c.author.image,
+        color: c.author.color,
+      },
       createdAt: c.createdAt.toISOString(),
+      editedAt: c.editedAt?.toISOString() ?? null,
+      mine: c.author.id === session.user.id,
     })),
   });
 }
@@ -57,6 +79,14 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
     data: { ticketId: id, body: parsed.data.body, authorId: session.user.id },
     include: { author: { select: { name: true, image: true, color: true } } },
   });
+  const newComment = {
+    id: c.id,
+    body: c.body,
+    author: c.author,
+    createdAt: c.createdAt.toISOString(),
+    editedAt: null as string | null,
+    mine: true,
+  };
 
   {
     const { notify } = await import("@/lib/notify");
@@ -87,12 +117,5 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
     summary: `commented on “${ok.title}”`,
   });
 
-  return NextResponse.json({
-    comment: {
-      id: c.id,
-      body: c.body,
-      author: c.author,
-      createdAt: c.createdAt.toISOString(),
-    },
-  });
+  return NextResponse.json({ comment: newComment });
 }

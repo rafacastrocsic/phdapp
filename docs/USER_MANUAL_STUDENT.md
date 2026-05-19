@@ -104,7 +104,7 @@ Tasks with dependencies show a ⛓ icon (with the parent list on hover) in the *
 - **Drive folder** — link a Google Drive folder by clicking **Pick from Drive** and browsing your Drive (no need to paste a URL). Once linked, an **Open Drive folder** button appears in the task, and the task card shows a small folder icon you can click to jump straight to the folder.
 - **Assignee** — usually you
 - **Subtasks** — a small checklist inside the task; tick items as you go. The card shows a `2/5` style progress badge. Each subtask can also be given its **own deadline** (date picker next to it). A subtask's deadline can't be later than the task's own deadline — if you pick a later date you'll get an error and it won't save. Any subtask that has a deadline also shows up on the **Calendar** as a `[Sub-task] … · <task>` entry (subtasks with no deadline don't appear on the calendar).
-- **Comments** — threaded discussion at the bottom
+- **Comments** — threaded discussion at the bottom. Hover one of your own comments to **Edit** or **Delete** it; an edited comment is marked **(edited)**. (Your supervisors can also remove comments for moderation.)
 
 ### Marking a task completed
 

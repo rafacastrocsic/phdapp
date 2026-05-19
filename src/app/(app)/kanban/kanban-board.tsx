@@ -1454,16 +1454,27 @@ function TicketDetailDialog({
 }
 
 function Comments({ ticketId, initialCount }: { ticketId: string; initialCount: number }) {
-  type C = { id: string; body: string; author: { name: string | null; image: string | null; color: string }; createdAt: string };
+  type C = {
+    id: string;
+    body: string;
+    author: { name: string | null; image: string | null; color: string };
+    createdAt: string;
+    editedAt: string | null;
+    mine: boolean;
+  };
   const [items, setItems] = useState<C[] | null>(null);
+  const [canModerate, setCanModerate] = useState(false);
   const [body, setBody] = useState("");
   const [loaded, setLoaded] = useState(false);
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [editText, setEditText] = useState("");
 
   async function load() {
     const r = await fetch(`/api/tickets/${ticketId}/comments`);
     if (r.ok) {
       const j = await r.json();
       setItems(j.comments);
+      setCanModerate(!!j.canModerate);
       setLoaded(true);
     }
   }
@@ -1484,6 +1495,32 @@ function Comments({ ticketId, initialCount }: { ticketId: string; initialCount: 
     }
   }
 
+  async function saveEdit(id: string) {
+    const text = editText.trim();
+    if (!text) return;
+    const r = await fetch(`/api/tickets/${ticketId}/comments/${id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ body: text }),
+    });
+    if (r.ok) {
+      const { comment } = await r.json();
+      setItems((prev) =>
+        (prev ?? []).map((c) => (c.id === id ? { ...c, ...comment } : c)),
+      );
+      setEditingId(null);
+      setEditText("");
+    }
+  }
+
+  async function remove(id: string) {
+    if (!window.confirm("Delete this comment?")) return;
+    const r = await fetch(`/api/tickets/${ticketId}/comments/${id}`, {
+      method: "DELETE",
+    });
+    if (r.ok) setItems((prev) => (prev ?? []).filter((c) => c.id !== id));
+  }
+
   return (
     <div>
       <div className="text-xs font-semibold uppercase text-slate-500 mb-2">
@@ -1491,7 +1528,7 @@ function Comments({ ticketId, initialCount }: { ticketId: string; initialCount: 
       </div>
       <div className="space-y-2 max-h-48 overflow-y-auto pr-1">
         {(items ?? []).map((c) => (
-          <div key={c.id} className="flex gap-2">
+          <div key={c.id} className="flex gap-2 group">
             <Avatar
               name={c.author.name}
               src={c.author.image}
@@ -1499,10 +1536,77 @@ function Comments({ ticketId, initialCount }: { ticketId: string; initialCount: 
               size="xs"
             />
             <div className="flex-1 rounded-lg bg-slate-50 p-2 text-sm">
-              <div className="text-[10px] font-semibold text-slate-500 mb-0.5">
-                {c.author.name} · {relativeTime(c.createdAt)}
+              <div className="flex items-center justify-between gap-2">
+                <div className="text-[10px] font-semibold text-slate-500">
+                  {c.author.name} · {relativeTime(c.createdAt)}
+                  {c.editedAt && (
+                    <span
+                      className="ml-1 italic text-slate-400"
+                      title={`Edited ${relativeTime(c.editedAt)}`}
+                    >
+                      (edited)
+                    </span>
+                  )}
+                </div>
+                {editingId !== c.id && (c.mine || canModerate) && (
+                  <div className="flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                    {c.mine && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setEditingId(c.id);
+                          setEditText(c.body);
+                        }}
+                        className="text-[10px] font-semibold text-slate-400 hover:text-slate-700"
+                      >
+                        Edit
+                      </button>
+                    )}
+                    <button
+                      type="button"
+                      onClick={() => remove(c.id)}
+                      className="text-[10px] font-semibold text-slate-400 hover:text-[var(--c-red)]"
+                    >
+                      Delete
+                    </button>
+                  </div>
+                )}
               </div>
-              <div className="text-slate-800 whitespace-pre-wrap">{c.body}</div>
+              {editingId === c.id ? (
+                <div className="mt-1 space-y-1.5">
+                  <Textarea
+                    rows={2}
+                    value={editText}
+                    onChange={(e) => setEditText(e.target.value)}
+                  />
+                  <div className="flex justify-end gap-2">
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => {
+                        setEditingId(null);
+                        setEditText("");
+                      }}
+                    >
+                      Cancel
+                    </Button>
+                    <Button
+                      type="button"
+                      variant="brand"
+                      size="sm"
+                      disabled={!editText.trim()}
+                      onClick={() => saveEdit(c.id)}
+                    >
+                      Save
+                    </Button>
+                  </div>
+                </div>
+              ) : (
+                <div className="text-slate-800 whitespace-pre-wrap">
+                  {c.body}
+                </div>
+              )}
             </div>
           </div>
         ))}
