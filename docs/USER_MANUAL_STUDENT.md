@@ -149,6 +149,10 @@ Top-right toggle: **Year / Month / Week / Day**.
 
 If a calendar event is marked as a 1:1 meeting, opening it shows an **agenda** (you can add points before the meeting too), **notes**, and **action items**. Action items your supervisor creates become Tasks for you — each can carry a deadline, priority and category set during the meeting, and you can flesh it out further in the Task panel.
 
+### Comments on events
+
+Every calendar event has its own **threaded comment section** — open the event from the Calendar and scroll to the bottom of the dialog to find it. It works exactly like comments on a task: type at the bottom and hit **Send**, hover any comment to **Reply / Edit / Delete** your own (others can only be edited by their author, and your supervisors can moderate-delete any), and **(edited)** appears next to anything you've changed. Replies are indented under the comment they answer; deleting a parent comment also removes its replies. The whole team that can see the event sees the thread — useful for pre-meeting questions, links, or last-minute notes that belong with the event rather than buried in chat. When someone posts a reply to your comment (or comments on an event you own), you get a 🔔 bell notification.
+
 ### Supervisors' availability
 
 On the calendar you may see grey **⊘ Unavailable** blocks on some days — that means one of your supervisors marked themselves away (travel, leave, holidays) so you know not to expect a reply or to drop by then. You only see "Unavailable" — never the reason. It shows in every view (Month, Year, Week, Day), and the Calendar sidebar gets an unread count bubble when a supervisor adds a new away period (clears when you open the Calendar). **Click an "away" block** to see exactly which supervisor(s) and the dates (you still don't see the reason).

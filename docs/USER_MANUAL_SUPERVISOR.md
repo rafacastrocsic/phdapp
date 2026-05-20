@@ -216,6 +216,12 @@ Top-right toggle: **Year / Month / Week / Day**.
 
 Opening a linked event shows a **Related task: …** line — click it for an in-place task peek (you stay on the Calendar). You can add, change, or remove the link later via the event's **Edit** form.
 
+> **Reverse view (from the task):** open the linked task and the **Related events** card lists every event linked to it (title + start time, clickable back to the Calendar). The task's Board card and List-view row also carry a teal **📅 N** badge next to the comment count, so you can spot tasks with attached meetings at a glance — no need to open them. The badge counts *manual* links only; the auto `[Task]_` deadline event isn't counted (it's already represented by the due date).
+
+### Comments on events
+
+Every event has a **threaded comment section** at the bottom of its detail dialog — same component, same JSON shape and same behaviour as the comments on a task. The whole team that can see the event sees the thread, so it's the natural place for pre-meeting questions, post-meeting recaps, agenda nits, links to materials, etc. — anything that belongs *with the event*, not buried in chat. Top-level comments get a **Reply** action on hover (one-level nesting; replies are indented under their parent); your own comments are editable and deletable; any supervisor or admin who can write the event's student can moderate-delete others' comments. Posting a reply notifies the parent comment's author; a new top-level comment notifies the event owner and the student-user. Edited comments get an **(edited)** mark; deleting a parent comment also removes its replies. Activity is mirrored as an `event.update` row in the log so the rest of the team sees recent activity on the event from the Calendar's recent-activity hints.
+
 ### Structured 1:1 meetings
 
 When creating an event, tick **"This is a 1:1 meeting"**. Opening that event then shows a meeting panel:
