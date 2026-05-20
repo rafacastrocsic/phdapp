@@ -135,7 +135,7 @@ The **Calendar** module (teal icon) shows:
 
 - **Real events** — meetings, deadlines your supervisor created. Solid colored chip with a time.
 - **Task events** — every task with a due date appears as an outlined chip with a small circle icon and a single-letter priority tag (L/M/H/U). Its name is prefixed **`[Task]_`** (and sub-task deadlines show as **`[Sub-task]_…`**) so it's clearly task-derived, including on a synced Google Calendar. Click it to see the task in a quick view **without leaving the Calendar**; close it and you're still on the Calendar. Use **Open in Tasks board** in that view to go to the full task on the Tasks board.
-- **Events linked to a task** — a normal event can also be *connected* to a task without being its deadline. For example, a task "Finish the slides" is due next month, but a supervision meeting this week will partly be about how those slides are going — that meeting can be linked to the task. Open such an event and you'll see a **Related task: …** line; click it to peek at the task. (This is separate from the automatic `[Task]_` due-date entry above.)
+- **Events linked to a task** — a normal event can also be *connected* to a task without being its deadline. For example, a task "Finish the slides" is due next month, but a supervision meeting this week will partly be about how those slides are going — that meeting can be linked to the task. Open such an event and you'll see a **Related task: …** line; click it to peek at the task. The **Upcoming** sidebar also shows a small orange task chip on each linked event (icon + task title) — click the chip to peek the task without opening the event. (This is separate from the automatic `[Task]_` due-date entry above.)
 
 ### Four views
 
