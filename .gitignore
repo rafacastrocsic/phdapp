@@ -50,3 +50,4 @@ prisma/dev.db*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+docs/~$*.pptx
