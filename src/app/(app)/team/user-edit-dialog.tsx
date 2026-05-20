@@ -15,6 +15,9 @@ interface UserRow {
   image: string | null;
   color: string;
   role: string;
+  linkedinUrl: string | null;
+  orcidId: string | null;
+  scholarUrl: string | null;
 }
 
 export function TeamUserCard({

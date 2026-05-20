@@ -10,7 +10,7 @@ import {
   type Role,
 } from "@/lib/access";
 import { normalizeCalendarId } from "@/lib/calendar-id";
-import { normalizeLinkedIn, normalizeOrcid, normalizeWebsite } from "@/lib/url-utils";
+import { normalizeLinkedIn, normalizeOrcid, normalizeScholar, normalizeWebsite } from "@/lib/url-utils";
 import { logActivity } from "@/lib/activity-log";
 
 const Patch = z.object({
@@ -30,6 +30,7 @@ const Patch = z.object({
   linkedinUrl: z.string().nullable().optional(),
   orcidId: z.string().nullable().optional(),
   websiteUrl: z.string().nullable().optional(),
+  scholarUrl: z.string().nullable().optional(),
 });
 
 async function loadOwned(id: string, userId: string, role: Role) {
@@ -84,6 +85,7 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
   if (d.linkedinUrl !== undefined) data.linkedinUrl = normalizeLinkedIn(d.linkedinUrl);
   if (d.orcidId !== undefined) data.orcidId = normalizeOrcid(d.orcidId);
   if (d.websiteUrl !== undefined) data.websiteUrl = normalizeWebsite(d.websiteUrl);
+  if (d.scholarUrl !== undefined) data.scholarUrl = normalizeScholar(d.scholarUrl);
 
   try {
     await prisma.student.update({ where: { id }, data });

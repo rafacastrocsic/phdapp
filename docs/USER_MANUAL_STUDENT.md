@@ -224,6 +224,7 @@ Click your avatar at the top-right → **Edit profile**. You can change:
 - Your display name
 - Your color (used for your avatar and the stripe on your tasks)
 - Your photo
+- **External profile links** — LinkedIn, ORCID, Google Scholar. These render as small icon-links next to your name on your profile header and on team views. Leave any blank to hide it.
 
 You **cannot** change your role or your supervisor — ask your supervisor or the admin for that.
 

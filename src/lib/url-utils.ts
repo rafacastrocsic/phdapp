@@ -35,3 +35,27 @@ export function normalizeWebsite(raw: string | null | undefined): string | null 
   if (/^https?:\/\//i.test(v)) return v;
   return `https://${v.replace(/^\/+/, "")}`;
 }
+
+/**
+ * Coerce a user-pasted Google Scholar string into a canonical URL.
+ * Accepts:
+ *   - full Scholar URL ("https://scholar.google.com/citations?user=…") → returned as-is (https forced)
+ *   - bare user id ("AbCDefG12") → expanded to citations?user=…&hl=en
+ *   - scholar.google.com path without protocol
+ */
+export function normalizeScholar(raw: string | null | undefined): string | null {
+  const v = (raw ?? "").trim();
+  if (!v) return null;
+  if (/^https?:\/\//i.test(v)) {
+    return v.replace(/^http:/i, "https:");
+  }
+  if (/^(www\.)?scholar\.google\./i.test(v)) {
+    return `https://${v.replace(/^www\./i, "")}`;
+  }
+  // Plain user id like "AbCDefG12"
+  const id = v.replace(/^\/+|\/+$/g, "");
+  if (/^[A-Za-z0-9_-]+$/.test(id)) {
+    return `https://scholar.google.com/citations?user=${id}&hl=en`;
+  }
+  return null;
+}

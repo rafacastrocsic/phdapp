@@ -14,6 +14,9 @@ interface UserRow {
   image: string | null;
   color: string;
   role: string;
+  linkedinUrl: string | null;
+  orcidId: string | null;
+  scholarUrl: string | null;
 }
 
 const ROLE_OPTIONS = [
@@ -35,6 +38,9 @@ export function ProfileEditor({
   const [color, setColor] = useState(user.color);
   const [role, setRole] = useState(user.role);
   const [image, setImage] = useState<string | null>(user.image);
+  const [linkedinUrl, setLinkedinUrl] = useState(user.linkedinUrl ?? "");
+  const [orcidId, setOrcidId] = useState(user.orcidId ?? "");
+  const [scholarUrl, setScholarUrl] = useState(user.scholarUrl ?? "");
   const [saving, setSaving] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [msg, setMsg] = useState<{ type: "ok" | "err"; text: string } | null>(null);
@@ -44,7 +50,14 @@ export function ProfileEditor({
   async function save() {
     setSaving(true);
     setMsg(null);
-    const payload: Record<string, unknown> = { name, color, image };
+    const payload: Record<string, unknown> = {
+      name,
+      color,
+      image,
+      linkedinUrl,
+      orcidId,
+      scholarUrl,
+    };
     if (canEditRole) payload.role = role;
     const r = await fetch(`/api/users/${user.id}`, {
       method: "PATCH",
@@ -162,6 +175,39 @@ export function ProfileEditor({
             </Field>
           )}
         </div>
+      </div>
+
+      <div className="space-y-3 border-t pt-4">
+        <div className="text-xs font-semibold text-slate-700">
+          External profile links
+        </div>
+        <Field label="LinkedIn">
+          <Input
+            value={linkedinUrl}
+            onChange={(e) => setLinkedinUrl(e.target.value)}
+            placeholder="https://www.linkedin.com/in/ada-lovelace  (or just the handle)"
+          />
+        </Field>
+        <div className="grid grid-cols-2 gap-3">
+          <Field label="ORCID">
+            <Input
+              value={orcidId}
+              onChange={(e) => setOrcidId(e.target.value)}
+              placeholder="0000-0002-1825-0097"
+            />
+          </Field>
+          <Field label="Google Scholar">
+            <Input
+              value={scholarUrl}
+              onChange={(e) => setScholarUrl(e.target.value)}
+              placeholder="https://scholar.google.com/citations?user=…  (or the user id)"
+            />
+          </Field>
+        </div>
+        <p className="text-[11px] text-slate-500">
+          These show as small icon links beside your name in team views and on
+          your profile.
+        </p>
       </div>
 
       {msg && (

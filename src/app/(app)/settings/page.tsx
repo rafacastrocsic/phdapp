@@ -19,6 +19,9 @@ export default async function SettingsPage() {
       color: true,
       role: true,
       emailDigest: true,
+      linkedinUrl: true,
+      orcidId: true,
+      scholarUrl: true,
     },
   });
 

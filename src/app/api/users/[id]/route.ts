@@ -2,12 +2,16 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
+import { normalizeLinkedIn, normalizeOrcid, normalizeScholar } from "@/lib/url-utils";
 
 const Patch = z.object({
   name: z.string().min(1).optional(),
   color: z.string().optional(),
   image: z.string().nullable().optional(),
   role: z.enum(["admin", "supervisor", "student"]).optional(),
+  linkedinUrl: z.string().nullable().optional(),
+  orcidId: z.string().nullable().optional(),
+  scholarUrl: z.string().nullable().optional(),
 });
 
 export async function PATCH(
@@ -35,6 +39,9 @@ export async function PATCH(
   if (d.name !== undefined) data.name = d.name;
   if (d.color !== undefined) data.color = d.color;
   if (d.image !== undefined) data.image = d.image;
+  if (d.linkedinUrl !== undefined) data.linkedinUrl = normalizeLinkedIn(d.linkedinUrl);
+  if (d.orcidId !== undefined) data.orcidId = normalizeOrcid(d.orcidId);
+  if (d.scholarUrl !== undefined) data.scholarUrl = normalizeScholar(d.scholarUrl);
   if (d.role !== undefined) {
     if (!isAdmin)
       return NextResponse.json(

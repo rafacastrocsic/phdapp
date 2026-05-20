@@ -39,6 +39,9 @@ export default async function AdminPage() {
       image: true,
       color: true,
       role: true,
+      linkedinUrl: true,
+      orcidId: true,
+      scholarUrl: true,
       _count: {
         select: {
           supervisedStudents: true,

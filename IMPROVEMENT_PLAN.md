@@ -393,6 +393,16 @@ Per-user, per-type preferences (extend the Settings page; a `NotificationPref` m
 
 ---
 
+## 27. Group presentation decks + external profile links for users  ✅ COMPLETED (2026-05-20, user request)
+
+**What:** (1) two PhDapp PowerPoint decks (student-facing + supervisor-facing) generated programmatically from `docs/USER_MANUAL_STUDENT.md` / `USER_MANUAL_SUPERVISOR.md`, with the app's brand aesthetic (violet→pink→orange gradient title, module accent colors, Inter typeface, generous fontSizes). (2) LinkedIn / ORCID / **Google Scholar** profile links for every user — not just students. Students kept their existing `linkedinUrl` + `orcidId` and gained `scholarUrl`; all other users now have all three.
+
+**Implementation:** `/tmp/build-phdapp-decks.js` (pptxgenjs + sharp + react-icons + LibreOffice for headless QA) produces `docs/PhDapp_Student_Overview.pptx` (15 slides) and `docs/PhDapp_Supervisor_Overview.pptx` (16 slides). Schema: additive migration `20260520120000_user_external_links` adds `linkedinUrl`, `orcidId`, `scholarUrl` to `User`, and `scholarUrl` to `Student`. New shared component `src/components/external-profile-links.tsx` (with brand SVGs for LinkedIn / ORCID / Scholar) used on the student profile header, on team-page member cards, and in the profile / student-edit dialogs. `normalizeScholar()` added next to the existing LinkedIn / ORCID / Website normalisers so users can paste a full URL, the `?user=…` query, or just a Scholar user id.
+
+**Scope/risk:** low. One additive migration; the rest UI + a programmatic-decks script. Nothing in the app logic depends on the new fields being non-null.
+
+---
+
 ## Recommended sequence
 
 1. **§0** access helper — tiny, unblocks §3/§7/§10.

@@ -13,6 +13,7 @@ import {
   type Role,
 } from "@/lib/access";
 import { TeamUserCard } from "./user-edit-dialog";
+import { ExternalProfileLinks } from "@/components/external-profile-links";
 import { TeamWorkspace } from "./team-workspace";
 import { AdvisorSuggestions } from "./advisor-suggestions";
 import { Shield } from "lucide-react";
@@ -468,6 +469,9 @@ export default async function TeamPage() {
                       image: u.image,
                       color: u.color,
                       role: u.role,
+                      linkedinUrl: u.linkedinUrl,
+                      orcidId: u.orcidId,
+                      scholarUrl: u.scholarUrl,
                     }}
                     isMe={u.id === session.user.id}
                     isAdmin={isAdmin}
@@ -584,6 +588,9 @@ function MemberBody({
     image: string | null;
     color: string;
     role: string;
+    linkedinUrl: string | null;
+    orcidId: string | null;
+    scholarUrl: string | null;
   };
   isMe: boolean;
   rel: Rel;
@@ -611,6 +618,18 @@ function MemberBody({
           {isMe && <span className="text-xs text-slate-400">(you)</span>}
         </div>
         <div className="text-xs text-slate-500 truncate">{u.email}</div>
+        {(u.linkedinUrl || u.orcidId || u.scholarUrl) && (
+          <ExternalProfileLinks
+            links={{
+              linkedinUrl: u.linkedinUrl,
+              orcidId: u.orcidId,
+              scholarUrl: u.scholarUrl,
+            }}
+            showLabels={false}
+            size={3.5}
+            className="mt-1"
+          />
+        )}
         <div className="mt-1 space-y-0.5">
           <RelLine label="Supervisor of" color="#6f4cff" r={rel.supervising} />
           <RelLine label="Team advisor of" color="#0ea5e9" r={rel.teamAdvising} />

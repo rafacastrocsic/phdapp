@@ -286,6 +286,19 @@ export default async function StudentDetail({
                     <span className="text-slate-600">ORCID</span>
                   </a>
                 )}
+                {student.scholarUrl && (
+                  <a
+                    href={student.scholarUrl}
+                    target="_blank"
+                    rel="noopener"
+                    className="flex items-center gap-1 hover:underline"
+                    style={{ color: "#4285F4" }}
+                    title={`Google Scholar: ${student.scholarUrl}`}
+                  >
+                    <GraduationCap className="h-3.5 w-3.5" />
+                    <span className="text-slate-600">Scholar</span>
+                  </a>
+                )}
                 {student.websiteUrl && (
                   <a
                     href={student.websiteUrl}
@@ -321,6 +334,7 @@ export default async function StudentDetail({
                     linkedinUrl: student.linkedinUrl,
                     orcidId: student.orcidId,
                     websiteUrl: student.websiteUrl,
+                    scholarUrl: student.scholarUrl,
                   }}
                 />
               )}
@@ -737,6 +751,18 @@ export default async function StudentDetail({
                   sub={student.orcidId.replace("https://orcid.org/", "")}
                   bg="bg-green-100"
                   fg="text-green-700"
+                />
+              )}
+              {student.scholarUrl && (
+                <ResourceLink
+                  href={student.scholarUrl}
+                  icon={<GraduationCap className="h-4 w-4" />}
+                  label="Google Scholar"
+                  sub={student.scholarUrl
+                    .replace(/^https?:\/\/(www\.)?/, "")
+                    .replace(/\?.*$/, "")}
+                  bg="bg-blue-100"
+                  fg="text-blue-700"
                 />
               )}
               {student.websiteUrl && (

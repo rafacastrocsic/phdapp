@@ -32,6 +32,7 @@ interface StudentInput {
   linkedinUrl: string | null;
   orcidId: string | null;
   websiteUrl: string | null;
+  scholarUrl: string | null;
 }
 
 export function EditStudentDialog({
@@ -207,6 +208,13 @@ export function EditStudentDialog({
               />
             </Field>
           </div>
+          <Field label="Google Scholar">
+            <Input
+              name="scholarUrl"
+              defaultValue={student.scholarUrl ?? ""}
+              placeholder="https://scholar.google.com/citations?user=…  (or just the user id)"
+            />
+          </Field>
           <Field label="Profile photo">
             <AvatarUploader
               studentId={student.id}

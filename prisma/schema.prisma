@@ -29,6 +29,13 @@ model User {
   teamSuggestionsLastSeenAt DateTime?
   feedbackLastSeenAt DateTime?
 
+  // External profile links (LinkedIn / ORCID / Google Scholar) — shown on
+  // user profile cards and team views. Students keep their own copies on
+  // the Student model (so they edit those via the student form).
+  linkedinUrl    String?
+  orcidId        String?
+  scholarUrl     String?
+
   accounts Account[]
   sessions Session[]
 
@@ -120,6 +127,7 @@ model Student {
   linkedinUrl     String?
   orcidId         String?
   websiteUrl      String?
+  scholarUrl      String?
 
   supervisorId    String
   supervisor      User      @relation("SupervisorOfStudent", fields: [supervisorId], references: [id])
