@@ -848,6 +848,29 @@ export function CalendarView({
                           </a>
                         )}
                       </div>
+                      {/* Mirror of the task-side 📅 N badge: when an event
+                          is manually linked to a task, show a chip on its
+                          own row (w-full so truncate behaves; never shares
+                          horizontal space with the location/Join row).
+                          Click peeks the linked task without leaving the
+                          Calendar; stopPropagation so the outer <li>
+                          doesn't open the event dialog. */}
+                      {e.linkedTaskId && (
+                        <button
+                          type="button"
+                          onClick={(ev) => {
+                            ev.stopPropagation();
+                            setPeekTicketId(e.linkedTaskId!);
+                          }}
+                          title={`Linked to task: ${e.linkedTaskTitle ?? "(open task)"}`}
+                          className="mt-1.5 flex w-full items-center gap-1 rounded-md bg-orange-50 px-1.5 py-1 text-[11px] text-[var(--c-orange)] hover:bg-orange-100"
+                        >
+                          <KanbanSquare className="h-3 w-3 shrink-0" />
+                          <span className="truncate text-left flex-1 min-w-0">
+                            {e.linkedTaskTitle ?? "Linked task"}
+                          </span>
+                        </button>
+                      )}
                     </div>
                   </div>
                 </li>
