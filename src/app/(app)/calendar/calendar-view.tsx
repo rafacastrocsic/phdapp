@@ -830,7 +830,7 @@ export function CalendarView({
                           {displayName(e.student)}
                         </Badge>
                       )}
-                      <div className="mt-2 flex items-center gap-2 text-xs text-slate-500 flex-wrap">
+                      <div className="mt-2 flex items-center gap-2 text-xs text-slate-500">
                         {e.location && (
                           <span className="flex items-center gap-1">
                             <MapPin className="h-3 w-3" />
@@ -846,27 +846,6 @@ export function CalendarView({
                           >
                             <Video className="h-3 w-3" /> Join
                           </a>
-                        )}
-                        {/* Mirror of the task-side 📅 N badge: when an event
-                            is manually linked to a task, show a clickable
-                            chip with the task title. Click peeks the task
-                            without leaving the Calendar; stopPropagation so
-                            the outer <li> doesn't open the event dialog. */}
-                        {e.linkedTaskId && (
-                          <button
-                            type="button"
-                            onClick={(ev) => {
-                              ev.stopPropagation();
-                              setPeekTicketId(e.linkedTaskId!);
-                            }}
-                            title={`Linked to task: ${e.linkedTaskTitle ?? "(open task)"}`}
-                            className="flex items-center gap-1 rounded-md bg-orange-100 px-1.5 py-0.5 text-[var(--c-orange)] hover:bg-orange-200"
-                          >
-                            <KanbanSquare className="h-3 w-3" />
-                            <span className="truncate max-w-[140px]">
-                              {e.linkedTaskTitle ?? "Linked task"}
-                            </span>
-                          </button>
                         )}
                       </div>
                     </div>
