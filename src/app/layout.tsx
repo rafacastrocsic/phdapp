@@ -15,7 +15,7 @@ const geistMono = Geist_Mono({
 export const metadata: Metadata = {
   title: "PhDapp · Supervision Hub",
   description:
-    "Chat, files, tasks, and calendar — one colorful workspace to supervise your PhD students.",
+    "Chat, files, tasks, and calendar — one single workspace for PhD student supervision.",
 };
 
 export default function RootLayout({

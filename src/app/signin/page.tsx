@@ -28,7 +28,7 @@ export default async function SignInPage() {
             <div className="text-xl font-bold">PhDapp</div>
           </div>
           <h1 className="text-5xl font-bold leading-tight">
-            One colorful workspace<br />for supervising every<br />PhD student.
+            One single workspace<br />for PhD student<br />supervision.
           </h1>
           <p className="mt-6 max-w-md text-lg text-white/85">
             Tickets, calendars, files and chat — all linked to each student,
