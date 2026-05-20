@@ -393,6 +393,16 @@ Per-user, per-type preferences (extend the Settings page; a `NotificationPref` m
 
 ---
 
+## 30. Related-events indicator on tasks  ✅ COMPLETED (2026-05-20, user request)
+
+**What:** every place a task is shown — Board cards, List rows, and the task detail panel — now surfaces whether the task has any *manually-linked* calendar events (events whose `linkedTaskId` is this task). Previously the link was only visible from the calendar side (opening an event showed *Related task: …*); now the task tells you which events relate to it without leaving the Tasks module.
+
+**Implementation:** `Ticket._count.linkedEvents` (already a back-relation via `Event.linkedTaskId`) plumbed through `/api/tickets/...` (POST + GET, the polled `list/` endpoint, and the server-side kanban page) as `linkedEventCount` plus a `linkedEvents[]` array of `{id, title, startsAt}` for the detail panel. Board cards gain a small `<CalendarClock />` icon + count next to the existing comment-count badge (shown only when ≥ 1). List rows show the same `📅 N` indicator inline next to the task title (a tooltip lists the linked events with their start times). The task detail panel renders a **Related events** section above the comments thread: titles + locale-formatted start times, each row linking back to the Calendar. Excludes the auto due-date mirror event and sub-task deadline events — they're already represented elsewhere (the dueDate column, the subtasks list).
+
+**Scope/risk:** low. Reads only; no schema change (the relation already existed). Stale `linkedEvents[]` is refreshed on the kanban-board's existing polling interval (~30s).
+
+---
+
 ## 29. Comments on events + nested replies on tasks & events  ✅ COMPLETED (2026-05-20, user request)
 
 **What:** calendar events now accept the same comment thread as tasks. Both surfaces also support **1-level reply nesting** — top-level comments get a **Reply** action; replies are indented under their parent. Originally only tasks had comments, and only flat.

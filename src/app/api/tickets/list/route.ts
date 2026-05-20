@@ -37,7 +37,11 @@ export async function GET(req: Request) {
       group: { select: { id: true, name: true, color: true } },
       dependsOn: { select: { dependsOnId: true } },
       tags: true,
-      _count: { select: { comments: true } },
+      _count: { select: { comments: true, linkedEvents: true } },
+      linkedEvents: {
+        select: { id: true, title: true, startsAt: true },
+        orderBy: { startsAt: "asc" },
+      },
     },
     orderBy: [{ status: "asc" }, { order: "asc" }, { createdAt: "desc" }],
   });
@@ -82,6 +86,12 @@ export async function GET(req: Request) {
       channelId: t.channelId,
       order: t.order,
       commentCount: t._count.comments,
+      linkedEventCount: t._count.linkedEvents,
+      linkedEvents: t.linkedEvents.map((e) => ({
+        id: e.id,
+        title: e.title,
+        startsAt: e.startsAt.toISOString(),
+      })),
       assignee: t.assignee,
       student: t.student,
       tags: t.tags,

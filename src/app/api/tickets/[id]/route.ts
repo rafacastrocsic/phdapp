@@ -67,7 +67,11 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
     include: {
       assignee: { select: { id: true, name: true, image: true, color: true } },
       student: { select: { id: true, fullName: true, alias: true, color: true } },
-      _count: { select: { comments: true } },
+      _count: { select: { comments: true, linkedEvents: true } },
+      linkedEvents: {
+        select: { id: true, title: true, startsAt: true },
+        orderBy: { startsAt: "asc" },
+      },
     },
   });
   if (!t) return NextResponse.json({ error: "not found" }, { status: 404 });
@@ -82,6 +86,12 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
       dueDate: t.dueDate?.toISOString() ?? null,
       driveFolderUrl: t.driveFolderUrl,
       commentCount: t._count.comments,
+      linkedEventCount: t._count.linkedEvents,
+      linkedEvents: t.linkedEvents.map((e) => ({
+        id: e.id,
+        title: e.title,
+        startsAt: e.startsAt.toISOString(),
+      })),
       assignee: t.assignee,
       student: t.student,
       subtasks: parseSubtasks(t.subtasks),

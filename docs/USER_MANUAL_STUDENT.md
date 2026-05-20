@@ -105,6 +105,7 @@ Tasks with dependencies show a ⛓ icon (with the parent list on hover) in the *
 - **Assignee** — usually you
 - **Subtasks** — a small checklist inside the task; tick items as you go. The card shows a `2/5` style progress badge. Each subtask can also be given its **own deadline** (date picker next to it). A subtask's deadline can't be later than the task's own deadline — if you pick a later date you'll get an error and it won't save. Any subtask that has a deadline also shows up on the **Calendar** as a `[Sub-task] … · <task>` entry (subtasks with no deadline don't appear on the calendar).
 - **Comments** — threaded discussion at the bottom. Each top-level comment gets a **Reply** action on hover, so you can answer a specific point without losing the flow; replies are indented under their parent. Hover one of your own comments to **Edit** or **Delete** it; an edited comment is marked **(edited)**. Deleting a comment also removes its replies. (Your supervisors can also remove comments for moderation.) The same comment thread is available on **calendar events** — open an event, scroll to the bottom of the dialog.
+- **Related events** — calendar events linked to this task (meetings, work sessions) show up as a list inside the task. The task card / List row also gets a small teal **📅 N** badge with the count, so you can spot at a glance which tasks have related events without opening them. To link a new event, edit the event in the Calendar and pick this task in the **Related task** field.
 
 ### Marking a task completed
 

@@ -81,7 +81,7 @@ export async function POST(req: Request) {
       student: { select: { id: true, fullName: true, alias: true, color: true } },
       group: { select: { id: true, name: true, color: true } },
       tags: true,
-      _count: { select: { comments: true } },
+      _count: { select: { comments: true, linkedEvents: true } },
     },
   });
 
@@ -140,6 +140,8 @@ export async function POST(req: Request) {
       channelId: created.channelId,
       order: created.order,
       commentCount: created._count.comments,
+      linkedEventCount: created._count.linkedEvents,
+      linkedEvents: [] as { id: string; title: string; startsAt: string }[],
       assignee: created.assignee,
       student: created.student,
       group: created.group,

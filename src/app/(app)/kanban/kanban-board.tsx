@@ -10,6 +10,7 @@ import {
   MessageSquare,
   FolderOpen,
   Calendar,
+  CalendarClock,
   AlertCircle,
   CheckSquare,
   X,
@@ -51,6 +52,11 @@ export interface Ticket {
   channelId: string | null;
   order: number;
   commentCount: number;
+  // Manually-linked calendar events (Event.linkedTaskId === this ticket id).
+  // Excludes the auto due-date mirror and sub-task deadline events — they're
+  // already represented elsewhere (the dueDate column, the subtasks list).
+  linkedEventCount: number;
+  linkedEvents?: { id: string; title: string; startsAt: string }[];
   assignee: {
     id: string;
     name: string | null;
@@ -799,6 +805,16 @@ function TicketCard({
                 <MessageSquare className="h-3 w-3" /> {ticket.commentCount}
               </span>
             )}
+            {ticket.linkedEventCount > 0 && (
+              <span
+                className="flex items-center gap-0.5"
+                title={`${ticket.linkedEventCount} related event${
+                  ticket.linkedEventCount === 1 ? "" : "s"
+                } — open the task for details`}
+              >
+                <CalendarClock className="h-3 w-3" /> {ticket.linkedEventCount}
+              </span>
+            )}
             {ticket.driveFolderUrl && (
               <a
                 href={ticket.driveFolderUrl}
@@ -1427,6 +1443,41 @@ function TicketDetailDialog({
               onChange={(next) => update({ dependsOnIds: next })}
             />
           </Field>
+
+          {ticket.linkedEvents && ticket.linkedEvents.length > 0 && (
+            <div>
+              <div className="text-xs font-semibold uppercase text-slate-500 mb-2">
+                Related events ({ticket.linkedEvents.length})
+              </div>
+              <ul className="space-y-1.5">
+                {ticket.linkedEvents.map((e) => (
+                  <li
+                    key={e.id}
+                    className="flex items-center gap-2 rounded-md border bg-slate-50 px-2.5 py-1.5 text-sm"
+                  >
+                    <CalendarClock className="h-3.5 w-3.5 shrink-0 text-[var(--c-teal)]" />
+                    <Link
+                      href="/calendar"
+                      className="min-w-0 flex-1 truncate text-slate-800 hover:text-[var(--c-violet)]"
+                    >
+                      {e.title}
+                    </Link>
+                    <span className="shrink-0 text-[11px] text-slate-500">
+                      {new Date(e.startsAt).toLocaleString(undefined, {
+                        month: "short",
+                        day: "numeric",
+                        hour: "2-digit",
+                        minute: "2-digit",
+                      })}
+                    </span>
+                  </li>
+                ))}
+              </ul>
+              <p className="mt-1.5 text-[11px] text-slate-400">
+                Linked from the Calendar (event → ‘Related task’).
+              </p>
+            </div>
+          )}
 
           <CommentsThread
             apiBase={`/api/tickets/${ticket.id}/comments`}
@@ -2058,10 +2109,46 @@ function TaskListView({
             />
           </td>
           <td className="px-3 py-2">
-            <div className="flex items-center gap-2 min-w-0">
+            <div className="flex items-center gap-2 min-w-0 flex-wrap">
               <span className="font-medium text-slate-900 truncate">
                 {t.title}
               </span>
+              {t.commentCount > 0 && (
+                <span
+                  className="flex shrink-0 items-center gap-0.5 text-[11px] text-slate-400"
+                  title={`${t.commentCount} comment${
+                    t.commentCount === 1 ? "" : "s"
+                  }`}
+                >
+                  <MessageSquare className="h-3 w-3" /> {t.commentCount}
+                </span>
+              )}
+              {t.linkedEventCount > 0 && (
+                <span
+                  className="flex shrink-0 items-center gap-0.5 text-[11px] font-medium text-[var(--c-teal)]"
+                  title={
+                    t.linkedEvents && t.linkedEvents.length > 0
+                      ? `Related events:\n${t.linkedEvents
+                          .map(
+                            (e) =>
+                              `• ${e.title} — ${new Date(
+                                e.startsAt,
+                              ).toLocaleString(undefined, {
+                                month: "short",
+                                day: "numeric",
+                                hour: "2-digit",
+                                minute: "2-digit",
+                              })}`,
+                          )
+                          .join("\n")}`
+                      : `${t.linkedEventCount} related event${
+                          t.linkedEventCount === 1 ? "" : "s"
+                        }`
+                  }
+                >
+                  <CalendarClock className="h-3 w-3" /> {t.linkedEventCount}
+                </span>
+              )}
               {t.group && (
                 <button
                   type="button"
