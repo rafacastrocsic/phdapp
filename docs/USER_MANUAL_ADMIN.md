@@ -289,6 +289,12 @@ Set in **Vercel project → Settings → Environment Variables**. Apply to **Pro
 
 **After changing any env var, the next deploy uses it.** Existing deployments do *not* pick up env var changes. Either push a new commit or **Redeploy** the latest from the Deployments tab.
 
+## Profile fields & external links
+
+Every `User` (admin / supervisor / advisor / committee) has, in addition to name, color, photo and role, three optional **external profile links** — **LinkedIn**, **ORCID**, **Google Scholar**. Students have the same three plus a **personal website**. The Edit-user dialog (Admin panel, Settings → My profile, Team-page card) and the Edit-student dialog (student profile → Edit) both accept these. The inputs are forgiving: paste a full URL, a bare handle/id, or — for Scholar — the citations URL or just the user-id query parameter. The backend normalises everything (`normalizeLinkedIn / normalizeOrcid / normalizeScholar / normalizeWebsite` in `src/lib/url-utils.ts`).
+
+Where they show up: as small icon-links beside the user's name on the **Team** page member cards, in the **ProfileEditor** form, on the **student-profile** header, and in the student-profile **Resources** card (full-row tiles with a sub-label). Leave any field blank and that icon simply doesn't render.
+
 ## Adding users
 
 ### A new student
