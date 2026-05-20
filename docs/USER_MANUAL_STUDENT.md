@@ -250,7 +250,7 @@ The **Feedback** entry in the sidebar (📣 megaphone) is a direct line to the a
 - **Suggest an improvement** — an idea to make PhDapp better.
 - **Other** — anything else you want the admins to know.
 
-Pick the type, add a short summary and a message — and optionally **attach a photo** (e.g. a screenshot of the problem; PNG/JPG/WEBP/GIF) — then **Send to admins**. Your submissions stay on that page so you can track them: each shows a **status** (Open → Planned → In progress → Done, or Declined) and, when an admin writes back, their **reply** appears right under your message. You'll get a sidebar badge (and an email, if email is configured) when an admin responds. You can delete your own submissions any time. Click an entry's header (or **Collapse all**) to **collapse** it down to just its title — handy when the list gets long.
+Pick the type, add a short summary and a message — and optionally **attach a photo** (e.g. a screenshot of the problem; PNG/JPG/WEBP/GIF) — then **Send to admins**. Your submissions stay on that page so you can track them: each shows a **status** (Open → Planned → In progress → Done, or Declined) and, when an admin writes back, their **reply** appears right under your message. The reply is a **back-and-forth thread** — you can **Reply** to an admin's response (and they can reply back), so a single feedback can hold the whole conversation. ⌘/Ctrl + Enter sends a reply quickly; the trash icon next to your own replies deletes them. You'll get a sidebar badge (and an email, if email is configured) when anyone posts in your thread. You can delete your own submissions any time. Click an entry's header (or **Collapse all**) to **collapse** it down to just its title — handy when the list gets long.
 
 ## Tips
 

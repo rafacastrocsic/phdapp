@@ -20,6 +20,15 @@ import { cn, relativeTime } from "@/lib/utils";
 
 type Kind = "bug" | "idea" | "other";
 
+type Message = {
+  id: string;
+  body: string;
+  createdAt: string;
+  editedAt: string | null;
+  author: { id: string; name: string | null; image: string | null; color: string };
+  mine: boolean;
+};
+
 type Item = {
   id: string;
   kind: string;
@@ -34,6 +43,7 @@ type Item = {
   updatedAt: string;
   author: { id: string; name: string | null; image: string | null; color: string } | null;
   mine: boolean;
+  messages: Message[];
 };
 
 const KIND_META: Record<string, { label: string; color: string; icon: typeof Bug }> = {
@@ -453,51 +463,50 @@ export function FeedbackView({
                   </div>
                 )}
 
-                {/* Admin controls */}
-                {isAdmin ? (
-                  <div className="rounded-lg border bg-slate-50 p-3 space-y-2">
-                    <div className="flex flex-wrap items-center gap-2">
-                      <span className="text-xs font-semibold text-slate-600">
-                        Status
-                      </span>
-                      <Select
-                        value={f.status}
-                        onChange={(e) =>
-                          patch(f.id, { status: e.target.value })
-                        }
-                        className="!w-auto"
-                      >
-                        {STATUS_ORDER.map((s) => (
-                          <option key={s} value={s}>
-                            {STATUS_META[s].label}
-                          </option>
-                        ))}
-                      </Select>
-                    </div>
-                    <AdminReply
-                      initial={f.adminReply ?? ""}
-                      onSave={(text) => patch(f.id, { adminReply: text || null })}
-                    />
-                    {f.repliedBy && f.repliedAt && (
-                      <p className="text-[11px] text-slate-400">
-                        Last reply by {f.repliedBy.name ?? "an admin"} ·{" "}
-                        {relativeTime(f.repliedAt)}
-                      </p>
-                    )}
+                {/* Admin-only status control */}
+                {isAdmin && (
+                  <div className="flex flex-wrap items-center gap-2">
+                    <span className="text-xs font-semibold text-slate-600">
+                      Status
+                    </span>
+                    <Select
+                      value={f.status}
+                      onChange={(e) =>
+                        patch(f.id, { status: e.target.value })
+                      }
+                      className="!w-auto"
+                    >
+                      {STATUS_ORDER.map((s) => (
+                        <option key={s} value={s}>
+                          {STATUS_META[s].label}
+                        </option>
+                      ))}
+                    </Select>
                   </div>
-                ) : (
-                  f.adminReply && (
-                    <div className="rounded-lg border-l-2 border-[var(--c-violet)] bg-violet-50 p-3">
-                      <div className="text-[11px] font-semibold text-[var(--c-violet)]">
-                        Admin reply
-                        {f.repliedAt ? ` · ${relativeTime(f.repliedAt)}` : ""}
-                      </div>
-                      <p className="mt-1 whitespace-pre-wrap text-sm text-slate-700">
-                        {f.adminReply}
-                      </p>
-                    </div>
-                  )
                 )}
+
+                {/* Legacy single admin-reply (older entries before threads
+                    existed). Rendered above the new thread so the
+                    chronology reads top-to-bottom. */}
+                {f.adminReply && (
+                  <div className="rounded-lg border-l-2 border-[var(--c-violet)] bg-violet-50 p-3">
+                    <div className="text-[11px] font-semibold text-[var(--c-violet)]">
+                      Admin reply
+                      {f.repliedAt ? ` · ${relativeTime(f.repliedAt)}` : ""}
+                    </div>
+                    <p className="mt-1 whitespace-pre-wrap text-sm text-slate-700">
+                      {f.adminReply}
+                    </p>
+                  </div>
+                )}
+
+                {/* Threaded conversation */}
+                <ThreadConversation
+                  feedbackId={f.id}
+                  messages={f.messages}
+                  canPost={isAdmin || f.mine}
+                  onChanged={refresh}
+                />
                   </>
                 )}
               </CardContent>
@@ -509,33 +518,150 @@ export function FeedbackView({
   );
 }
 
-function AdminReply({
-  initial,
-  onSave,
+function ThreadConversation({
+  feedbackId,
+  messages,
+  canPost,
+  onChanged,
 }: {
-  initial: string;
-  onSave: (text: string) => void;
+  feedbackId: string;
+  messages: Message[];
+  canPost: boolean;
+  onChanged: () => Promise<void> | void;
 }) {
-  const [text, setText] = useState(initial);
-  const dirty = text !== initial;
+  const [draft, setDraft] = useState("");
+  const [sending, setSending] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  async function send() {
+    const text = draft.trim();
+    if (!text) return;
+    setSending(true);
+    setError(null);
+    const r = await fetch(`/api/feedback/${feedbackId}/messages`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ body: text }),
+    });
+    setSending(false);
+    if (!r.ok) {
+      const j = await r.json().catch(() => ({}));
+      setError(j.error ?? "Could not send. Try again.");
+      return;
+    }
+    setDraft("");
+    await onChanged();
+  }
+
+  async function remove(mid: string) {
+    if (!confirm("Delete this reply?")) return;
+    await fetch(`/api/feedback/${feedbackId}/messages/${mid}`, {
+      method: "DELETE",
+    }).catch(() => {});
+    await onChanged();
+  }
+
   return (
-    <div className="space-y-2">
-      <Textarea
-        rows={2}
-        placeholder="Write a reply to the submitter (optional)…"
-        value={text}
-        onChange={(e) => setText(e.target.value)}
+    <div className="space-y-3">
+      {messages.length > 0 && (
+        <div className="space-y-2">
+          {messages.map((m) => (
+            <MessageBubble key={m.id} m={m} onDelete={() => remove(m.id)} />
+          ))}
+        </div>
+      )}
+
+      {canPost ? (
+        <div className="rounded-lg border bg-slate-50 p-3 space-y-2">
+          <Textarea
+            rows={2}
+            placeholder="Write a reply…"
+            value={draft}
+            onChange={(e) => setDraft(e.target.value)}
+            onKeyDown={(e) => {
+              if ((e.metaKey || e.ctrlKey) && e.key === "Enter") {
+                e.preventDefault();
+                void send();
+              }
+            }}
+            maxLength={5000}
+          />
+          {error && (
+            <div className="text-xs text-[var(--c-red)]">{error}</div>
+          )}
+          <div className="flex items-center justify-between gap-2">
+            <span className="text-[11px] text-slate-400">
+              ⌘/Ctrl + Enter to send
+            </span>
+            <Button
+              type="button"
+              size="sm"
+              variant="brand"
+              disabled={sending || !draft.trim()}
+              onClick={send}
+            >
+              {sending ? "Sending…" : "Reply"}
+            </Button>
+          </div>
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
+function MessageBubble({
+  m,
+  onDelete,
+}: {
+  m: Message;
+  onDelete: () => void;
+}) {
+  const isMine = m.mine;
+  return (
+    <div
+      className={cn(
+        "rounded-lg border p-3 flex gap-3",
+        isMine
+          ? "bg-violet-50 border-l-2 border-l-[var(--c-violet)]"
+          : "bg-slate-50",
+      )}
+    >
+      <Avatar
+        name={m.author.name}
+        src={m.author.image}
+        color={m.author.color}
+        size="xs"
       />
-      <div className="flex justify-end">
-        <Button
-          type="button"
-          size="sm"
-          variant="outline"
-          disabled={!dirty}
-          onClick={() => onSave(text.trim())}
-        >
-          Save reply
-        </Button>
+      <div className="min-w-0 flex-1">
+        <div className="flex items-center justify-between gap-2 text-[11px] text-slate-500">
+          <span className="font-semibold text-slate-700">
+            {m.author.name ?? "Someone"}
+            {isMine && (
+              <span className="ml-1 text-slate-400">(you)</span>
+            )}
+          </span>
+          <span className="flex items-center gap-2">
+            <span>
+              {relativeTime(m.createdAt)}
+              {m.editedAt && (
+                <span className="ml-1 text-slate-400">(edited)</span>
+              )}
+            </span>
+            {isMine && (
+              <button
+                type="button"
+                onClick={onDelete}
+                className="text-slate-400 hover:text-[var(--c-red)]"
+                title="Delete reply"
+              >
+                <Trash2 className="h-3.5 w-3.5" />
+              </button>
+            )}
+          </span>
+        </div>
+        <p className="mt-1 whitespace-pre-wrap text-sm text-slate-700">
+          {m.body}
+        </p>
       </div>
     </div>
   );

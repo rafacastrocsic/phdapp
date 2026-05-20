@@ -62,6 +62,7 @@ model User {
   notifications         Notification[]
   feedbackSubmitted     Feedback[]       @relation("FeedbackAuthor")
   feedbackHandled       Feedback[]       @relation("FeedbackRepliedBy")
+  feedbackMessages      FeedbackMessage[] @relation("FeedbackMessageAuthor")
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -248,6 +249,9 @@ model AdvisorSuggestion {
 
 // Suggestion mailbox: any user can send the admins a bug report,
 // improvement idea, or other feedback. Admins triage (status) and reply.
+// Replies are now a back-and-forth thread (FeedbackMessage). The legacy
+// adminReply/repliedBy/repliedAt fields are kept for old entries — new
+// replies go in the messages table so both author and admin can post.
 model Feedback {
   id          String    @id @default(cuid())
   authorId    String
@@ -257,16 +261,31 @@ model Feedback {
   body        String
   status      String    @default("open") // "open" | "planned" | "in_progress" | "done" | "declined"
   imageUrl    String?   // optional screenshot/photo to illustrate the report
-  adminReply  String?
+  adminReply  String?   // LEGACY — first admin reply; new replies use FeedbackMessage
   repliedById String?
   repliedBy   User?     @relation("FeedbackRepliedBy", fields: [repliedById], references: [id])
   repliedAt   DateTime?
+  messages    FeedbackMessage[]
   createdAt   DateTime  @default(now())
   updatedAt   DateTime  @updatedAt
 
   @@index([authorId])
   @@index([status])
   @@index([createdAt])
+}
+
+// One message in a Feedback thread. Authors and admins can both post.
+model FeedbackMessage {
+  id         String   @id @default(cuid())
+  feedbackId String
+  feedback   Feedback @relation(fields: [feedbackId], references: [id], onDelete: Cascade)
+  authorId   String
+  author     User     @relation("FeedbackMessageAuthor", fields: [authorId], references: [id], onDelete: Cascade)
+  body       String
+  editedAt   DateTime?
+  createdAt  DateTime @default(now())
+
+  @@index([feedbackId, createdAt])
 }
 
 model Setting {

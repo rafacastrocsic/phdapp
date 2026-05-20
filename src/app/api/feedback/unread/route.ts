@@ -4,8 +4,9 @@ import { prisma } from "@/lib/prisma";
 import { isAdmin, type Role } from "@/lib/access";
 
 // Sidebar bubble for the Feedback entry.
-//  - Admins: new submissions (by others) since they last opened /feedback.
-//  - Everyone else: their own items that got an admin reply since then.
+//  - Admins: new submissions and new submitter messages (since last open).
+//  - Everyone else: their own items that got an admin reply, plus any
+//    new admin message in their threads, since last open.
 export async function GET() {
   const session = await auth();
   if (!session?.user) return NextResponse.json({ count: 0 });
@@ -18,19 +19,36 @@ export async function GET() {
 
   let count: number;
   if (isAdmin(session.user.role as Role)) {
-    count = await prisma.feedback.count({
-      where: {
-        authorId: { not: session.user.id },
-        createdAt: { gt: since },
-      },
-    });
+    // New submissions by others + new thread replies by anyone-but-me.
+    const [newSubs, newReplies] = await Promise.all([
+      prisma.feedback.count({
+        where: {
+          authorId: { not: session.user.id },
+          createdAt: { gt: since },
+        },
+      }),
+      prisma.feedbackMessage.count({
+        where: {
+          authorId: { not: session.user.id },
+          createdAt: { gt: since },
+        },
+      }),
+    ]);
+    count = newSubs + newReplies;
   } else {
-    count = await prisma.feedback.count({
-      where: {
-        authorId: session.user.id,
-        repliedAt: { gt: since },
-      },
-    });
+    const [withLegacyReply, withNewMessage] = await Promise.all([
+      prisma.feedback.count({
+        where: { authorId: session.user.id, repliedAt: { gt: since } },
+      }),
+      prisma.feedbackMessage.count({
+        where: {
+          authorId: { not: session.user.id },
+          createdAt: { gt: since },
+          feedback: { authorId: session.user.id },
+        },
+      }),
+    ]);
+    count = withLegacyReply + withNewMessage;
   }
   return NextResponse.json({ count });
 }

@@ -81,8 +81,14 @@ export async function GET(req: Request) {
     include: {
       author: { select: { id: true, name: true, image: true, color: true } },
       repliedBy: { select: { id: true, name: true } },
+      messages: {
+        orderBy: { createdAt: "asc" },
+        include: {
+          author: { select: { id: true, name: true, image: true, color: true } },
+        },
+      },
     },
-    orderBy: [{ createdAt: "desc" }],
+    orderBy: [{ updatedAt: "desc" }],
   });
 
   return NextResponse.json({
@@ -102,6 +108,16 @@ export async function GET(req: Request) {
       // Author identity is only exposed to admins.
       author: admin ? f.author : null,
       mine: f.authorId === session.user.id,
+      messages: f.messages.map((m) => ({
+        id: m.id,
+        body: m.body,
+        createdAt: m.createdAt.toISOString(),
+        editedAt: m.editedAt?.toISOString() ?? null,
+        // Author identity: admins see everyone, submitters see admins
+        // (so they can see "from an admin"); both always see their own.
+        author: m.author,
+        mine: m.authorId === session.user.id,
+      })),
     })),
   });
 }

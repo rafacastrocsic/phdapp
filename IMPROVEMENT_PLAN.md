@@ -393,6 +393,16 @@ Per-user, per-type preferences (extend the Settings page; a `NotificationPref` m
 
 ---
 
+## 28. Feedback threaded replies  ✅ COMPLETED (2026-05-20, user request)
+
+**What:** the Feedback module now supports a real back-and-forth — when the admin replies to a feedback or suggestion, the submitter can **reply back**, the admin can reply again, etc. Previously there was a single `Feedback.adminReply` text field; now every reply (in either direction) is its own row.
+
+**Implementation:** additive `FeedbackMessage` table (`id`, `feedbackId`→Feedback Cascade, `authorId`→User Cascade, `body`, `editedAt`, `createdAt`; `@@index([feedbackId, createdAt])`); migration `20260520150000_feedback_messages`. New routes: `POST /api/feedback/[id]/messages` (allowed for the feedback author OR any admin; rejects others with 403; bumps `Feedback.updatedAt` so admin listings reorder by recent activity; `notify()`s the *other* party — submitter on admin reply, all admins on submitter reply, all `type:"feedback.reply"`); `PATCH|DELETE /api/feedback/[id]/messages/[mid]` (own-or-admin). `GET /api/feedback` and the server-side `/feedback` page now include each row's `messages[]` (with author display info + `mine` flag) and order feedback rows by `updatedAt` desc. The unread counter (`/api/feedback/unread`) now also counts new messages by-anyone-but-me since `feedbackLastSeenAt` (admin sees new submissions + new submitter replies; everyone else sees admin replies + any new thread messages on their own feedback). UI: the old single `AdminReply` save-text-box is replaced by a `ThreadConversation` component that renders all messages as chat-style bubbles (own messages tinted violet with a left accent stripe) and a composer at the bottom (visible to the submitter AND to admins; ⌘/Ctrl+Enter sends; trash icon on own messages). The legacy `Feedback.adminReply` is rendered above the new thread for backward-compat with old entries (no data backfill — old replies keep showing in place).
+
+**Scope/risk:** low. One additive migration; one new model with FK Cascade so cascade-delete is straightforward; the legacy `adminReply` field is untouched so old replies are preserved verbatim.
+
+---
+
 ## 27. Group presentation decks + external profile links for users  ✅ COMPLETED (2026-05-20, user request)
 
 **What:** (1) two PhDapp PowerPoint decks (student-facing + supervisor-facing) generated programmatically from `docs/USER_MANUAL_STUDENT.md` / `USER_MANUAL_SUPERVISOR.md`, with the app's brand aesthetic (violet→pink→orange gradient title, module accent colors, Inter typeface, generous fontSizes). (2) LinkedIn / ORCID / **Google Scholar** profile links for every user — not just students. Students kept their existing `linkedinUrl` + `orcidId` and gained `scholarUrl`; all other users now have all three.

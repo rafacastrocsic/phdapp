@@ -13,8 +13,14 @@ export default async function FeedbackPage() {
     include: {
       author: { select: { id: true, name: true, image: true, color: true } },
       repliedBy: { select: { id: true, name: true } },
+      messages: {
+        orderBy: { createdAt: "asc" },
+        include: {
+          author: { select: { id: true, name: true, image: true, color: true } },
+        },
+      },
     },
-    orderBy: [{ createdAt: "desc" }],
+    orderBy: [{ updatedAt: "desc" }],
   });
 
   // Mark seen so the sidebar bubble resets on the next poll.
@@ -40,6 +46,14 @@ export default async function FeedbackPage() {
         updatedAt: f.updatedAt.toISOString(),
         author: admin ? f.author : null,
         mine: f.authorId === session.user.id,
+        messages: f.messages.map((m) => ({
+          id: m.id,
+          body: m.body,
+          createdAt: m.createdAt.toISOString(),
+          editedAt: m.editedAt?.toISOString() ?? null,
+          author: m.author,
+          mine: m.authorId === session.user.id,
+        })),
       }))}
     />
   );
