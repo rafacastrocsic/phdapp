@@ -10,6 +10,8 @@ import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { format } from "date-fns";
 import { displayName, relativeTime } from "@/lib/utils";
+import { LocalTimeText } from "@/components/local-time-text";
+import { LocalTime } from "@/components/local-time";
 import {
   KanbanSquare,
   CalendarDays,
@@ -188,10 +190,10 @@ export default async function LogBookPage({
                             >
                               {l.actorRoleAtTime.replace("_", " ")}
                             </Badge>{" "}
-                            <span>{l.summary}</span>
+                            <span><LocalTimeText text={l.summary} /></span>
                           </div>
                           <div className="text-xs text-slate-500 mt-1 flex items-center gap-2 flex-wrap">
-                            <span>{format(l.createdAt, "HH:mm")}</span>
+                            <span><LocalTime iso={l.createdAt.toISOString()} fmt="HH:mm" /></span>
                             <span>·</span>
                             <span>{relativeTime(l.createdAt)}</span>
                             {l.student && (

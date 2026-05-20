@@ -3,6 +3,7 @@ import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Bell } from "lucide-react";
 import { cn, relativeTime } from "@/lib/utils";
+import { LocalTimeText } from "@/components/local-time-text";
 
 interface Notif {
   id: string;
@@ -116,7 +117,9 @@ export function NotificationBell() {
                         !n.read && "bg-violet-50/50",
                       )}
                     >
-                      <div className="text-sm text-slate-800">{n.message}</div>
+                      <div className="text-sm text-slate-800">
+                        <LocalTimeText text={n.message} />
+                      </div>
                       <div className="text-[10px] text-slate-400 mt-0.5">
                         {relativeTime(new Date(n.createdAt))}
                       </div>

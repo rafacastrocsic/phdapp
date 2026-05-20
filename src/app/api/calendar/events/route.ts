@@ -209,7 +209,9 @@ export async function POST(req: Request) {
     action: "event.create",
     entityType: "event",
     entityId: event.id,
-    summary: `scheduled event “${event.title}” on ${event.startsAt.toISOString().slice(0, 16).replace("T", " ")}`,
+    // ISO marker — rendered client-side in the viewer's timezone by
+    // <LocalTimeText>. Stored as UTC ISO; bell/log substitute on render.
+    summary: `scheduled event “${event.title}” on [[${event.startsAt.toISOString()}]]`,
   });
 
   return NextResponse.json({
