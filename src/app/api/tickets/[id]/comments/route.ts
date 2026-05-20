@@ -10,7 +10,10 @@ import {
 } from "@/lib/access";
 import { logActivity } from "@/lib/activity-log";
 
-const Body = z.object({ body: z.string().min(1) });
+const Body = z.object({
+  body: z.string().min(1),
+  parentId: z.string().nullable().optional(),
+});
 
 async function authorize(id: string, userId: string, role: Role) {
   return prisma.ticket.findFirst({
@@ -52,6 +55,7 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
     comments: comments.map((c) => ({
       id: c.id,
       body: c.body,
+      parentId: c.parentId,
       author: {
         name: c.author.name,
         image: c.author.image,
@@ -75,13 +79,34 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
   const parsed = Body.safeParse(json);
   if (!parsed.success) return NextResponse.json({ error: "bad input" }, { status: 400 });
 
+  // Reply support: if parentId is provided, validate the parent exists on
+  // the same ticket. Otherwise it's a top-level comment.
+  let parentId: string | null = null;
+  let parentAuthorId: string | null = null;
+  if (parsed.data.parentId) {
+    const parent = await prisma.comment.findUnique({
+      where: { id: parsed.data.parentId },
+      select: { id: true, ticketId: true, authorId: true },
+    });
+    if (!parent || parent.ticketId !== id)
+      return NextResponse.json({ error: "bad parent" }, { status: 400 });
+    parentId = parent.id;
+    parentAuthorId = parent.authorId;
+  }
+
   const c = await prisma.comment.create({
-    data: { ticketId: id, body: parsed.data.body, authorId: session.user.id },
+    data: {
+      ticketId: id,
+      parentId,
+      body: parsed.data.body,
+      authorId: session.user.id,
+    },
     include: { author: { select: { name: true, image: true, color: true } } },
   });
   const newComment = {
     id: c.id,
     body: c.body,
+    parentId: c.parentId,
     author: c.author,
     createdAt: c.createdAt.toISOString(),
     editedAt: null as string | null,
@@ -92,17 +117,23 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
     const { notify } = await import("@/lib/notify");
     // Always include the task's student (their own user account) — they're
     // often neither the assignee nor the creator of a supervisor-made task,
-    // but they still need to hear about comments on their work.
+    // but they still need to hear about comments on their work. On a reply,
+    // also notify the parent comment's author.
     const stu = await prisma.student.findUnique({
       where: { id: ok.studentId },
       select: { userId: true },
     });
-    await notify([ok.assigneeId, ok.createdById, stu?.userId], {
-      type: "task.comment",
-      message: `New comment on “${ok.title}”`,
-      link: `/kanban?ticket=${id}`,
-      actorId: session.user.id,
-    }).catch(() => {});
+    await notify(
+      [ok.assigneeId, ok.createdById, stu?.userId, parentAuthorId],
+      {
+        type: "task.comment",
+        message: parentId
+          ? `New reply on “${ok.title}”`
+          : `New comment on “${ok.title}”`,
+        link: `/kanban?ticket=${id}`,
+        actorId: session.user.id,
+      },
+    ).catch(() => {});
   }
 
   // Mirror this as a ticket.update so the Tasks board highlights the task

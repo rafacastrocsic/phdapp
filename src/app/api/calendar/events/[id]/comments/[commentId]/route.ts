@@ -3,37 +3,49 @@ import { z } from "zod";
 import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
 import {
-  studentVisibilityWhereAllForAdmin,
   accessForStudent,
   canWriteForStudent,
+  studentVisibilityWhereAllForAdmin,
+  isAdmin,
   type Role,
 } from "@/lib/access";
 
 const Body = z.object({ body: z.string().min(1) });
 
-async function loadComment(
-  ticketId: string,
+async function loadEventComment(
+  eventId: string,
   commentId: string,
   userId: string,
   role: Role,
 ) {
-  const ticket = await prisma.ticket.findFirst({
-    where: {
-      id: ticketId,
-      student: studentVisibilityWhereAllForAdmin(userId, role),
-    },
-    select: { id: true, studentId: true },
+  const event = await prisma.event.findUnique({
+    where: { id: eventId },
+    select: { id: true, ownerId: true, studentId: true },
   });
-  if (!ticket) return null;
+  if (!event) return null;
+  if (!isAdmin(role) && event.ownerId !== userId) {
+    if (event.studentId) {
+      const visible = await prisma.student.findFirst({
+        where: {
+          id: event.studentId,
+          ...studentVisibilityWhereAllForAdmin(userId, role),
+        },
+        select: { id: true },
+      });
+      if (!visible) return null;
+    } else {
+      return null;
+    }
+  }
   const comment = await prisma.comment.findFirst({
-    where: { id: commentId, ticketId },
+    where: { id: commentId, eventId },
     select: { id: true, authorId: true },
   });
   if (!comment) return null;
-  return { ticket, comment };
+  return { event, comment };
 }
 
-// Edit a comment — author only. Marks it as edited.
+// Edit your own event comment. Marks it as edited.
 export async function PATCH(
   req: Request,
   { params }: { params: Promise<{ id: string; commentId: string }> },
@@ -42,7 +54,7 @@ export async function PATCH(
   if (!session?.user)
     return NextResponse.json({ error: "unauth" }, { status: 401 });
   const { id, commentId } = await params;
-  const ctx = await loadComment(
+  const ctx = await loadEventComment(
     id,
     commentId,
     session.user.id,
@@ -78,8 +90,8 @@ export async function PATCH(
   });
 }
 
-// Delete a comment — its author, or a supervisor/admin who can write the
-// student (moderation).
+// Delete your own comment, or moderate if you can write the event's student
+// (or you're an admin).
 export async function DELETE(
   _req: Request,
   { params }: { params: Promise<{ id: string; commentId: string }> },
@@ -88,7 +100,7 @@ export async function DELETE(
   if (!session?.user)
     return NextResponse.json({ error: "unauth" }, { status: 401 });
   const { id, commentId } = await params;
-  const ctx = await loadComment(
+  const ctx = await loadEventComment(
     id,
     commentId,
     session.user.id,
@@ -97,10 +109,10 @@ export async function DELETE(
   if (!ctx) return NextResponse.json({ error: "not found" }, { status: 404 });
 
   const isAuthor = ctx.comment.authorId === session.user.id;
-  let canModerate = false;
-  if (!isAuthor) {
+  let canModerate = isAdmin(session.user.role as Role);
+  if (!isAuthor && !canModerate && ctx.event.studentId) {
     const access = await accessForStudent(
-      ctx.ticket.studentId,
+      ctx.event.studentId,
       session.user.id,
       session.user.role as Role,
     );
@@ -112,6 +124,7 @@ export async function DELETE(
       { status: 403 },
     );
 
+  // Deleting a parent cascades to replies (FK).
   await prisma.comment.delete({ where: { id: commentId } });
   return NextResponse.json({ ok: true });
 }

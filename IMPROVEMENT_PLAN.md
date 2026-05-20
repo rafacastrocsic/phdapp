@@ -393,6 +393,16 @@ Per-user, per-type preferences (extend the Settings page; a `NotificationPref` m
 
 ---
 
+## 29. Comments on events + nested replies on tasks & events  ✅ COMPLETED (2026-05-20, user request)
+
+**What:** calendar events now accept the same comment thread as tasks. Both surfaces also support **1-level reply nesting** — top-level comments get a **Reply** action; replies are indented under their parent. Originally only tasks had comments, and only flat.
+
+**Implementation:** the `Comment` model is now polymorphic — `ticketId` and `eventId` are both nullable with a DB-level `CHECK ((ticketId IS NOT NULL) XOR (eventId IS NOT NULL))` (migration `20260520180000_event_comments_and_replies`). New `parentId` self-relation (Cascade) drives reply nesting; the server validates that `parent.ticketId === this.ticketId` (and likewise for events). New endpoints under `/api/calendar/events/[id]/comments` mirror the task endpoints (same JSON shape + same access pattern: visibility through `studentVisibilityWhereAllForAdmin`, moderation via `canWriteForStudent`, plus admins always moderate). Both POST endpoints now take an optional `parentId`; replies notify the parent's author in addition to the existing recipients (assignee/creator/student-user for tasks, owner/student-user for events). A new client component `src/components/comments-thread.tsx` (`<CommentsThread apiBase=… />`) renders the thread with Reply/Edit/Delete actions and an inline reply composer; the kanban-board's old inline `Comments` function was replaced with it (so tasks also get nesting), and the calendar event-detail dialog mounts the same component pointing at the event endpoint.
+
+**Scope/risk:** medium. The schema change is additive but the `Comment.ticketId NOT NULL` constraint was dropped — old rows still have `ticketId`, so no backfill is needed. The CHECK constraint prevents orphan or double-target rows going forward. Cascade delete on `parentId` means deleting a parent also removes its replies (server keeps UI in sync optimistically).
+
+---
+
 ## 28. Feedback threaded replies  ✅ COMPLETED (2026-05-20, user request)
 
 **What:** the Feedback module now supports a real back-and-forth — when the admin replies to a feedback or suggestion, the submitter can **reply back**, the admin can reply again, etc. Previously there was a single `Feedback.adminReply` text field; now every reply (in either direction) is its own row.

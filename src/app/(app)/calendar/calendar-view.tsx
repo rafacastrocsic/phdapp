@@ -38,6 +38,7 @@ import { PRIORITIES, CATEGORIES } from "@/lib/kanban-constants";
 import { useRouter } from "next/navigation";
 import { openCalendarUrl } from "@/components/google-calendar-picker";
 import { TaskPeek } from "@/components/task-peek";
+import { CommentsThread } from "@/components/comments-thread";
 import { CalendarShareButton } from "../students/[id]/calendar-share-button";
 import { AlertCircle } from "lucide-react";
 
@@ -1131,6 +1132,13 @@ function EventDetailDialog({
               {error}
             </div>
           )}
+        </div>
+
+        <div className="pt-3 mt-3 border-t">
+          <CommentsThread
+            apiBase={`/api/calendar/events/${event.id}/comments`}
+            composerPlaceholder="Comment on this event…"
+          />
         </div>
 
         <div className="flex flex-wrap justify-between gap-2 pt-3 mt-3 border-t">

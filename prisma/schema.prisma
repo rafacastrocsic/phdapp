@@ -419,15 +419,28 @@ model TicketTag {
   ticket   Ticket  @relation(fields: [ticketId], references: [id], onDelete: Cascade)
 }
 
+// Polymorphic: a Comment attaches to EITHER a Ticket (task) OR an Event.
+// Exactly one of ticketId/eventId must be set — DB CHECK enforces this.
+// Comments can also be threaded via parentId (1-level reply UX); the parent
+// lives in the same Ticket/Event as the reply (server enforces).
 model Comment {
   id        String    @id @default(cuid())
   body      String
-  ticketId  String
+  ticketId  String?
+  eventId   String?
+  parentId  String?
   authorId  String
-  ticket    Ticket    @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+  ticket    Ticket?   @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+  event     Event?    @relation("EventComments", fields: [eventId], references: [id], onDelete: Cascade)
+  parent    Comment?  @relation("CommentReplies", fields: [parentId], references: [id], onDelete: Cascade)
+  replies   Comment[] @relation("CommentReplies")
   author    User      @relation(fields: [authorId], references: [id])
   createdAt DateTime  @default(now())
   editedAt  DateTime? // set when the author edits; drives the "edited" mark
+
+  @@index([ticketId])
+  @@index([eventId])
+  @@index([parentId])
 }
 
 // ───────── Calendar (mirrors Google Calendar) ─────────
@@ -477,6 +490,7 @@ model Event {
   subtaskKey      String?
 
   attendees EventAttendee[]
+  comments  Comment[]  @relation("EventComments")
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
