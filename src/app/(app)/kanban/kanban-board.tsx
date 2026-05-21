@@ -39,6 +39,7 @@ import { subtaskDueViolation } from "@/lib/subtasks";
 import { GanttView } from "./gantt-view";
 import { DriveFolderPicker } from "@/components/drive-folder-picker";
 import { CommentsThread } from "@/components/comments-thread";
+import { LinksSection } from "@/components/links-section";
 
 export interface Ticket {
   id: string;
@@ -57,6 +58,8 @@ export interface Ticket {
   // already represented elsewhere (the dueDate column, the subtasks list).
   linkedEventCount: number;
   linkedEvents?: { id: string; title: string; startsAt: string }[];
+  // External links list (papers, websites, repos…). JSON-derived.
+  links?: { id: string; label: string; url: string }[];
   assignee: {
     id: string;
     name: string | null;
@@ -1368,6 +1371,18 @@ function TicketDetailDialog({
               onChange={(url) => update({ driveFolderUrl: url })}
             />
           </Field>
+
+          <LinksSection
+            initialLinks={ticket.links ?? []}
+            save={async (next) => {
+              await fetch(`/api/tickets/${ticket.id}`, {
+                method: "PATCH",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ links: next }),
+              });
+              update({ links: next } as Partial<Ticket>);
+            }}
+          />
 
           {(() => {
             // Existing groups for this task's student (derived from the

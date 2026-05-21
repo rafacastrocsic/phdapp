@@ -4,6 +4,7 @@ import { prisma } from "@/lib/prisma";
 import { studentVisibilityWhere, type Role } from "@/lib/access";
 import { getDismissedTicketIds } from "@/lib/kanban-dismissed";
 import { parseSubtasks } from "@/lib/subtasks";
+import { parseLinks } from "@/lib/links";
 
 /**
  * Polled by the Kanban board client to refresh tickets and highlights without
@@ -96,6 +97,7 @@ export async function GET(req: Request) {
       student: t.student,
       tags: t.tags,
       subtasks: parseSubtasks(t.subtasks),
+      links: parseLinks(t.links),
       completionRequestedAt: t.completionRequestedAt?.toISOString() ?? null,
       group: t.group,
       dependsOnIds: t.dependsOn.map((x) => x.dependsOnId),

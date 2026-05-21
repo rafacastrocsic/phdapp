@@ -186,6 +186,7 @@ export default async function CalendarPage({
         taskPriority: e.ticket?.priority ?? null,
         linkedTaskId: e.linkedTaskId,
         linkedTaskTitle: e.linkedTask?.title ?? null,
+        links: e.links,
       }))}
       tasks={linkableTasks.map((t) => ({
         id: t.id,

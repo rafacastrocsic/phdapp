@@ -5,6 +5,7 @@ import { prisma } from "@/lib/prisma";
 import { accessForStudent, canWriteForStudent, type Role } from "@/lib/access";
 import { logActivity } from "@/lib/activity-log";
 import { setDependencies, applyDependencyGate } from "@/lib/task-deps";
+import { LinkInput, sanitiseLinks, parseLinks } from "@/lib/links";
 
 const Body = z.object({
   title: z.string().min(1),
@@ -18,6 +19,7 @@ const Body = z.object({
   driveFolderUrl: z.string().optional().nullable(),
   dependsOnIds: z.array(z.string()).optional(),
   groupId: z.string().optional().nullable(),
+  links: z.array(LinkInput).optional(),
 });
 
 export async function POST(req: Request) {
@@ -75,6 +77,9 @@ export async function POST(req: Request) {
       driveFolderUrl: d.driveFolderUrl || null,
       groupId: d.groupId || null,
       createdById: session.user.id,
+      links: d.links && d.links.length > 0
+        ? JSON.stringify(sanitiseLinks(d.links))
+        : null,
     },
     include: {
       assignee: { select: { id: true, name: true, image: true, color: true } },
@@ -147,6 +152,7 @@ export async function POST(req: Request) {
       group: created.group,
       tags: created.tags,
       subtasks: [] as { id: string; text: string; done: boolean }[],
+      links: parseLinks(created.links),
       dependsOnIds: d.dependsOnIds ?? [],
       updatedAt: created.updatedAt.toISOString(),
     },

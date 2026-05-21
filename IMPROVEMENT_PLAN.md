@@ -393,6 +393,16 @@ Per-user, per-type preferences (extend the Settings page; a `NotificationPref` m
 
 ---
 
+## 32. Multi-link list on tasks and events  ✅ COMPLETED (2026-05-21, user request)
+
+**What:** every task and every calendar event now has a free-form **Links** section — an editable list of `{label, url}` entries for attaching papers, websites, repos, Overleaf docs, references, etc. Distinct from the existing dedicated single-link fields (`Ticket.driveFolderUrl` with its Drive picker, `Event.meetingUrl` with its Join button) — those keep their special affordances.
+
+**Implementation:** JSON-in-String columns following the existing `Ticket.subtasks` / `Event.agenda` pattern. Additive migration `20260521120000_links_on_tasks_and_events` adds `Ticket.links` and `Event.links` (both nullable `TEXT`). New `src/lib/links.ts` exports `parseLinks(raw)` (DB → array), `sanitiseLinks(input)` (canonicalises labels + URLs server-side, auto-prefixes `https://`, drops unparseable entries, caps at 50), and a Zod `LinkInput` schema. Wired into the PATCH/POST routes for `/api/tickets`, `/api/tickets/[id]`, `/api/calendar/events`, `/api/calendar/events/[id]`, plus the polled `/api/tickets/list` and the server-side kanban + calendar pages so the payload is ready on first render. UI: new shared client component `src/components/links-section.tsx` (`<LinksSection initialLinks save>`) renders the list as label-chips with `🔗 / ↗` icons (URL shown muted to the right on wider screens, hidden on mobile), an inline edit form per row, a Remove button, and a `Label + URL → Add link` composer at the bottom. Mounted in the kanban task detail panel (between Drive folder and Group) and the calendar event detail dialog (above the comments thread). Save flow is optimistic — apply locally, fire the PATCH, surface an error if it fails. Manuals (student + supervisor) updated.
+
+**Scope/risk:** low. Two additive nullable columns; the lib is a thin parser; both API and UI degrade gracefully if `links` is null. The 50-entry cap and 120-char label limit protect against runaway lists.
+
+---
+
 ## 31. Admin-only "last login / last active" per user  ✅ COMPLETED (2026-05-21, user request)
 
 **What:** every row on `/admin` now shows when each user last signed in and when they last browsed the app — so the admin can spot dormant accounts and confirm onboarded people actually started using PhDapp. Two distinct signals: **last login** (the Google OAuth event) and **last active** (any authenticated page render). A green "● Active now" pill appears for anyone whose last-active timestamp is within the last 10 minutes.

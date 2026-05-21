@@ -11,6 +11,7 @@ import {
   type Role,
 } from "@/lib/access";
 import { logActivity } from "@/lib/activity-log";
+import { LinkInput, sanitiseLinks } from "@/lib/links";
 
 async function loadEvent(id: string) {
   return prisma.event.findUnique({ where: { id } });
@@ -50,6 +51,8 @@ const Patch = z.object({
   linkedTaskId: z.string().nullable().optional(),
   // Re-assign the event to a student (or null = unassigned/general).
   studentId: z.string().nullable().optional(),
+  // Replace the external-links list (empty array clears).
+  links: z.array(LinkInput).optional(),
 });
 
 export async function PATCH(
@@ -85,6 +88,10 @@ export async function PATCH(
   if (d.isMeeting !== undefined) data.isMeeting = d.isMeeting;
   if (d.agenda !== undefined) data.agenda = JSON.stringify(d.agenda);
   if (d.meetingNotes !== undefined) data.meetingNotes = d.meetingNotes;
+  if (d.links !== undefined) {
+    const sane = sanitiseLinks(d.links);
+    data.links = sane.length > 0 ? JSON.stringify(sane) : null;
+  }
   if (d.linkedTaskId !== undefined) {
     const linkedTaskId = d.linkedTaskId || null;
     if (linkedTaskId) {

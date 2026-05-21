@@ -39,6 +39,8 @@ import { useRouter } from "next/navigation";
 import { openCalendarUrl } from "@/components/google-calendar-picker";
 import { TaskPeek } from "@/components/task-peek";
 import { CommentsThread } from "@/components/comments-thread";
+import { LinksSection } from "@/components/links-section";
+import { parseLinks } from "@/lib/links";
 import { CalendarShareButton } from "../students/[id]/calendar-share-button";
 import { AlertCircle } from "lucide-react";
 
@@ -78,6 +80,7 @@ interface Event {
   taskPriority: string | null;
   linkedTaskId: string | null;
   linkedTaskTitle: string | null;
+  links: string | null; // raw JSON; parsed in the detail dialog
   recurring?: boolean; // synthetic occurrence flag (client-only)
 }
 
@@ -1155,6 +1158,21 @@ function EventDetailDialog({
               {error}
             </div>
           )}
+        </div>
+
+        <div className="pt-3 mt-3 border-t">
+          <LinksSection
+            initialLinks={parseLinks(event.links)}
+            save={async (next) => {
+              await fetch(`/api/calendar/events/${event.id}`, {
+                method: "PATCH",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ links: next }),
+              });
+              router.refresh();
+            }}
+            composerLabelPlaceholder="Label (e.g. ‘Agenda doc’)"
+          />
         </div>
 
         <div className="pt-3 mt-3 border-t">

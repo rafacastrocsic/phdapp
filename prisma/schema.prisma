@@ -364,6 +364,11 @@ model Ticket {
   // because subtasks are always loaded/written with their parent task.
   subtasks       String?
 
+  // JSON array of { id, label, url } — external links (papers, websites,
+  // repos, Overleaf docs…). Separate from `driveFolderUrl` which is a
+  // single dedicated field with its own Drive-picker affordance.
+  links          String?
+
   studentId    String
   student      Student   @relation(fields: [studentId], references: [id], onDelete: Cascade)
 
@@ -495,6 +500,11 @@ model Event {
   subtaskParentId String?
   subtaskParent   Ticket? @relation("SubtaskDueEvents", fields: [subtaskParentId], references: [id], onDelete: Cascade)
   subtaskKey      String?
+
+  // JSON array of { id, label, url } — external links (mirrors Ticket.links).
+  // Separate from `meetingUrl` (the single dedicated Join button) and from
+  // `agenda` (per-meeting talking points).
+  links     String?
 
   attendees EventAttendee[]
   comments  Comment[]  @relation("EventComments")

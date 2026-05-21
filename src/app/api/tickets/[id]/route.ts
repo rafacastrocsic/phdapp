@@ -6,6 +6,7 @@ import { accessForStudent, canWriteForStudent, studentVisibilityWhereAllForAdmin
 import { logActivity } from "@/lib/activity-log";
 import { notify } from "@/lib/notify";
 import { parseSubtasks, subtaskDueViolation } from "@/lib/subtasks";
+import { LinkInput, sanitiseLinks, parseLinks } from "@/lib/links";
 import { STATUSES, PRIORITIES, CATEGORIES } from "@/lib/kanban-constants";
 import { format } from "date-fns";
 
@@ -38,6 +39,8 @@ const Patch = z.object({
   groupId: z.string().nullable().optional(),
   // Replace this task's dependency set (parent task ids).
   dependsOnIds: z.array(z.string()).optional(),
+  // Replace the external-links list (use empty array to clear).
+  links: z.array(LinkInput).optional(),
 });
 
 async function load(id: string, userId: string, role: Role) {
@@ -95,6 +98,7 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
       assignee: t.assignee,
       student: t.student,
       subtasks: parseSubtasks(t.subtasks),
+      links: parseLinks(t.links),
       updatedAt: t.updatedAt.toISOString(),
     },
   });
@@ -175,6 +179,10 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
   if (d.driveFolderUrl !== undefined) data.driveFolderUrl = d.driveFolderUrl;
   if (d.groupId !== undefined) data.groupId = d.groupId;
   if (d.subtasks !== undefined) data.subtasks = JSON.stringify(d.subtasks);
+  if (d.links !== undefined) {
+    const sane = sanitiseLinks(d.links);
+    data.links = sane.length > 0 ? JSON.stringify(sane) : null;
+  }
   // "Mark as completed" (no status change) — flag it for supervisor review.
   const requestedCompletion =
     d.requestCompletion === true && d.status === undefined;

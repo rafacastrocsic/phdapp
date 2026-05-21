@@ -3,6 +3,7 @@ import { prisma } from "@/lib/prisma";
 import { studentVisibilityWhere, type Role } from "@/lib/access";
 import { clearDismissedTicketIds } from "@/lib/kanban-dismissed";
 import { parseSubtasks } from "@/lib/subtasks";
+import { parseLinks } from "@/lib/links";
 import { KanbanBoard } from "./kanban-board";
 
 export default async function KanbanPage({
@@ -164,6 +165,7 @@ export default async function KanbanPage({
         student: t.student,
         tags: t.tags,
         subtasks: parseSubtasks(t.subtasks),
+        links: parseLinks(t.links),
         completionRequestedAt: t.completionRequestedAt?.toISOString() ?? null,
         group: t.group,
         dependsOnIds: t.dependsOn.map((x) => x.dependsOnId),
@@ -197,6 +199,7 @@ export default async function KanbanPage({
         student: t.student,
         tags: t.tags,
         subtasks: parseSubtasks(t.subtasks),
+        links: parseLinks(t.links),
         updatedAt: t.updatedAt.toISOString(),
       }))}
     />

@@ -13,6 +13,7 @@ import {
   type Role,
 } from "@/lib/access";
 import { logActivity } from "@/lib/activity-log";
+import { LinkInput, sanitiseLinks } from "@/lib/links";
 
 const Body = z.object({
   title: z.string().min(1),
@@ -32,6 +33,8 @@ const Body = z.object({
   pushToGoogle: z.string().optional(),
   // Optional manual link to a task this event relates to.
   linkedTaskId: z.string().optional().nullable(),
+  // Optional list of external links {label, url}.
+  links: z.array(LinkInput).optional(),
 });
 
 export async function POST(req: Request) {
@@ -195,6 +198,9 @@ export async function POST(req: Request) {
       linkedTaskId,
       googleEventId,
       googleCalendarId,
+      links: d.links && d.links.length > 0
+        ? JSON.stringify(sanitiseLinks(d.links))
+        : null,
     },
     include: {
       student: { select: { id: true, fullName: true, alias: true, color: true } },
