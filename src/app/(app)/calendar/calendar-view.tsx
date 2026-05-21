@@ -1379,6 +1379,12 @@ function EventEditForm({
     const endsAtISO = eDate.toISOString();
     setSaving(true);
     setErr(null);
+    let tz = "UTC";
+    try {
+      tz = Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC";
+    } catch {
+      /* keep UTC */
+    }
     const r = await fetch(`/api/calendar/events/${event.id}`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
@@ -1395,6 +1401,7 @@ function EventEditForm({
         linkedTaskId: linkedTaskId || null,
         ...(canAssignStudent ? { studentId: studentId || null } : {}),
         pushToGoogle: linkedToGoogle,
+        timeZone: tz,
       }),
     });
     setSaving(false);
@@ -1587,6 +1594,14 @@ function NewEventDialog({
     const rrule = buildRRule(recurFreq, recurInterval, recurUntil || null);
     if (rrule) payload.recurrenceRule = rrule;
     payload.isMeeting = isMeeting ? "1" : "";
+    // Browser-detected IANA timezone (e.g. "Europe/Madrid"). Google
+    // requires this on start/end whenever an event is recurring,
+    // otherwise the events.insert call returns 400.
+    try {
+      payload.timeZone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+    } catch {
+      payload.timeZone = "UTC";
+    }
     const r = await fetch("/api/calendar/events", {
       method: "POST",
       headers: { "Content-Type": "application/json" },

@@ -31,6 +31,11 @@ const Body = z.object({
   recurrenceRule: z.string().optional().nullable(),
   isMeeting: z.string().optional(),
   pushToGoogle: z.string().optional(),
+  // IANA timezone the user is currently in (e.g. "Europe/Madrid").
+  // Required by Google when the event is recurring and start/end use
+  // `dateTime` — without it Google rejects the insert with a 400.
+  // Always send it for safety; we fall back to "UTC" if missing.
+  timeZone: z.string().optional().nullable(),
   // Optional manual link to a task this event relates to.
   linkedTaskId: z.string().optional().nullable(),
   // Optional list of external links {label, url}.
@@ -136,12 +141,17 @@ export async function POST(req: Request) {
         normalizeCalendarId(student?.calendarId) ||
         (await getGeneralCalendarId()) ||
         "primary";
+      // Google requires `timeZone` on start/end whenever an event is
+      // recurring (otherwise it 400s). Always sending it is harmless
+      // for one-off events and avoids drift caused by Google
+      // re-interpreting times in the calendar's default zone.
+      const tz = (d.timeZone && d.timeZone.trim()) || "UTC";
       const requestBody = {
         summary: d.title,
         description: d.description ?? undefined,
         location: d.location ?? undefined,
-        start: { dateTime: startsAt.toISOString() },
-        end: { dateTime: endsAt.toISOString() },
+        start: { dateTime: startsAt.toISOString(), timeZone: tz },
+        end: { dateTime: endsAt.toISOString(), timeZone: tz },
         attendees: student ? [{ email: student.email }] : undefined,
         recurrence: d.recurrenceRule ? [`RRULE:${d.recurrenceRule}`] : undefined,
       };

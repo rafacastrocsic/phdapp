@@ -57,6 +57,9 @@ const Patch = z.object({
   driveFolderUrl: z.string().nullable().optional(),
   // Visibility for unassigned events.
   isGeneral: z.boolean().optional(),
+  // IANA timezone for Google start/end — required when the event is
+  // recurring. See POST route comment for details.
+  timeZone: z.string().nullable().optional(),
 });
 
 export async function PATCH(
@@ -194,10 +197,16 @@ export async function PATCH(
             location:
               (data.location as string | null | undefined) ?? event.location ?? undefined,
             start: data.startsAt
-              ? { dateTime: (data.startsAt as Date).toISOString() }
+              ? {
+                  dateTime: (data.startsAt as Date).toISOString(),
+                  timeZone: (d.timeZone && d.timeZone.trim()) || "UTC",
+                }
               : undefined,
             end: data.endsAt
-              ? { dateTime: (data.endsAt as Date).toISOString() }
+              ? {
+                  dateTime: (data.endsAt as Date).toISOString(),
+                  timeZone: (d.timeZone && d.timeZone.trim()) || "UTC",
+                }
               : undefined,
             recurrence:
               d.recurrenceRule !== undefined
