@@ -206,7 +206,22 @@ export async function POST(req: Request) {
               ? ` body=${JSON.stringify(e.response.data).slice(0, 300)}`
               : "";
           console.error("Google calendar push failed", err);
-          googleWarning = `Could not push to Google Calendar (target id: "${targetCalendarId}", http ${code}): ${msg}${body}.`;
+          // Detect a revoked/expired Google refresh token and translate
+          // it into a plain-language fix instead of dumping the raw
+          // OAuth error at the user.
+          const blob = `${msg} ${body}`.toLowerCase();
+          if (
+            blob.includes("invalid_grant") ||
+            blob.includes("token has been expired") ||
+            blob.includes("revoked")
+          ) {
+            googleWarning =
+              "Your Google sign-in has expired or been revoked, so PhDapp can't push to Google Calendar right now. " +
+              "Sign out of PhDapp and sign back in with Google (granting calendar permissions again) — that issues a fresh token. " +
+              "The event was saved locally; you can re-save it after signing back in to push it to Google.";
+          } else {
+            googleWarning = `Could not push to Google Calendar (target id: "${targetCalendarId}", http ${code}): ${msg}${body}.`;
+          }
         }
       }
     }
