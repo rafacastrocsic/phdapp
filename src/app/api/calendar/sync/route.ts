@@ -43,18 +43,36 @@ export async function POST(req: Request) {
   let imported = 0;
   for (const src of sources) {
     try {
+      // singleEvents:false → Google returns the *master* recurring
+      // event (with its `recurrence` field), not the per-day expanded
+      // instances. PhDapp stores the master and expands client-side
+      // via expandOccurrences, so importing instances would duplicate
+      // the same day on the calendar (one from the local master, one
+      // for every Google-expanded instance). Matching IDs on the
+      // master keeps the upsert idempotent.
       const r = await cal.events.list({
         calendarId: src.calendarId,
         timeMin: from.toISOString(),
         timeMax: to.toISOString(),
-        singleEvents: true,
-        orderBy: "startTime",
+        singleEvents: false,
         maxResults: 250,
       });
       for (const item of r.data.items ?? []) {
         if (!item.id || !item.start || !item.end) continue;
+        // Defensive: skip per-instance overrides of a recurring
+        // series (recurringEventId set means this is NOT the master).
+        // They should not appear with singleEvents:false, but Google
+        // does return overrides for exceptions to a series.
+        if (item.recurringEventId) continue;
         const startsAt = new Date(item.start.dateTime ?? item.start.date!);
         const endsAt = new Date(item.end.dateTime ?? item.end.date!);
+        // Extract the RRULE body (e.g. "FREQ=WEEKLY;INTERVAL=1") from
+        // Google's `recurrence` array (entries look like "RRULE:…").
+        // Ignore EXRULE / RDATE / EXDATE — the MVP only stores RRULE.
+        const rruleLine = (item.recurrence ?? []).find((s) =>
+          s.startsWith("RRULE:"),
+        );
+        const recurrenceRule = rruleLine ? rruleLine.replace(/^RRULE:/, "") : null;
         await prisma.event.upsert({
           where: { googleEventId: item.id },
           create: {
@@ -67,6 +85,7 @@ export async function POST(req: Request) {
             startsAt,
             endsAt,
             allDay: !!item.start.date,
+            recurrenceRule,
             ownerId: session.user.id,
             studentId: src.studentId,
           },
@@ -77,6 +96,7 @@ export async function POST(req: Request) {
             meetingUrl: item.hangoutLink ?? null,
             startsAt,
             endsAt,
+            recurrenceRule,
           },
         });
         imported++;
