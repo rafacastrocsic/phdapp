@@ -612,14 +612,21 @@ export function ChatView({
                           />
                         )}
                       </div>
-                      <div className={cn("max-w-[70%]", mine && "text-right")}>
+                      {/* Flex column so each child (quoted-reply box,
+                          bubble, attachments) sizes to its OWN content
+                          and is independently aligned. Previously this
+                          was a block with max-w-[70%], which made the
+                          quote and the bubble share the same width and
+                          made the reply bubble look constrained to the
+                          width of whatever it was quoting. */}
+                      <div
+                        className={cn(
+                          "flex max-w-[70%] flex-col gap-1",
+                          mine ? "items-end" : "items-start",
+                        )}
+                      >
                         {!sameAuthor && (
-                          <div
-                            className={cn(
-                              "text-xs text-slate-500 mb-0.5",
-                              mine && "text-right",
-                            )}
-                          >
+                          <div className="text-xs text-slate-500">
                             <span className="font-semibold text-slate-700">
                               {mine ? "You" : m.author.name}
                             </span>{" "}
@@ -627,12 +634,7 @@ export function ChatView({
                           </div>
                         )}
                         {m.replyTo && (
-                          <div
-                            className={cn(
-                              "mb-1 overflow-hidden rounded-lg border-l-2 border-slate-300 bg-slate-100/70 px-2 py-1 text-left text-[11px] text-slate-500",
-                              mine && "ml-auto",
-                            )}
-                          >
+                          <div className="max-w-full overflow-hidden rounded-lg border-l-2 border-slate-300 bg-slate-100/70 px-2 py-1 text-left text-[11px] text-slate-500">
                             <span className="font-semibold text-slate-600">
                               {m.replyTo.authorName ?? "Someone"}
                             </span>
@@ -644,7 +646,7 @@ export function ChatView({
                         {m.body && (
                           <div
                             className={cn(
-                              "rounded-2xl px-3 py-2 text-sm shadow-sm whitespace-pre-wrap",
+                              "max-w-full rounded-2xl px-3 py-2 text-sm shadow-sm whitespace-pre-wrap break-words",
                               mine
                                 ? "bg-[var(--c-violet)] text-white rounded-tr-sm"
                                 : "bg-white text-slate-800 rounded-tl-sm border",
