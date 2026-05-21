@@ -105,6 +105,9 @@ interface Props {
     avatarUrl: string | null;
     driveFolderId: string | null;
   }[];
+  // Admin-configured team Drive folder id (or null). Surfaced in the
+  // multi-root picker when a task is team-only / has no student.
+  teamDriveFolderId?: string | null;
   teamMembers: Member[];
   filterStudent: string | null;
   openTicketId: string | null;
@@ -128,6 +131,7 @@ export function KanbanBoard({
   viewerRole,
   viewerStudentId,
   viewerTeamMembers,
+  teamDriveFolderId,
   highlightByTicket: initialHighlights,
   initialDeleted = [],
 }: Props) {
@@ -565,6 +569,7 @@ export function KanbanBoard({
         }
         isStudent={isStudent}
         viewerId={viewerId}
+        teamDriveFolderId={teamDriveFolderId ?? null}
         onCreated={(t) => {
           setTickets((prev) => [t, ...prev]);
           setNewOpen(false);
@@ -580,6 +585,7 @@ export function KanbanBoard({
         onOpenChange={(o) => !o && setOpenId(null)}
         students={students}
         teamMembers={assigneeOptions}
+        teamDriveFolderId={teamDriveFolderId ?? null}
         onChange={(updated) => {
           setTickets((prev) => prev.map((t) => (t.id === updated.id ? updated : t)));
         }}
@@ -877,12 +883,14 @@ function NewTicketDialog({
   defaultStudentId,
   isStudent,
   viewerId,
+  teamDriveFolderId,
   onCreated,
 }: {
   open: boolean;
   onOpenChange: (b: boolean) => void;
   students: Props["students"];
   tickets: Ticket[];
+  teamDriveFolderId?: string | null;
   teamMembers: Member[];
   assigneeOptions: Member[];
   defaultStudentId: string | null;
@@ -1078,6 +1086,30 @@ function NewTicketDialog({
               const stu = effStudentId
                 ? students.find((s) => s.id === effStudentId)
                 : null;
+              // Team-only: hand the picker a multi-root chooser with every
+              // visible student's drive folder + the admin-set team folder.
+              // No "My Drive" is ever offered for team-only items.
+              const multiRoots =
+                !stu && !isStudent
+                  ? [
+                      ...(teamDriveFolderId
+                        ? [
+                            {
+                              id: teamDriveFolderId,
+                              name: "Team folder",
+                              kind: "team" as const,
+                            },
+                          ]
+                        : []),
+                      ...students
+                        .filter((s) => s.driveFolderId)
+                        .map((s) => ({
+                          id: s.driveFolderId!,
+                          name: (s.alias?.trim() || s.fullName) + " · Drive",
+                          kind: "student" as const,
+                        })),
+                    ]
+                  : undefined;
               return (
                 <DriveFolderField
                   value={driveFolderUrl}
@@ -1086,6 +1118,7 @@ function NewTicketDialog({
                   studentFolderName={
                     stu ? displayName(stu) + " · Drive" : null
                   }
+                  roots={multiRoots}
                 />
               );
             })()}
@@ -1149,6 +1182,7 @@ function TicketDetailDialog({
   students,
   onOpenChange,
   teamMembers,
+  teamDriveFolderId,
   onChange,
   onDeleted,
 }: {
@@ -1159,6 +1193,7 @@ function TicketDetailDialog({
   onOpenChange: (b: boolean) => void;
   students: Props["students"];
   teamMembers: Member[];
+  teamDriveFolderId?: string | null;
   onChange: (t: Ticket) => void;
   onDeleted: (id: string) => void;
 }) {
@@ -1422,10 +1457,32 @@ function TicketDetailDialog({
 
           <Field label="Drive folder">
             {(() => {
-              // The task is tied to a specific student → root the picker at
-              // that student's Drive folder, not "My Drive". Lets supervisors
-              // drop straight into the student's workspace.
-              const stu = students.find((s) => s.id === ticket.student.id);
+              // Tied to a student → scope to that student's folder. Team-
+              // only → multi-root chooser (every student's folder + team
+              // folder). Never "My Drive" in either case.
+              const stu = ticket.teamOnly
+                ? null
+                : students.find((s) => s.id === ticket.student.id);
+              const multiRoots = ticket.teamOnly
+                ? [
+                    ...(teamDriveFolderId
+                      ? [
+                          {
+                            id: teamDriveFolderId,
+                            name: "Team folder",
+                            kind: "team" as const,
+                          },
+                        ]
+                      : []),
+                    ...students
+                      .filter((s) => s.driveFolderId)
+                      .map((s) => ({
+                        id: s.driveFolderId!,
+                        name: (s.alias?.trim() || s.fullName) + " · Drive",
+                        kind: "student" as const,
+                      })),
+                  ]
+                : undefined;
               return (
                 <DriveFolderField
                   value={ticket.driveFolderUrl ?? null}
@@ -1434,6 +1491,7 @@ function TicketDetailDialog({
                   studentFolderName={
                     stu ? displayName(stu) + " · Drive" : null
                   }
+                  roots={multiRoots}
                 />
               );
             })()}
@@ -1819,6 +1877,7 @@ function DriveFolderField({
   onChange,
   studentFolderId,
   studentFolderName,
+  roots,
 }: {
   value: string | null;
   onChange: (url: string | null) => void;
@@ -1827,6 +1886,10 @@ function DriveFolderField({
   // "My Drive" each time. Null/undefined → original free-browse mode.
   studentFolderId?: string | null;
   studentFolderName?: string | null;
+  // Multi-root chooser for team-only items (no student). When set, the
+  // picker shows a list of student folders + the team folder and never
+  // exposes "My Drive".
+  roots?: import("@/components/drive-folder-picker").PickerRoot[];
 }) {
   const id = driveUrlToId(value);
   // Resolve the folder's display name from its ID so the picker shows the
@@ -1873,6 +1936,7 @@ function DriveFolderField({
         triggerLabel={value ? "Change folder" : "Pick from Drive"}
         rootFolderId={studentFolderId ?? null}
         rootFolderName={studentFolderName ?? null}
+        roots={roots}
       />
     </div>
   );

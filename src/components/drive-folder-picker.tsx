@@ -24,6 +24,18 @@ interface DriveFolder {
   name: string;
 }
 
+/**
+ * Root choice presented when an item isn't tied to a single student.
+ * Each entry becomes an entry in a chooser screen — pick one, then browse
+ * within it. Sourced from the parent (students with a driveFolderId +
+ * the admin-set team Drive folder).
+ */
+export interface PickerRoot {
+  id: string;
+  name: string;
+  kind: "student" | "team";
+}
+
 export function DriveFolderPicker({
   value,
   valueName,
@@ -31,6 +43,7 @@ export function DriveFolderPicker({
   triggerLabel = "Pick from Drive",
   rootFolderId,
   rootFolderName,
+  roots,
 }: {
   value: string | null;
   // Display name for the current `value` when it wasn't just picked in
@@ -52,10 +65,30 @@ export function DriveFolderPicker({
    */
   rootFolderId?: string | null;
   rootFolderName?: string | null;
+  /**
+   * Alternative to a single rootFolderId: a list of root choices (each
+   * student's drive folder + the team folder). Used for items without
+   * a specific student (team-only tasks, unassigned events). When set
+   * and `rootFolderId` is absent, the picker first shows a chooser
+   * screen ("Pick a root"), then enters the chosen folder. The "My
+   * Drive" / "Shared with me" tabs are hidden — the user must pick one
+   * of the team-curated roots.
+   */
+  roots?: PickerRoot[];
 }) {
   const scoped = !!rootFolderId;
-  const scopedRoot: DriveFolder = scoped
+  const hasRoots = !scoped && !!roots && roots.length > 0;
+  // The user picked a root from the chooser screen; once set, behaves
+  // identically to the scoped case (scoped path under that root).
+  const [pickedRoot, setPickedRoot] = useState<PickerRoot | null>(null);
+  const effectiveRoot = scoped
     ? { id: rootFolderId!, name: rootFolderName ?? "Student folder" }
+    : pickedRoot
+      ? { id: pickedRoot.id, name: pickedRoot.name }
+      : null;
+  const inMultiRootChooser = hasRoots && !pickedRoot;
+  const scopedRoot: DriveFolder = effectiveRoot
+    ? effectiveRoot
     : { id: "root", name: "My Drive" };
 
   const [open, setOpen] = useState(false);
@@ -69,12 +102,14 @@ export function DriveFolderPicker({
   // When scoped, the user can flip to "free browse" if they really need
   // a folder outside the student's tree.
   const [escapeScope, setEscapeScope] = useState(false);
-  const effectivelyScoped = scoped && !escapeScope;
+  const effectivelyScoped = !!effectiveRoot && !escapeScope;
 
-  // Reset path on every open so reopening goes back to the scoped root.
+  // Reset path on every open so reopening goes back to the scoped root
+  // (or the multi-root chooser).
   useEffect(() => {
     if (!open) return;
     setEscapeScope(false);
+    setPickedRoot(null);
     setSearch("");
     setPath([
       scoped
@@ -86,6 +121,14 @@ export function DriveFolderPicker({
     // mode is fine to leave; user can flip tabs after open in free-browse mode
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open]);
+
+  // When the user picks a root from the chooser, descend into it.
+  useEffect(() => {
+    if (pickedRoot) {
+      setPath([{ id: pickedRoot.id, name: pickedRoot.name }]);
+      setEscapeScope(false);
+    }
+  }, [pickedRoot]);
 
   const current = path[path.length - 1];
 
@@ -204,6 +247,56 @@ export function DriveFolderPicker({
             <DialogTitle>Pick a Google Drive folder</DialogTitle>
           </DialogHeader>
 
+          {inMultiRootChooser ? (
+            // No student is attached → user picks one of the team-curated
+            // roots (each visible student's drive folder + the team folder),
+            // never their own personal "My Drive".
+            <div className="space-y-3">
+              <p className="text-xs text-slate-500">
+                This task/event isn&apos;t tied to a single student. Pick which
+                folder to browse — a student&apos;s, or the shared team folder.
+              </p>
+              <ul className="rounded-lg border bg-white max-h-72 overflow-y-auto">
+                {roots!.map((r) => (
+                  <li key={r.id}>
+                    <button
+                      type="button"
+                      onClick={() => setPickedRoot(r)}
+                      className="flex w-full items-center gap-3 px-3 py-2 text-sm hover:bg-slate-50 text-left"
+                    >
+                      <span
+                        className={cn(
+                          "flex h-7 w-7 items-center justify-center rounded-md shrink-0",
+                          r.kind === "team"
+                            ? "bg-yellow-50 text-[var(--c-yellow)]"
+                            : "bg-blue-50 text-[var(--c-blue)]",
+                        )}
+                      >
+                        {r.kind === "team" ? (
+                          <Users className="h-4 w-4" />
+                        ) : (
+                          <Folder className="h-4 w-4" />
+                        )}
+                      </span>
+                      <span className="flex-1 truncate font-medium text-slate-800">
+                        {r.name}
+                      </span>
+                      <span className="text-[10px] uppercase font-semibold text-slate-400">
+                        {r.kind}
+                      </span>
+                      <ChevronRight className="h-4 w-4 text-slate-300" />
+                    </button>
+                  </li>
+                ))}
+              </ul>
+              <div className="flex justify-end gap-2 pt-2 border-t mt-2">
+                <Button type="button" variant="ghost" onClick={() => setOpen(false)}>
+                  Cancel
+                </Button>
+              </div>
+            </div>
+          ) : (
+          <>
           {effectivelyScoped ? (
             <div className="flex items-center justify-between gap-2 border-b mb-3 pb-2 text-xs text-slate-600">
               <span className="inline-flex items-center gap-1.5">
@@ -354,6 +447,8 @@ export function DriveFolderPicker({
               <Check className="h-4 w-4" /> Select this folder
             </Button>
           </div>
+          </>
+          )}
         </DialogContent>
       </Dialog>
     </div>

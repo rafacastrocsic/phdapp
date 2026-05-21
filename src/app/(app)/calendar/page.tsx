@@ -7,6 +7,7 @@ import {
 } from "@/lib/access";
 import { clearDismissedEventIds } from "@/lib/calendar-dismissed";
 import { displayName } from "@/lib/utils";
+import { getTeamDriveFolder } from "@/lib/team-drive";
 import { CalendarView } from "./calendar-view";
 import { startOfMonth, endOfMonth, subMonths, addMonths } from "date-fns";
 
@@ -169,11 +170,16 @@ export default async function CalendarPage({
   });
   await clearDismissedEventIds(session.user.id);
 
+  // Admin-configured team Drive folder — exposed to non-students so they
+  // can pick it as one of the roots for unassigned events.
+  const teamDrive = role === "student" ? null : await getTeamDriveFolder();
+
   return (
     <CalendarView
       viewerRole={role}
       viewerStudentId={viewerStudent?.id ?? null}
       students={students}
+      teamDriveFolderId={teamDrive?.id ?? null}
       events={events.map((e) => ({
         id: e.id,
         title: e.title,

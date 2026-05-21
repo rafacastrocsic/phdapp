@@ -100,6 +100,7 @@ export function CalendarView({
   viewerRole,
   viewerStudentId,
   students,
+  teamDriveFolderId,
   events: initial,
   tasks,
   availability,
@@ -110,6 +111,7 @@ export function CalendarView({
   viewerRole: string;
   viewerStudentId: string | null;
   students: Student[];
+  teamDriveFolderId?: string | null;
   events: Event[];
   tasks: LinkableTask[];
   availability: {
@@ -926,6 +928,7 @@ export function CalendarView({
         onOpenChange={setNewOpen}
         students={students}
         tasks={tasks}
+        teamDriveFolderId={teamDriveFolderId ?? null}
         defaultDate={selectedDay}
         defaultStudentId={
           isStudent && viewerStudentId
@@ -944,6 +947,7 @@ export function CalendarView({
         open={!!openEvent}
         tasks={tasks}
         students={students}
+        teamDriveFolderId={teamDriveFolderId ?? null}
         canAssignStudent={!isStudent}
         onOpenChange={(o) => !o && setOpenEventId(null)}
         onPeekTask={(id) => {
@@ -969,6 +973,7 @@ function EventDetailDialog({
   open,
   tasks,
   students,
+  teamDriveFolderId,
   canAssignStudent,
   onOpenChange,
   onPeekTask,
@@ -978,6 +983,7 @@ function EventDetailDialog({
   open: boolean;
   tasks: LinkableTask[];
   students: Student[];
+  teamDriveFolderId?: string | null;
   canAssignStudent: boolean;
   onOpenChange: (b: boolean) => void;
   onPeekTask: (ticketId: string) => void;
@@ -1168,6 +1174,7 @@ function EventDetailDialog({
           <EventDriveField
             event={event}
             students={students}
+            teamDriveFolderId={teamDriveFolderId ?? null}
             onSaved={() => router.refresh()}
           />
         </div>
@@ -1442,6 +1449,7 @@ function NewEventDialog({
   onOpenChange,
   students,
   tasks,
+  teamDriveFolderId,
   defaultDate,
   defaultStudentId,
   isStudent,
@@ -1451,6 +1459,7 @@ function NewEventDialog({
   onOpenChange: (b: boolean) => void;
   students: Student[];
   tasks: LinkableTask[];
+  teamDriveFolderId?: string | null;
   defaultDate: Date | null;
   defaultStudentId: string | null;
   isStudent: boolean;
@@ -1465,6 +1474,8 @@ function NewEventDialog({
   const [isMeeting, setIsMeeting] = useState(false);
   const [studentId, setStudentId] = useState(defaultStudentId ?? "");
   const [linkedTaskId, setLinkedTaskId] = useState("");
+  // Optional Drive folder attached at creation (will be sent in payload).
+  const [driveFolderUrl, setDriveFolderUrl] = useState<string | null>(null);
 
   // Tasks offered in the picker: scoped to the chosen student when one is
   // set, otherwise all visible tasks (labelled with the student name).
@@ -1485,6 +1496,7 @@ function NewEventDialog({
     const payload = Object.fromEntries(fd.entries()) as Record<string, string>;
     if (isStudent && defaultStudentId) payload.studentId = defaultStudentId;
     if (linkedTaskId) payload.linkedTaskId = linkedTaskId;
+    if (driveFolderUrl) payload.driveFolderUrl = driveFolderUrl;
     // Compute exact instants in the browser's timezone so the stored time
     // matches what the user typed (server would otherwise parse as UTC).
     if (payload.date && payload.startTime && payload.endTime) {
@@ -1569,6 +1581,56 @@ function NewEventDialog({
           </Field>
           <Field label="Meeting link (optional)">
             <Input name="meetingUrl" placeholder="https://meet.google.com/…" />
+          </Field>
+          <Field label="Drive folder (optional)">
+            {(() => {
+              const stu = effectiveStudentId
+                ? students.find((s) => s.id === effectiveStudentId)
+                : null;
+              const multiRoots = !stu
+                ? [
+                    ...(teamDriveFolderId
+                      ? [
+                          {
+                            id: teamDriveFolderId,
+                            name: "Team folder",
+                            kind: "team" as const,
+                          },
+                        ]
+                      : []),
+                    ...students
+                      .filter((s) => s.driveFolderId)
+                      .map((s) => ({
+                        id: s.driveFolderId!,
+                        name: (s.alias?.trim() || s.fullName) + " · Drive",
+                        kind: "student" as const,
+                      })),
+                  ]
+                : undefined;
+              const id = driveFolderUrl
+                ? driveFolderUrl.match(DRIVE_FOLDER_URL_RE)?.[1] ?? null
+                : null;
+              return (
+                <DriveFolderPicker
+                  value={id}
+                  onChange={(folderId) =>
+                    setDriveFolderUrl(
+                      folderId
+                        ? `https://drive.google.com/drive/folders/${folderId}`
+                        : null,
+                    )
+                  }
+                  triggerLabel={
+                    driveFolderUrl ? "Change folder" : "Pick from Drive"
+                  }
+                  rootFolderId={stu?.driveFolderId ?? null}
+                  rootFolderName={
+                    stu ? (stu.alias?.trim() || stu.fullName) + " · Drive" : null
+                  }
+                  roots={multiRoots}
+                />
+              );
+            })()}
           </Field>
           <Field label="Description (optional)">
             <Textarea name="description" rows={2} />
@@ -1693,10 +1755,12 @@ const DRIVE_FOLDER_URL_RE = /\/folders\/([a-zA-Z0-9_-]+)/;
 function EventDriveField({
   event,
   students,
+  teamDriveFolderId,
   onSaved,
 }: {
   event: Event;
   students: Student[];
+  teamDriveFolderId?: string | null;
   onSaved: () => void;
 }) {
   const url = event.driveFolderUrl;
@@ -1704,6 +1768,27 @@ function EventDriveField({
   const stu = event.student
     ? students.find((s) => s.id === event.student!.id)
     : null;
+  // Unassigned event → offer a multi-root chooser instead of "My Drive".
+  const multiRoots = !stu
+    ? [
+        ...(teamDriveFolderId
+          ? [
+              {
+                id: teamDriveFolderId,
+                name: "Team folder",
+                kind: "team" as const,
+              },
+            ]
+          : []),
+        ...students
+          .filter((s) => s.driveFolderId)
+          .map((s) => ({
+            id: s.driveFolderId!,
+            name: (s.alias?.trim() || s.fullName) + " · Drive",
+            kind: "student" as const,
+          })),
+      ]
+    : undefined;
   const [resolved, setResolved] = useState<{ id: string; name: string } | null>(
     null,
   );
@@ -1763,6 +1848,7 @@ function EventDriveField({
           rootFolderName={
             stu ? (stu.alias?.trim() || stu.fullName) + " · Drive" : null
           }
+          roots={multiRoots}
         />
       </div>
     </div>

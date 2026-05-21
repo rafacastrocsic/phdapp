@@ -393,6 +393,29 @@ Per-user, per-type preferences (extend the Settings page; a `NotificationPref` m
 
 ---
 
+## 34. Team-only tasks + multi-root Drive picker + Drive on New Event  ✅ COMPLETED (2026-05-21, user request)
+
+**What:** three related improvements to how unassigned (team-managed) work flows through Tasks and Calendar:
+
+1. **Team-only tasks** — `Ticket.studentId` is now nullable. Non-student users can create tasks with no student attached; students never see them. Mirrors the existing "No specific student" affordance on events. Per the user's clarification, the team-only flag = "unassigned" — no separate boolean.
+2. **Multi-root Drive picker for unassigned items** — when a task or event has no student, the picker shows a chooser listing every visible student's Drive folder + the admin-set team Drive folder. "My Drive" is **never** offered for team-managed work — keeps personal folders out of shared task tracking.
+3. **Drive folder field on New Event** — was missing; added next to Meeting link, scoped the same way (student folder when assigned, multi-root when unassigned).
+
+**Implementation:**
+- Migration `20260521170000_unassigned_tasks` makes `Ticket.studentId` nullable. Existing rows untouched.
+- `accessForStudent()` accepts `string | null`. For null inputs it returns "supervisor" for admins/supervisors, null for students.
+- `setDependencies()` accepts nullable `studentId` (team-only ↔ team-only constraint mirrors the per-student rule).
+- New helper `src/lib/team-task.ts` (`asUiStudent`, `isTeamOnly`, `TEAM_ONLY_STUDENT_ID`) provides a synthetic placeholder student so the 35+ consumers of `ticket.student.*` keep working unchanged. `teamOnly: boolean` carries the real intent on each ticket payload.
+- New helper `src/lib/team-drive.ts` parses the admin-configured `teamDriveFolderUrl` setting into `{ id, url }`. Surfaced as `teamDriveFolderId` prop on KanbanBoard + CalendarView.
+- `DriveFolderPicker` gains a `roots?: PickerRoot[]` prop. When set and no single `rootFolderId`, the picker first shows a chooser screen ("Pick a root") and never offers "My Drive" / "Shared with me".
+- New-task & task-detail panel: pass `roots` when team-only. Same on the calendar's new-event dialog (now has a Drive folder field) and event-detail dialog.
+- Server enforcement: students who POST `/api/tickets` with `studentId === null` are rejected with 403. Notification paths that look up the student's account are skipped on team-only tasks. Visibility queries: students keep their `studentId IN (visible)` filter; non-students get `OR studentId IS NULL` so team-only tasks surface only to them.
+- UI: Board card / List row show an italic *Team only* pill in slate grey instead of the student-name link for team-only tasks. The student picker in the New task dialog gets a `— Team only (no student) —` option (hidden for student creators).
+
+**Scope/risk:** medium. Two additive nullable changes + one column nullability relaxation; existing rows are untouched. The picker is backwards-compatible (no `roots` → old behaviour). The 35+ consumers of `ticket.student.*` were funnelled through `asUiStudent()` so no null-handling refactor was needed downstream; the `teamOnly` flag carries the real intent.
+
+---
+
 ## 33. Drive folder picker scopes to the student's folder  ✅ COMPLETED (2026-05-21, user request)
 
 **What:** when picking a Drive folder for a task or event tied to a specific student, the picker now opens **inside that student's shared Drive folder** (the one provisioned via *Share Drive* on the student profile) instead of generic "My Drive". Hides the My-Drive / Shared-with-me tabs while scoped, with a small *Browse my Drive instead* escape for the rare case where the user needs to attach something outside the student's tree. Same behaviour on the task detail panel, the new-task dialog, and the calendar event detail dialog. Events also gain a new Drive-folder field (additive migration), matching the task affordance the user expected.

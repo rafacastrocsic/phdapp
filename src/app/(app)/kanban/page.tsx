@@ -5,6 +5,7 @@ import { clearDismissedTicketIds } from "@/lib/kanban-dismissed";
 import { parseSubtasks } from "@/lib/subtasks";
 import { parseLinks } from "@/lib/links";
 import { asUiStudent, isTeamOnly } from "@/lib/team-task";
+import { getTeamDriveFolder } from "@/lib/team-drive";
 import { KanbanBoard } from "./kanban-board";
 
 export default async function KanbanPage({
@@ -158,6 +159,12 @@ export default async function KanbanPage({
       ]
     : [];
 
+  // Admin-configured team Drive folder. Used as one of the picker "roots"
+  // for team-only / unassigned tasks (alongside each visible student's
+  // folder). Hidden for student viewers.
+  const teamDrive =
+    role === "student" ? null : await getTeamDriveFolder();
+
   return (
     <KanbanBoard
       tickets={tickets.map((t) => ({
@@ -199,6 +206,7 @@ export default async function KanbanPage({
       viewerRole={role}
       viewerStudentId={viewerStudent?.id ?? null}
       viewerTeamMembers={viewerTeamMembers}
+      teamDriveFolderId={teamDrive?.id ?? null}
       highlightByTicket={highlightByTicket}
       initialDeleted={deletedTickets.map((t) => ({
         id: t.id,
