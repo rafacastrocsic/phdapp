@@ -267,7 +267,7 @@ The **Chat** module is for ongoing conversation with each student and their team
 - **Auto team channel**: every student gets a **"Team · ‹name›"** channel created automatically when they're added — shared by the whole supervision team (primary + co-supervisors, minus read-only team advisors) and the student. (Already-existing students can be backfilled by the admin from **Admin → Maintenance**.)
 - **Channels** column (left): a list of every channel you're a member of. Click the **+** to create a new one (per-student, custom names possible).
 - **Messages**: type at the bottom, Enter to send. **Paperclip** for attachments (25 MB max; chat attachments are auto-purged after 7 days).
-- **Edit / delete** your own messages via the kebab menu on the message.
+- **Edit your own messages**: hover a message and use the **✎ Edit** action next to **↩ Reply**. The bubble swaps for an inline editor — **Enter** saves, **Esc** (or Cancel) discards. Edited messages get a small italic **(edited)** marker next to the timestamp so the history stays transparent.
 - **Delivery ticks** on messages you send (WhatsApp-style): **one grey ✓** sent · **two grey ✓✓** delivered · **two blue ✓✓** seen by another member (updates within a few seconds of them opening the channel).
 - **Browser-tab alerts**: with unread messages the tab title becomes **"(N) … messaged you"** and the favicon shows a red count badge, plus a short sound on each new message — so you don't miss one while working in another tab.
 - **Notification sound**: channel **⋮ → Notification sound…** to choose the sound (Chime/Ding/Pop/None) and volume (per device, with a Test button).

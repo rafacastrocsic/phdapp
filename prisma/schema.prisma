@@ -597,6 +597,10 @@ model Message {
   replyTo     Message?  @relation("MessageReplies", fields: [replyToId], references: [id], onDelete: SetNull)
   replies     Message[] @relation("MessageReplies")
   createdAt   DateTime @default(now())
+  // Set when the author edits the body after sending. UI shows a small
+  // "(edited)" suffix whenever this is non-null. Stays null on the
+  // initial send so the indicator only appears after a real edit.
+  editedAt    DateTime?
 
   @@index([replyToId])
 }

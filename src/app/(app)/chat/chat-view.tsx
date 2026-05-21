@@ -70,6 +70,10 @@ interface Message {
   id: string;
   body: string;
   createdAt: string;
+  // Non-null whenever the author has edited the body after the
+  // initial send. The UI renders an "(edited)" suffix next to the
+  // timestamp to make the history transparent.
+  editedAt?: string | null;
   author: { id: string; name: string | null; image: string | null; color: string };
   attachments?: Attachment[];
   replyTo?: { id: string; body: string; authorName: string | null } | null;
@@ -140,6 +144,12 @@ export function ChatView({
   const [pendingAttachments, setPendingAttachments] = useState<Attachment[]>([]);
   const [uploading, setUploading] = useState(false);
   const [replyTarget, setReplyTarget] = useState<Message | null>(null);
+  // Inline edit-in-place state: id of the message currently being
+  // edited (own messages only) and the working draft body. null = not
+  // editing. Submitting calls PATCH and merges the response into
+  // `messages`; Esc / Cancel discards changes.
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [editingBody, setEditingBody] = useState("");
   const [dragOver, setDragOver] = useState(false);
   const [editOpen, setEditOpen] = useState(false);
   const [soundOpen, setSoundOpen] = useState(false);
@@ -326,6 +336,59 @@ export function ChatView({
         prev.map((m) => (m.id === tempId ? message : m)),
       );
     }
+  }
+
+  function startEdit(m: Message) {
+    setEditingId(m.id);
+    setEditingBody(m.body);
+  }
+  function cancelEdit() {
+    setEditingId(null);
+    setEditingBody("");
+  }
+  async function saveEdit(m: Message) {
+    if (!activeId) return;
+    const next = editingBody.trim();
+    if (!next) return;
+    // No-op when nothing actually changed — avoids a spurious
+    // "(edited)" badge from clicking Save with an unchanged body.
+    if (next === m.body) {
+      cancelEdit();
+      return;
+    }
+    const optimisticEditedAt = new Date().toISOString();
+    setMessages((prev) =>
+      prev.map((x) =>
+        x.id === m.id ? { ...x, body: next, editedAt: optimisticEditedAt } : x,
+      ),
+    );
+    cancelEdit();
+    const r = await fetch(`/api/channels/${activeId}/messages/${m.id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ body: next }),
+    });
+    if (!r.ok) {
+      // Roll back on failure so the user can retry.
+      setMessages((prev) =>
+        prev.map((x) =>
+          x.id === m.id
+            ? { ...x, body: m.body, editedAt: m.editedAt ?? null }
+            : x,
+        ),
+      );
+      const j = await r.json().catch(() => ({}));
+      alert(j.error ?? "Could not save edit");
+      return;
+    }
+    const data = (await r.json()) as { body: string; editedAt: string | null };
+    setMessages((prev) =>
+      prev.map((x) =>
+        x.id === m.id
+          ? { ...x, body: data.body, editedAt: data.editedAt }
+          : x,
+      ),
+    );
   }
 
   async function uploadFiles(files: FileList | File[]) {
@@ -631,6 +694,17 @@ export function ChatView({
                               {mine ? "You" : m.author.name}
                             </span>{" "}
                             · {format(new Date(m.createdAt), "HH:mm")}
+                            {m.editedAt && (
+                              <span
+                                className="ml-1 italic text-slate-400"
+                                title={`Edited ${format(
+                                  new Date(m.editedAt),
+                                  "MMM d · HH:mm",
+                                )}`}
+                              >
+                                (edited)
+                              </span>
+                            )}
                           </div>
                         )}
                         {m.replyTo && (
@@ -643,17 +717,91 @@ export function ChatView({
                             </span>
                           </div>
                         )}
-                        {m.body && (
-                          <div
-                            className={cn(
-                              "max-w-full rounded-2xl px-3 py-2 text-sm shadow-sm whitespace-pre-wrap break-words",
-                              mine
-                                ? "bg-[var(--c-violet)] text-white rounded-tr-sm"
-                                : "bg-white text-slate-800 rounded-tl-sm border",
-                            )}
+                        {editingId === m.id ? (
+                          <form
+                            onSubmit={(e) => {
+                              e.preventDefault();
+                              saveEdit(m);
+                            }}
+                            className="w-full max-w-full space-y-1"
                           >
-                            {m.body}
-                          </div>
+                            <Textarea
+                              autoFocus
+                              value={editingBody}
+                              onChange={(e) => setEditingBody(e.target.value)}
+                              onKeyDown={(e) => {
+                                if (e.key === "Escape") {
+                                  e.preventDefault();
+                                  cancelEdit();
+                                } else if (
+                                  e.key === "Enter" &&
+                                  !e.shiftKey
+                                ) {
+                                  e.preventDefault();
+                                  saveEdit(m);
+                                }
+                              }}
+                              rows={Math.min(
+                                6,
+                                Math.max(2, editingBody.split("\n").length),
+                              )}
+                              className="!text-sm"
+                              placeholder="Edit message…"
+                            />
+                            <div
+                              className={cn(
+                                "flex items-center gap-2 text-[10px] text-slate-400",
+                                mine ? "justify-end" : "justify-start",
+                              )}
+                            >
+                              <span>Enter to save · Esc to cancel</span>
+                              <Button
+                                type="button"
+                                size="sm"
+                                variant="outline"
+                                onClick={cancelEdit}
+                              >
+                                Cancel
+                              </Button>
+                              <Button
+                                type="submit"
+                                size="sm"
+                                disabled={
+                                  !editingBody.trim() ||
+                                  editingBody.trim() === m.body
+                                }
+                              >
+                                Save
+                              </Button>
+                            </div>
+                          </form>
+                        ) : (
+                          m.body && (
+                            <div
+                              className={cn(
+                                "max-w-full rounded-2xl px-3 py-2 text-sm shadow-sm whitespace-pre-wrap break-words",
+                                mine
+                                  ? "bg-[var(--c-violet)] text-white rounded-tr-sm"
+                                  : "bg-white text-slate-800 rounded-tl-sm border",
+                              )}
+                            >
+                              {m.body}
+                              {m.editedAt && sameAuthor && (
+                                <span
+                                  className={cn(
+                                    "ml-1.5 align-baseline text-[10px] italic",
+                                    mine ? "text-violet-200" : "text-slate-400",
+                                  )}
+                                  title={`Edited ${format(
+                                    new Date(m.editedAt),
+                                    "MMM d · HH:mm",
+                                  )}`}
+                                >
+                                  (edited)
+                                </span>
+                              )}
+                            </div>
+                          )
                         )}
                         {m.attachments && m.attachments.length > 0 && (
                           <div
@@ -694,18 +842,32 @@ export function ChatView({
                               </div>
                             );
                           })()}
-                        {m.id.startsWith("temp-") ? null : (
-                          <button
-                            type="button"
-                            onClick={() => setReplyTarget(m)}
+                        {m.id.startsWith("temp-") || editingId === m.id ? null : (
+                          <div
                             className={cn(
-                              "mt-0.5 inline-flex items-center gap-1 text-[10px] text-slate-400 hover:text-slate-700",
+                              "mt-0.5 flex items-center gap-2 text-[10px]",
                               mine && "flex-row-reverse",
                             )}
-                            title="Reply to this message"
                           >
-                            <Reply className="h-3 w-3" /> Reply
-                          </button>
+                            <button
+                              type="button"
+                              onClick={() => setReplyTarget(m)}
+                              className="inline-flex items-center gap-1 text-slate-400 hover:text-slate-700"
+                              title="Reply to this message"
+                            >
+                              <Reply className="h-3 w-3" /> Reply
+                            </button>
+                            {mine && (
+                              <button
+                                type="button"
+                                onClick={() => startEdit(m)}
+                                className="inline-flex items-center gap-1 text-slate-400 hover:text-slate-700"
+                                title="Edit this message"
+                              >
+                                <Pencil className="h-3 w-3" /> Edit
+                              </button>
+                            )}
+                          </div>
                         )}
                       </div>
                     </div>

@@ -178,6 +178,7 @@ The **Chat** module (green icon) is for direct messages with your supervisor and
 - **Browser-tab alerts** — when you have unread messages, the browser tab title shows **"(N) … messaged you"** and the favicon gets a red badge with the count, so you notice even when PhDapp isn't the tab you're looking at. A short sound also plays when a new message arrives.
 - **Notification sound settings** — channel actions menu (⋮) → **Notification sound…**: pick the sound (Chime / Ding / Pop / None) and volume, with a **Test** button. Saved on this device.
 - **Reply to a message** — hover a message and click **↩ Reply**; your message shows a quote of the one you replied to.
+- **Edit your own messages** — hover one of your messages and click **✎ Edit** (next to Reply). The bubble swaps for an inline editor: **Enter** to save, **Esc** (or Cancel) to discard. Edited messages show a small italic **(edited)** marker next to the timestamp so your supervisors can see something changed.
 - **Attach files fast** — besides the paperclip, you can **drag-and-drop** files onto the message area, or **paste an image** (Ctrl/Cmd+V) straight into the box.
 - **Start a new channel** with the **+** at the top of the channels column. You can only create one with **your own supervisor(s)** — not with team/external advisors, committee members, or other students.
 

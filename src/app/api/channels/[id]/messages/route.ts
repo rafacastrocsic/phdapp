@@ -67,6 +67,7 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
       id: m.id,
       body: m.body,
       createdAt: m.createdAt.toISOString(),
+      editedAt: m.editedAt ? m.editedAt.toISOString() : null,
       author: m.author,
       attachments: parseAttachments(m.attachments),
       replyTo: m.replyTo
@@ -191,6 +192,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
       id: m.id,
       body: m.body,
       createdAt: m.createdAt.toISOString(),
+      editedAt: m.editedAt ? m.editedAt.toISOString() : null,
       author: m.author,
       attachments,
       replyTo: m.replyTo
