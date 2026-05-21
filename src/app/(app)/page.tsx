@@ -326,7 +326,8 @@ export default async function DashboardPage() {
                             {displayName(s)}
                           </div>
                           <div className="text-xs text-slate-500 truncate">
-                            Year {s.programYear} · {s._count.tickets} tickets
+                            Year {s.programYear} · {s._count.tickets} task
+                            {s._count.tickets === 1 ? "" : "s"}
                           </div>
                         </div>
                         <Badge
