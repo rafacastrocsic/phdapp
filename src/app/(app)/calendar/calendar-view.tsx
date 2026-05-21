@@ -965,6 +965,16 @@ export function CalendarView({
           setEvents((prev) => prev.filter((e) => e.id !== id));
           setOpenEventId(null);
         }}
+        onUpdated={(updates) => {
+          // Sync changes made from within the dialog (Drive folder
+          // pick, 1:1 toggle, etc) back into the parent events state
+          // so the dialog re-renders with the new values without
+          // needing a full page reload.
+          if (!openEventId) return;
+          setEvents((prev) =>
+            prev.map((e) => (e.id === openEventId ? { ...e, ...updates } : e)),
+          );
+        }}
       />
 
       <TaskPeek
@@ -985,6 +995,7 @@ function EventDetailDialog({
   onOpenChange,
   onPeekTask,
   onDeleted,
+  onUpdated,
 }: {
   event: Event | null;
   open: boolean;
@@ -995,6 +1006,7 @@ function EventDetailDialog({
   onOpenChange: (b: boolean) => void;
   onPeekTask: (ticketId: string) => void;
   onDeleted: (id: string) => void;
+  onUpdated: (updates: Partial<Event>) => void;
 }) {
   const [deleting, setDeleting] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -1143,7 +1155,29 @@ function EventDetailDialog({
             </div>
           )}
 
-          {event.isMeeting && <MeetingPanel event={event} />}
+          {event.isMeeting ? (
+            <MeetingPanel event={event} />
+          ) : (
+            // Lets the user upgrade a regular event into a 1:1 meeting
+            // after the fact — flips isMeeting=true via PATCH so the
+            // MeetingPanel (agenda · notes · action items) appears.
+            <button
+              type="button"
+              onClick={async () => {
+                const r = await fetch(`/api/calendar/events/${event.id}`, {
+                  method: "PATCH",
+                  headers: { "Content-Type": "application/json" },
+                  body: JSON.stringify({ isMeeting: true }),
+                });
+                if (r.ok) onUpdated({ isMeeting: true });
+              }}
+              className="flex w-full items-center justify-center gap-1.5 rounded-lg border border-dashed border-slate-300 bg-slate-50 px-3 py-2 text-xs font-medium text-slate-600 hover:border-[var(--c-teal)] hover:text-[var(--c-teal)] hover:bg-teal-50/40"
+              title="Adds an Agenda, Notes and Action items panel to this event"
+            >
+              <UsersIcon className="h-3.5 w-3.5" />
+              Convert to 1:1 meeting (add agenda · notes · action items)
+            </button>
+          )}
 
           {recSummary && (
             <div className="flex items-center justify-between gap-2 rounded-lg bg-violet-50 px-3 py-2 text-xs text-[var(--c-violet)]">
@@ -1182,7 +1216,7 @@ function EventDetailDialog({
             event={event}
             students={students}
             teamDriveFolderId={teamDriveFolderId ?? null}
-            onSaved={() => router.refresh()}
+            onChanged={(url) => onUpdated({ driveFolderUrl: url })}
           />
         </div>
 
@@ -1780,12 +1814,15 @@ function EventDriveField({
   event,
   students,
   teamDriveFolderId,
-  onSaved,
+  onChanged,
 }: {
   event: Event;
   students: Student[];
   teamDriveFolderId?: string | null;
-  onSaved: () => void;
+  // Called with the new Drive URL (or null) after a successful PATCH.
+  // The parent updates its events state so the dialog re-renders with
+  // the new value — router.refresh() alone doesn't update useState.
+  onChanged: (url: string | null) => void;
 }) {
   const url = event.driveFolderUrl;
   const id = url ? url.match(DRIVE_FOLDER_URL_RE)?.[1] ?? null : null;
@@ -1832,12 +1869,12 @@ function EventDriveField({
   const valueName = resolved && resolved.id === id ? resolved.name : null;
 
   async function persist(next: string | null) {
-    await fetch(`/api/calendar/events/${event.id}`, {
+    const r = await fetch(`/api/calendar/events/${event.id}`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ driveFolderUrl: next }),
     });
-    onSaved();
+    if (r.ok) onChanged(next);
   }
 
   return (

@@ -393,6 +393,22 @@ Per-user, per-type preferences (extend the Settings page; a `NotificationPref` m
 
 ---
 
+## 37. Fix event Drive picker; add convert-to-1:1 in event detail  ✅ COMPLETED (2026-05-21, user request)
+
+**What:** two small but visible fixes:
+
+1. **Event Drive folder picker appeared broken** — picking a folder fired the PATCH successfully but the dialog still showed the old (empty) value, so the user couldn't tell it had saved. Root cause: `EventDriveField` called `router.refresh()` after PATCH, but `CalendarView` holds `events` in `useState(initial)` which only initialises once — `router.refresh()` re-runs the server query but doesn't reset client state, so the dialog kept rendering stale data.
+2. **No way to upgrade a regular event into a 1:1 meeting after creation** — the *"This is a 1:1 meeting"* checkbox was only shown in the New event form. Once created, there was no UI to flip the bit.
+
+**Implementation:**
+- `EventDetailDialog` gains a new `onUpdated(updates: Partial<Event>) => void` callback. `CalendarView` wires it to `setEvents(prev => prev.map(e => e.id === openEventId ? { ...e, ...updates } : e))`, so any in-dialog mutation flows back into parent state and the dialog re-renders with the new values without a full reload.
+- `EventDriveField`'s `onSaved` callback renamed to `onChanged(url)` and called only after the PATCH succeeds; parent updates state via the new `onUpdated`. The picker now visibly updates on pick.
+- New *"Convert to 1:1 meeting (add agenda · notes · action items)"* dashed button shown in the detail dialog when `!event.isMeeting`. Click PATCHes `isMeeting: true` and calls `onUpdated({ isMeeting: true })`, so the `<MeetingPanel>` (agenda + notes + action items) appears in place.
+
+**Scope/risk:** very low. UI-only change; the PATCH route already accepted `isMeeting` and `driveFolderUrl` — only the UI plumbing was broken.
+
+---
+
 ## 36. Walk back team-only; tasks student-only; events student-or-general  ✅ COMPLETED (2026-05-21, user request)
 
 **What:** product revision of the three-state model shipped a few hours earlier (§35). New rule:

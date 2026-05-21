@@ -242,7 +242,7 @@ Every event has a **threaded comment section** at the bottom of its detail dialo
 
 ### Structured 1:1 meetings
 
-When creating an event, tick **"This is a 1:1 meeting"**. Opening that event then shows a meeting panel:
+You can mark an event as a 1:1 meeting either at creation time (tick **"This is a 1:1 meeting"** in the New event form) or **later** from the event detail dialog (a dashed *"Convert to 1:1 meeting"* button is shown for any event that isn't one yet — click it and the meeting panel appears in place, no reload needed). Opening a meeting event shows the panel:
 
 - **Agenda** — bullet points either party can add before the meeting.
 - **Notes** — free text written during the meeting (saves on blur).
