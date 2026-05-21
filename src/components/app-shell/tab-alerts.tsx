@@ -98,11 +98,17 @@ export function TabAlerts() {
 
     async function tick() {
       try {
-        const r = await fetch("/api/chat/unread", { cache: "no-store" });
+        // Read from the unified /api/unread blob (chat is one of the
+        // sections). Hitting the same endpoint as the sidebar means
+        // both pollers add up to a single function invocation per
+        // tick instead of two.
+        const r = await fetch("/api/unread", { cache: "no-store" });
         if (!cancelled && r.ok) {
-          const j = await r.json();
-          const count: number = j.count ?? 0;
-          const sender: string | null = j.latestSender ?? null;
+          const j = (await r.json()) as {
+            chat?: { count?: number; latestSender?: string | null };
+          };
+          const count: number = j.chat?.count ?? 0;
+          const sender: string | null = j.chat?.latestSender ?? null;
           if (
             prevCount.current !== null &&
             count > prevCount.current
@@ -114,13 +120,38 @@ export function TabAlerts() {
       } catch {
         // transient — ignore
       }
-      if (!cancelled) timer = setTimeout(tick, 5000);
+      // 15s default — chat sound + title still feel responsive but we
+      // no longer hammer the API every 5s. Visibility-aware loop below
+      // pauses entirely when the tab is hidden.
+      if (!cancelled) timer = setTimeout(tick, 15_000);
     }
-    tick();
+
+    function onVisibility() {
+      if (typeof document === "undefined") return;
+      if (document.visibilityState === "hidden") {
+        if (timer) {
+          clearTimeout(timer);
+          timer = null;
+        }
+      } else {
+        // Returning to the tab — refresh immediately, then resume.
+        if (timer) clearTimeout(timer);
+        tick();
+      }
+    }
+
+    if (
+      typeof document === "undefined" ||
+      document.visibilityState !== "hidden"
+    ) {
+      tick();
+    }
+    document.addEventListener("visibilitychange", onVisibility);
 
     return () => {
       cancelled = true;
       if (timer) clearTimeout(timer);
+      document.removeEventListener("visibilitychange", onVisibility);
       document.title = baseTitle.current;
       const injected = document.getElementById("phdapp-fav");
       if (injected) injected.remove();

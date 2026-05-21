@@ -35,9 +35,28 @@ export function NotificationBell() {
   }
 
   useEffect(() => {
-    load();
-    const t = setInterval(load, 30000);
-    return () => clearInterval(t);
+    let t: ReturnType<typeof setInterval> | null = null;
+    function start() {
+      if (t !== null) return;
+      load();
+      t = setInterval(load, 30_000);
+    }
+    function stop() {
+      if (t !== null) {
+        clearInterval(t);
+        t = null;
+      }
+    }
+    function onVisibility() {
+      if (document.visibilityState === "hidden") stop();
+      else start();
+    }
+    if (document.visibilityState !== "hidden") start();
+    document.addEventListener("visibilitychange", onVisibility);
+    return () => {
+      stop();
+      document.removeEventListener("visibilitychange", onVisibility);
+    };
   }, []);
 
   useEffect(() => {

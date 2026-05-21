@@ -193,11 +193,13 @@ export function ChatView({
       await fetch(`/api/channels/${activeId}/read`, { method: "POST" });
       // optimistically clear the per-channel badge
       setUnreadByChannel((prev) => ({ ...prev, [activeId!]: 0 }));
-      // refresh authoritative counts
-      const r = await fetch("/api/chat/unread", { cache: "no-store" });
+      // refresh authoritative counts via the unified endpoint
+      const r = await fetch("/api/unread", { cache: "no-store" });
       if (r.ok) {
-        const j = await r.json();
-        if (j.byChannel) setUnreadByChannel(j.byChannel);
+        const j = (await r.json()) as {
+          chat?: { byChannel?: Record<string, number> };
+        };
+        if (j.chat?.byChannel) setUnreadByChannel(j.chat.byChannel);
       }
     }
 
@@ -222,12 +224,18 @@ export function ChatView({
         lastMessageCount = j.messages.length;
       }
       // refresh per-channel unread map so other channels' badges update
-      const u = await fetch("/api/chat/unread", { cache: "no-store" });
+      const u = await fetch("/api/unread", { cache: "no-store" });
       if (!cancelled && u.ok) {
-        const j = await u.json();
-        if (j.byChannel) setUnreadByChannel(j.byChannel);
+        const j = (await u.json()) as {
+          chat?: { byChannel?: Record<string, number> };
+        };
+        if (j.chat?.byChannel) setUnreadByChannel(j.chat.byChannel);
       }
-      if (!cancelled) timer = setTimeout(tick, 3500);
+      // Stretched from 3.5s → 8s. Still feels real-time inside a
+      // channel because the messages fetch above is the actual
+      // freshness driver; this map only updates other channels'
+      // sidebar badges, which can tolerate the longer cadence.
+      if (!cancelled) timer = setTimeout(tick, 8_000);
     }
     tick();
 

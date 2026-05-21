@@ -86,51 +86,73 @@ export function Sidebar({
     let cancelled = false;
 
     async function fetchCounts() {
-      const [chat, kanban, calendar, reading, team, feedback] =
-        await Promise.all([
-          fetch("/api/chat/unread", { cache: "no-store" }),
-          fetch("/api/kanban/unread", { cache: "no-store" }),
-          fetch("/api/calendar/unread", { cache: "no-store" }),
-          fetch("/api/reading/unread", { cache: "no-store" }),
-          fetch("/api/team/unread", { cache: "no-store" }),
-          fetch("/api/feedback/unread", { cache: "no-store" }),
-        ]);
-      if (!cancelled && chat.ok) {
-        const j = await chat.json();
-        setUnreadChat(j.count ?? 0);
-      }
-      if (!cancelled && kanban.ok) {
-        const j = await kanban.json();
-        setUnreadKanban(j.count ?? 0);
-      }
-      if (!cancelled && calendar.ok) {
-        const j = await calendar.json();
-        setUnreadCalendar(j.count ?? 0);
-      }
-      if (!cancelled && reading.ok) {
-        const j = await reading.json();
-        setUnreadReading(j.count ?? 0);
-      }
-      if (!cancelled && team.ok) {
-        const j = await team.json();
-        setUnreadTeam(j.count ?? 0);
-      }
-      if (!cancelled && feedback.ok) {
-        const j = await feedback.json();
-        setUnreadFeedback(j.count ?? 0);
-      }
+      // ONE request instead of six. /api/unread bundles every
+      // module's unread blob into a single function invocation.
+      const r = await fetch("/api/unread", { cache: "no-store" });
+      if (!r.ok || cancelled) return;
+      const j = (await r.json()) as {
+        chat?: { count?: number };
+        kanban?: { count?: number };
+        calendar?: { count?: number };
+        reading?: { count?: number };
+        team?: { count?: number };
+        feedback?: { count?: number };
+      };
+      if (cancelled) return;
+      setUnreadChat(j.chat?.count ?? 0);
+      setUnreadKanban(j.kanban?.count ?? 0);
+      setUnreadCalendar(j.calendar?.count ?? 0);
+      setUnreadReading(j.reading?.count ?? 0);
+      setUnreadTeam(j.team?.count ?? 0);
+      setUnreadFeedback(j.feedback?.count ?? 0);
     }
 
-    fetchCounts();
-    // faster cadence on active sections
+    // Faster cadence on active sections, but much gentler overall —
+    // unread badges don't need second-level freshness. Hobby-tier
+    // invocations are the constraint, not user experience.
     const onChat = pathname.startsWith("/chat");
     const onKanban = pathname.startsWith("/kanban");
     const onCalendar = pathname.startsWith("/calendar");
-    const interval = onChat || onKanban || onCalendar ? 4000 : 5000;
-    const t = setInterval(fetchCounts, interval);
+    const interval = onChat || onKanban || onCalendar ? 15_000 : 30_000;
+    let t: ReturnType<typeof setInterval> | null = null;
+
+    function start() {
+      if (t !== null) return;
+      // Fire immediately on (re)start so a returning tab refreshes
+      // its badges right away rather than waiting up to `interval`ms.
+      fetchCounts();
+      t = setInterval(fetchCounts, interval);
+    }
+    function stop() {
+      if (t !== null) {
+        clearInterval(t);
+        t = null;
+      }
+    }
+    function onVisibility() {
+      if (typeof document === "undefined") return;
+      if (document.visibilityState === "hidden") stop();
+      else start();
+    }
+
+    if (
+      typeof document !== "undefined" &&
+      document.visibilityState === "hidden"
+    ) {
+      // Don't poll if the user opened a new tab away from PhDapp —
+      // we'll start as soon as they come back.
+    } else {
+      start();
+    }
+    if (typeof document !== "undefined") {
+      document.addEventListener("visibilitychange", onVisibility);
+    }
     return () => {
       cancelled = true;
-      clearInterval(t);
+      stop();
+      if (typeof document !== "undefined") {
+        document.removeEventListener("visibilitychange", onVisibility);
+      }
     };
   }, [pathname]);
   return (
