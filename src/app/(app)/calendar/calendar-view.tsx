@@ -387,19 +387,35 @@ export function CalendarView({
     }
   }
 
+  // Hydration-safe "now" — null on SSR + first client render, then
+  // set to the actual current time post-mount. The Upcoming list
+  // used `new Date()` directly inside render, which produces a
+  // DIFFERENT timestamp on the server vs the client, which in turn
+  // makes the SSR-rendered list and the client's first render
+  // produce different children. React 18 hydration leaves the
+  // orphan SSR LIs in the DOM in that case (the React virtual tree
+  // has the correct 8 LIs but the real DOM ends up with 9 — the
+  // 9th being a leftover from SSR that no longer matches anything
+  // on the client). Gating with a useEffect-set value gives both
+  // SSR and the first client render identical output (`now=null`
+  // → no future filter), and only after mount do we tighten to the
+  // real time.
+  const [nowForUpcoming, setNowForUpcoming] = useState<Date | null>(null);
+  useEffect(() => {
+    setNowForUpcoming(new Date());
+    const t = setInterval(() => setNowForUpcoming(new Date()), 60_000);
+    return () => clearInterval(t);
+  }, []);
+
   const upcoming = (() => {
     // Defensive pipeline: chronologically sort, then dedupe by
-    // (id + startsAt), then slice. The dedupe step is the one that
-    // matters — a recurring event expanded by `filtered` shares its
-    // base id across every occurrence, and various edge cases
-    // (rapid double-creates from previous OAuth retry storms,
-    // server-side initial render colliding with an in-flight live
-    // poll, etc.) have been observed producing the same (id,
-    // startsAt) twice in upcoming. Squashing here keeps the sidebar
-    // correct even if a stale duplication slips through upstream.
-    const future = filtered.filter(
-      (e) => new Date(e.startsAt) >= new Date(),
-    );
+    // (id + startsAt), then slice. The dedupe is for safety in case
+    // upstream ever produces (id, startsAt) collisions; the sort +
+    // unique-per-occurrence keys are what actually fix the
+    // hydration-mismatch leftover bug.
+    const future = nowForUpcoming
+      ? filtered.filter((e) => new Date(e.startsAt) >= nowForUpcoming)
+      : filtered.slice();
     future.sort((a, b) => a.startsAt.localeCompare(b.startsAt));
     const seen = new Set<string>();
     const deduped: typeof future = [];
@@ -839,8 +855,15 @@ export function CalendarView({
               {upcoming.map((e) => {
                 const kind = effectiveKind(e.id);
                 return (
+                  // Key is per OCCURRENCE, not per event row — a
+                  // recurring event has one row in the DB but
+                  // multiple expanded occurrences in upcoming, so
+                  // keying by e.id alone collides and confuses
+                  // React's reconciler (orphan LIs survive
+                  // hydration). `${id}|${startsAt}` is unique per
+                  // occurrence.
                 <li
-                  key={e.id}
+                  key={`${e.id}|${e.startsAt}`}
                   onClick={() => {
                     dismissEvent(e.id);
                     if (e.ticketId) {
