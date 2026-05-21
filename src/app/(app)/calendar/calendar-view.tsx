@@ -387,9 +387,30 @@ export function CalendarView({
     }
   }
 
-  const upcoming = filtered
-    .filter((e) => new Date(e.startsAt) >= new Date())
-    .slice(0, 8);
+  const upcoming = (() => {
+    // Defensive pipeline: chronologically sort, then dedupe by
+    // (id + startsAt), then slice. The dedupe step is the one that
+    // matters — a recurring event expanded by `filtered` shares its
+    // base id across every occurrence, and various edge cases
+    // (rapid double-creates from previous OAuth retry storms,
+    // server-side initial render colliding with an in-flight live
+    // poll, etc.) have been observed producing the same (id,
+    // startsAt) twice in upcoming. Squashing here keeps the sidebar
+    // correct even if a stale duplication slips through upstream.
+    const future = filtered.filter(
+      (e) => new Date(e.startsAt) >= new Date(),
+    );
+    future.sort((a, b) => a.startsAt.localeCompare(b.startsAt));
+    const seen = new Set<string>();
+    const deduped: typeof future = [];
+    for (const e of future) {
+      const k = `${e.id}|${e.startsAt}`;
+      if (seen.has(k)) continue;
+      seen.add(k);
+      deduped.push(e);
+    }
+    return deduped.slice(0, 8);
+  })();
 
   return (
     <div className="flex flex-col h-[calc(100vh-4rem)]">
