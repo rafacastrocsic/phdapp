@@ -17,7 +17,14 @@ export default async function KanbanPage({
 
   const students = await prisma.student.findMany({
     where: studentVisibilityWhere(session.user.id, role),
-    select: { id: true, fullName: true, alias: true, color: true, avatarUrl: true },
+    select: {
+      id: true,
+      fullName: true,
+      alias: true,
+      color: true,
+      avatarUrl: true,
+      driveFolderId: true,
+    },
     orderBy: { fullName: "asc" },
   });
   const studentIds = students.map((s) => s.id);

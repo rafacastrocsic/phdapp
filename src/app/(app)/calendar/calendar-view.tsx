@@ -41,6 +41,8 @@ import { TaskPeek } from "@/components/task-peek";
 import { CommentsThread } from "@/components/comments-thread";
 import { LinksSection } from "@/components/links-section";
 import { parseLinks } from "@/lib/links";
+import { DriveFolderPicker } from "@/components/drive-folder-picker";
+import { FolderOpen } from "lucide-react";
 import { CalendarShareButton } from "../students/[id]/calendar-share-button";
 import { AlertCircle } from "lucide-react";
 
@@ -60,6 +62,7 @@ interface Student {
   alias: string | null;
   color: string;
   calendarId: string | null;
+  driveFolderId: string | null;
 }
 interface Event {
   id: string;
@@ -81,6 +84,7 @@ interface Event {
   linkedTaskId: string | null;
   linkedTaskTitle: string | null;
   links: string | null; // raw JSON; parsed in the detail dialog
+  driveFolderUrl: string | null;
   recurring?: boolean; // synthetic occurrence flag (client-only)
 }
 
@@ -1161,6 +1165,14 @@ function EventDetailDialog({
         </div>
 
         <div className="pt-3 mt-3 border-t">
+          <EventDriveField
+            event={event}
+            students={students}
+            onSaved={() => router.refresh()}
+          />
+        </div>
+
+        <div className="pt-3 mt-3 border-t">
           <LinksSection
             initialLinks={parseLinks(event.links)}
             save={async (next) => {
@@ -1668,6 +1680,92 @@ function Field({ label, children }: { label: string; children: React.ReactNode }
       <span className="text-xs font-semibold text-slate-700">{label}</span>
       <div className="mt-1">{children}</div>
     </label>
+  );
+}
+
+/**
+ * Drive folder picker for a calendar event. Mirror of the task-side field:
+ * when the event is tied to a student, the picker is scoped to that
+ * student's Drive folder; otherwise the picker behaves normally
+ * (My Drive / Shared with me).
+ */
+const DRIVE_FOLDER_URL_RE = /\/folders\/([a-zA-Z0-9_-]+)/;
+function EventDriveField({
+  event,
+  students,
+  onSaved,
+}: {
+  event: Event;
+  students: Student[];
+  onSaved: () => void;
+}) {
+  const url = event.driveFolderUrl;
+  const id = url ? url.match(DRIVE_FOLDER_URL_RE)?.[1] ?? null : null;
+  const stu = event.student
+    ? students.find((s) => s.id === event.student!.id)
+    : null;
+  const [resolved, setResolved] = useState<{ id: string; name: string } | null>(
+    null,
+  );
+  useEffect(() => {
+    if (!id) return;
+    let cancelled = false;
+    fetch(`/api/drive/folder?id=${encodeURIComponent(id)}`)
+      .then((r) => (r.ok ? r.json() : null))
+      .then((j) => {
+        if (!cancelled && j?.name) setResolved({ id, name: j.name });
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, [id]);
+  const valueName = resolved && resolved.id === id ? resolved.name : null;
+
+  async function persist(next: string | null) {
+    await fetch(`/api/calendar/events/${event.id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ driveFolderUrl: next }),
+    });
+    onSaved();
+  }
+
+  return (
+    <div>
+      <div className="text-xs font-semibold uppercase text-slate-500 mb-2 flex items-center gap-1.5">
+        <FolderOpen className="h-3 w-3" />
+        Drive folder
+      </div>
+      <div className="space-y-2">
+        {url && (
+          <a
+            href={url}
+            target="_blank"
+            rel="noopener"
+            className="inline-flex items-center gap-1.5 rounded-lg border bg-slate-50 px-3 py-1.5 text-sm font-medium text-[var(--c-blue)] hover:bg-slate-100"
+          >
+            <FolderOpen className="h-4 w-4" /> Open Drive folder
+          </a>
+        )}
+        <DriveFolderPicker
+          value={id}
+          valueName={valueName}
+          onChange={(folderId) =>
+            persist(
+              folderId
+                ? `https://drive.google.com/drive/folders/${folderId}`
+                : null,
+            )
+          }
+          triggerLabel={url ? "Change folder" : "Pick from Drive"}
+          rootFolderId={stu?.driveFolderId ?? null}
+          rootFolderName={
+            stu ? (stu.alias?.trim() || stu.fullName) + " · Drive" : null
+          }
+        />
+      </div>
+    </div>
   );
 }
 

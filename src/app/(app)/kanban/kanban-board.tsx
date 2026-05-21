@@ -93,7 +93,14 @@ interface Member {
 
 interface Props {
   tickets: Ticket[];
-  students: { id: string; fullName: string; alias: string | null; color: string; avatarUrl: string | null }[];
+  students: {
+    id: string;
+    fullName: string;
+    alias: string | null;
+    color: string;
+    avatarUrl: string | null;
+    driveFolderId: string | null;
+  }[];
   teamMembers: Member[];
   filterStudent: string | null;
   openTicketId: string | null;
@@ -1031,10 +1038,21 @@ function NewTicketDialog({
             <Input type="date" name="dueDate" />
           </Field>
           <Field label="Drive folder (optional)">
-            <DriveFolderField
-              value={driveFolderUrl}
-              onChange={setDriveFolderUrl}
-            />
+            {(() => {
+              const stu = effStudentId
+                ? students.find((s) => s.id === effStudentId)
+                : null;
+              return (
+                <DriveFolderField
+                  value={driveFolderUrl}
+                  onChange={setDriveFolderUrl}
+                  studentFolderId={stu?.driveFolderId ?? null}
+                  studentFolderName={
+                    stu ? displayName(stu) + " · Drive" : null
+                  }
+                />
+              );
+            })()}
           </Field>
           <Field label="Group (optional)">
             {effStudentId ? (
@@ -1092,6 +1110,7 @@ function TicketDetailDialog({
   open,
   isStudent,
   allTickets,
+  students,
   onOpenChange,
   teamMembers,
   onChange,
@@ -1366,10 +1385,22 @@ function TicketDetailDialog({
           </div>
 
           <Field label="Drive folder">
-            <DriveFolderField
-              value={ticket.driveFolderUrl ?? null}
-              onChange={(url) => update({ driveFolderUrl: url })}
-            />
+            {(() => {
+              // The task is tied to a specific student → root the picker at
+              // that student's Drive folder, not "My Drive". Lets supervisors
+              // drop straight into the student's workspace.
+              const stu = students.find((s) => s.id === ticket.student.id);
+              return (
+                <DriveFolderField
+                  value={ticket.driveFolderUrl ?? null}
+                  onChange={(url) => update({ driveFolderUrl: url })}
+                  studentFolderId={stu?.driveFolderId ?? null}
+                  studentFolderName={
+                    stu ? displayName(stu) + " · Drive" : null
+                  }
+                />
+              );
+            })()}
           </Field>
 
           <LinksSection
@@ -1750,9 +1781,16 @@ function driveUrlToId(url: string | null | undefined): string | null {
 function DriveFolderField({
   value,
   onChange,
+  studentFolderId,
+  studentFolderName,
 }: {
   value: string | null;
   onChange: (url: string | null) => void;
+  // When the parent task belongs to a specific student, root the picker
+  // at that student's Drive folder so users don't have to navigate from
+  // "My Drive" each time. Null/undefined → original free-browse mode.
+  studentFolderId?: string | null;
+  studentFolderName?: string | null;
 }) {
   const id = driveUrlToId(value);
   // Resolve the folder's display name from its ID so the picker shows the
@@ -1797,6 +1835,8 @@ function DriveFolderField({
           )
         }
         triggerLabel={value ? "Change folder" : "Pick from Drive"}
+        rootFolderId={studentFolderId ?? null}
+        rootFolderName={studentFolderName ?? null}
       />
     </div>
   );

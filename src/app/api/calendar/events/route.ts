@@ -35,6 +35,8 @@ const Body = z.object({
   linkedTaskId: z.string().optional().nullable(),
   // Optional list of external links {label, url}.
   links: z.array(LinkInput).optional(),
+  // Optional single Drive folder URL.
+  driveFolderUrl: z.string().optional().nullable(),
 });
 
 export async function POST(req: Request) {
@@ -201,6 +203,7 @@ export async function POST(req: Request) {
       links: d.links && d.links.length > 0
         ? JSON.stringify(sanitiseLinks(d.links))
         : null,
+      driveFolderUrl: d.driveFolderUrl || null,
     },
     include: {
       student: { select: { id: true, fullName: true, alias: true, color: true } },

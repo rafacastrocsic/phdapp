@@ -53,6 +53,8 @@ const Patch = z.object({
   studentId: z.string().nullable().optional(),
   // Replace the external-links list (empty array clears).
   links: z.array(LinkInput).optional(),
+  // Single Drive folder URL (or null to clear).
+  driveFolderUrl: z.string().nullable().optional(),
 });
 
 export async function PATCH(
@@ -91,6 +93,9 @@ export async function PATCH(
   if (d.links !== undefined) {
     const sane = sanitiseLinks(d.links);
     data.links = sane.length > 0 ? JSON.stringify(sane) : null;
+  }
+  if (d.driveFolderUrl !== undefined) {
+    data.driveFolderUrl = d.driveFolderUrl || null;
   }
   if (d.linkedTaskId !== undefined) {
     const linkedTaskId = d.linkedTaskId || null;

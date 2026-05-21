@@ -151,7 +151,7 @@ Above the board:
 - **Priority** — Low / Medium / High / Urgent
 - **Category** — one of the predefined ones (Research, Writing, **Lab work**, **IC Design**, **Coding**, Reading, Publication, Conference, Meeting, Admin), or pick **Other** and type your own one-time label
 - **Due date** — optional. **Setting a due date automatically creates a Google Calendar event** on the student's shared calendar.
-- **Drive folder** — link a Google Drive folder where this task's deliverables live. Click **Pick from Drive** to browse and select a folder (My Drive or Shared with me) instead of pasting a URL. Once linked, an **Open Drive folder** button appears in the task and a clickable folder icon shows on the board card. **Change folder** re-opens the picker; **Clear** unlinks.
+- **Drive folder** — link a Google Drive folder where this task's deliverables live. Click **Pick from Drive** to browse and select a folder. When the task is tied to a specific student, the picker **opens inside that student's shared Drive folder** (the one you provisioned via *Share Drive* on their profile), not in your whole "My Drive" — fewer clicks, less chance of attaching the wrong folder. A small *Browse my Drive instead* link in the picker lets you escape the scope on the rare occasions you need to attach something outside the student's folder (a department resource, your own working folder). The same field is also available on **calendar events** — when the event is assigned to a student, the picker opens inside that student's Drive folder too.
 
 **Create task** saves and opens the new task in the detail dialog.
 

@@ -29,6 +29,8 @@ export function DriveFolderPicker({
   valueName,
   onChange,
   triggerLabel = "Pick from Drive",
+  rootFolderId,
+  rootFolderName,
 }: {
   value: string | null;
   // Display name for the current `value` when it wasn't just picked in
@@ -37,15 +39,53 @@ export function DriveFolderPicker({
   valueName?: string | null;
   onChange: (folderId: string | null, folderName: string | null) => void;
   triggerLabel?: string;
+  /**
+   * When the picker is being used for an entity tied to a specific
+   * student (a task or event), pass that student's Drive folder id here.
+   * The picker will:
+   *   - open INSIDE that folder (not at My Drive root)
+   *   - hide the My Drive / Shared with me tabs (so the picker only
+   *     navigates within the student's folder, by default)
+   *   - offer a small "Browse my Drive instead" escape for the rare
+   *     case where the user needs to pick something outside it
+   * If null/undefined the picker behaves exactly as before.
+   */
+  rootFolderId?: string | null;
+  rootFolderName?: string | null;
 }) {
+  const scoped = !!rootFolderId;
+  const scopedRoot: DriveFolder = scoped
+    ? { id: rootFolderId!, name: rootFolderName ?? "Student folder" }
+    : { id: "root", name: "My Drive" };
+
   const [open, setOpen] = useState(false);
-  const [path, setPath] = useState<DriveFolder[]>([{ id: "root", name: "My Drive" }]);
+  const [path, setPath] = useState<DriveFolder[]>([scopedRoot]);
   const [folders, setFolders] = useState<DriveFolder[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [search, setSearch] = useState("");
   const [mode, setMode] = useState<"my" | "shared">("my");
   const [pickedName, setPickedName] = useState<string | null>(null);
+  // When scoped, the user can flip to "free browse" if they really need
+  // a folder outside the student's tree.
+  const [escapeScope, setEscapeScope] = useState(false);
+  const effectivelyScoped = scoped && !escapeScope;
+
+  // Reset path on every open so reopening goes back to the scoped root.
+  useEffect(() => {
+    if (!open) return;
+    setEscapeScope(false);
+    setSearch("");
+    setPath([
+      scoped
+        ? { id: rootFolderId!, name: rootFolderName ?? "Student folder" }
+        : mode === "my"
+          ? { id: "root", name: "My Drive" }
+          : { id: "shared", name: "Shared with me" },
+    ]);
+    // mode is fine to leave; user can flip tabs after open in free-browse mode
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open]);
 
   const current = path[path.length - 1];
 
@@ -110,7 +150,10 @@ export function DriveFolderPicker({
     ]);
   }
   function pickCurrent() {
-    if (path.length <= 1) return; // can't pick the root or shared list itself
+    // When scoped the root IS a real folder (the student's) — let the user
+    // pick it. In free-browse mode the root is "My Drive" / "Shared with
+    // me" and isn't itself a folder, so block that case.
+    if (!effectivelyScoped && path.length <= 1) return;
     onChange(current.id, current.name);
     setPickedName(current.name);
     setOpen(false);
@@ -161,22 +204,55 @@ export function DriveFolderPicker({
             <DialogTitle>Pick a Google Drive folder</DialogTitle>
           </DialogHeader>
 
-          <div className="flex gap-1 border-b mb-3">
-            <TabButton
-              active={mode === "my"}
-              onClick={() => reset("my")}
-              icon={<Home className="h-3.5 w-3.5" />}
-            >
-              My Drive
-            </TabButton>
-            <TabButton
-              active={mode === "shared"}
-              onClick={() => reset("shared")}
-              icon={<Users className="h-3.5 w-3.5" />}
-            >
-              Shared with me
-            </TabButton>
-          </div>
+          {effectivelyScoped ? (
+            <div className="flex items-center justify-between gap-2 border-b mb-3 pb-2 text-xs text-slate-600">
+              <span className="inline-flex items-center gap-1.5">
+                <Folder className="h-3.5 w-3.5 text-[var(--c-blue)]" />
+                <span>
+                  Scoped to <strong>{rootFolderName ?? "the student folder"}</strong>
+                </span>
+              </span>
+              <button
+                type="button"
+                onClick={() => {
+                  setEscapeScope(true);
+                  reset("my");
+                }}
+                className="text-[var(--c-blue)] hover:underline"
+              >
+                Browse my Drive instead
+              </button>
+            </div>
+          ) : (
+            <div className="flex gap-1 border-b mb-3">
+              <TabButton
+                active={mode === "my"}
+                onClick={() => reset("my")}
+                icon={<Home className="h-3.5 w-3.5" />}
+              >
+                My Drive
+              </TabButton>
+              <TabButton
+                active={mode === "shared"}
+                onClick={() => reset("shared")}
+                icon={<Users className="h-3.5 w-3.5" />}
+              >
+                Shared with me
+              </TabButton>
+              {scoped && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setEscapeScope(false);
+                    setPath([scopedRoot]);
+                  }}
+                  className="ml-auto text-xs text-[var(--c-blue)] hover:underline self-center"
+                >
+                  ← Back to {rootFolderName ?? "student folder"}
+                </button>
+              )}
+            </div>
+          )}
 
           <div className="flex items-center gap-2 text-sm flex-wrap mb-3">
             {path.length > 1 && (
@@ -273,7 +349,7 @@ export function DriveFolderPicker({
               type="button"
               variant="brand"
               onClick={pickCurrent}
-              disabled={path.length <= 1}
+              disabled={!effectivelyScoped && path.length <= 1}
             >
               <Check className="h-4 w-4" /> Select this folder
             </Button>

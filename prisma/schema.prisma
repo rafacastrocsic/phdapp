@@ -506,6 +506,11 @@ model Event {
   // `agenda` (per-meeting talking points).
   links     String?
 
+  // Optional single Drive folder attached to this event (mirrors
+  // Ticket.driveFolderUrl). When the event has a student, the picker is
+  // scoped to that student's Drive folder.
+  driveFolderUrl String?
+
   attendees EventAttendee[]
   comments  Comment[]  @relation("EventComments")
   createdAt DateTime @default(now())

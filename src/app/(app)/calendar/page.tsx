@@ -22,7 +22,14 @@ export default async function CalendarPage({
 
   const students = await prisma.student.findMany({
     where: studentVisibilityWhere(session.user.id, role),
-    select: { id: true, fullName: true, alias: true, color: true, calendarId: true },
+    select: {
+      id: true,
+      fullName: true,
+      alias: true,
+      color: true,
+      calendarId: true,
+      driveFolderId: true,
+    },
     orderBy: { fullName: "asc" },
   });
   const studentIds = students.map((s) => s.id);
@@ -187,6 +194,7 @@ export default async function CalendarPage({
         linkedTaskId: e.linkedTaskId,
         linkedTaskTitle: e.linkedTask?.title ?? null,
         links: e.links,
+        driveFolderUrl: e.driveFolderUrl,
       }))}
       tasks={linkableTasks.map((t) => ({
         id: t.id,

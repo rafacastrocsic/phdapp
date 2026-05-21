@@ -393,6 +393,16 @@ Per-user, per-type preferences (extend the Settings page; a `NotificationPref` m
 
 ---
 
+## 33. Drive folder picker scopes to the student's folder  ✅ COMPLETED (2026-05-21, user request)
+
+**What:** when picking a Drive folder for a task or event tied to a specific student, the picker now opens **inside that student's shared Drive folder** (the one provisioned via *Share Drive* on the student profile) instead of generic "My Drive". Hides the My-Drive / Shared-with-me tabs while scoped, with a small *Browse my Drive instead* escape for the rare case where the user needs to attach something outside the student's tree. Same behaviour on the task detail panel, the new-task dialog, and the calendar event detail dialog. Events also gain a new Drive-folder field (additive migration), matching the task affordance the user expected.
+
+**Implementation:** additive migration `20260521150000_event_drive_folder` adds `Event.driveFolderUrl` (`TEXT NULL`). `DriveFolderPicker` (`src/components/drive-folder-picker.tsx`) gains two new props: `rootFolderId` and `rootFolderName`. When set: path initialises to `[{ id: rootFolderId, name: rootFolderName }]`; the tabs are replaced by a compact "Scoped to <name>" row with a *Browse my Drive instead* link; the "Select this folder" button is enabled at root (since the root IS a real folder, not the synthetic "My Drive"). The picker resets to scoped root on every reopen. Plumbed: `Student.driveFolderId` is now selected on the kanban server page + the calendar server page; `KanbanBoard.students` and the calendar's `Student` interface gain the field; the task detail panel and `NewTicketDialog` look up the selected student's folder and forward it to the picker; calendar event detail dialog mounts a new `<EventDriveField>` helper that does the same. `/api/calendar/events` POST + PATCH now accept `driveFolderUrl`. Manuals (student + supervisor) updated to describe the scoping + escape hatch.
+
+**Scope/risk:** low. One additive nullable column. The picker's existing behaviour is unchanged when `rootFolderId` is absent (default for items without a student, e.g. general events) — the My-Drive / Shared-with-me tabs are still shown there.
+
+---
+
 ## 32. Multi-link list on tasks and events  ✅ COMPLETED (2026-05-21, user request)
 
 **What:** every task and every calendar event now has a free-form **Links** section — an editable list of `{label, url}` entries for attaching papers, websites, repos, Overleaf docs, references, etc. Distinct from the existing dedicated single-link fields (`Ticket.driveFolderUrl` with its Drive picker, `Event.meetingUrl` with its Join button) — those keep their special affordances.
