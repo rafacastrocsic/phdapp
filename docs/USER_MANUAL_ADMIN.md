@@ -325,6 +325,18 @@ A *team advisor* is a senior internal colleague who follows **specific students*
 3. They don't need to sign in first if you used *Add team member* (it creates the User row); by-email in *Manage team* needs them to have signed in once.
 4. Done — for each assigned student they see everything read-only, and the **Advisor suggestions** thread appears on their Team page (and for any supervisor/admin) to send suggestions. The **Team** page lists every member with exactly who they supervise vs. team-advise.
 
+## Knowing who's using the app
+
+Each user row on `/admin` shows two activity markers under their email:
+
+- **Active now** — green dot, when the user has rendered any authenticated page in the last 10 minutes.
+- **Active Nm ago · Last login Nd ago** — otherwise.
+- **Never signed in** — italic grey, for users created via *Add team member* who haven't authenticated yet.
+
+The signals are tracked by two `User` columns: `lastLoginAt` (set in the NextAuth signIn event) and `lastActiveAt` (stamped by every authenticated page render of the `(app)` layout, throttled to ~5 minutes so a busy session writes once per window, not per click). Both are nullable; they fill in the first time a user signs in.
+
+This is admin-only — no other surface exposes these timestamps, so other users on the team can't see when their colleagues last browsed.
+
 ## Removing users / off-boarding
 
 There's no UI "delete user" button. To off-board:

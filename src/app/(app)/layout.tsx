@@ -12,6 +12,7 @@ import {
 import { computeUnreadByChannel } from "@/lib/chat-access";
 import { getDismissedTicketIds } from "@/lib/kanban-dismissed";
 import { getDismissedEventIds } from "@/lib/calendar-dismissed";
+import { bumpLastActive } from "@/lib/last-active";
 
 
 export default async function AppLayout({
@@ -21,6 +22,12 @@ export default async function AppLayout({
 }) {
   const session = await auth();
   if (!session?.user) redirect("/signin");
+
+  // Admin-only metric: stamp "last active" on every authenticated page
+  // render of the (app) layout. The helper throttles writes to ~5 min, so
+  // a busy user generates one row update every few minutes, not one per
+  // click. Errors are swallowed inside the helper.
+  await bumpLastActive(session.user.id);
 
   const { total: unreadChat } = await computeUnreadByChannel(session.user.id);
 

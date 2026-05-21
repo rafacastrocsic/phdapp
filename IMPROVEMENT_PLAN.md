@@ -393,6 +393,16 @@ Per-user, per-type preferences (extend the Settings page; a `NotificationPref` m
 
 ---
 
+## 31. Admin-only "last login / last active" per user  ✅ COMPLETED (2026-05-21, user request)
+
+**What:** every row on `/admin` now shows when each user last signed in and when they last browsed the app — so the admin can spot dormant accounts and confirm onboarded people actually started using PhDapp. Two distinct signals: **last login** (the Google OAuth event) and **last active** (any authenticated page render). A green "● Active now" pill appears for anyone whose last-active timestamp is within the last 10 minutes.
+
+**Implementation:** additive migration `20260521090000_user_login_activity` adds `User.lastLoginAt` and `User.lastActiveAt` (both nullable `DateTime?`). `lastLoginAt` is stamped in the NextAuth `signIn` event (fire-and-forget so a failed update never blocks sign-in). `lastActiveAt` is stamped by a new `bumpLastActive(userId)` helper (`src/lib/last-active.ts`) invoked from `src/app/(app)/layout.tsx` on every authenticated page render — **throttled to ~5 minutes** via a per-process in-memory cache + a `SELECT lastActiveAt; UPDATE only if older than 5 min` guard, so a busy click-fest doesn't hammer the DB. New helper component `<UserActivityLine>` renders the timestamps under each user's email on `/admin`, with three states: `Active now` (green), `Active Nm ago · Last login N ago`, or `Never signed in` (italic, for users created via the admin "Add team member" flow who haven't yet authenticated).
+
+**Scope/risk:** low. One additive migration; the helper is best-effort and swallows errors so the layout never breaks on a DB blip. Visibility is admin-only (the admin page is already gated). The throttled write strategy yields one DB UPDATE per user per ~5-minute browsing window, which is cheap.
+
+---
+
 ## 30. Related-events indicator on tasks  ✅ COMPLETED (2026-05-20, user request)
 
 **What:** every place a task is shown — Board cards, List rows, and the task detail panel — now surfaces whether the task has any *manually-linked* calendar events (events whose `linkedTaskId` is this task). Previously the link was only visible from the calendar side (opening an event showed *Related task: …*); now the task tells you which events relate to it without leaving the Tasks module.

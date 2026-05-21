@@ -29,6 +29,13 @@ model User {
   teamSuggestionsLastSeenAt DateTime?
   feedbackLastSeenAt DateTime?
 
+  // Admin-only visibility: when did this user actually use the app?
+  //   lastLoginAt  — bumped in the NextAuth signIn event
+  //   lastActiveAt — bumped on each authenticated page render, throttled
+  //                  (~5 min granularity) so we don't hammer the DB
+  lastLoginAt    DateTime?
+  lastActiveAt   DateTime?
+
   // External profile links (LinkedIn / ORCID / Google Scholar) — shown on
   // user profile cards and team views. Students keep their own copies on
   // the Student model (so they edit those via the student form).

@@ -6,6 +6,7 @@ import { Avatar } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { ProfileEditor } from "@/components/profile-editor";
 import { Shield, Info } from "lucide-react";
+import { relativeTime } from "@/lib/utils";
 import { AddTeamMember } from "./add-team-member";
 import { MaintenanceTools } from "./maintenance";
 import { GeneralCalendarSetting } from "./general-calendar-setting";
@@ -42,6 +43,8 @@ export default async function AdminPage() {
       linkedinUrl: true,
       orcidId: true,
       scholarUrl: true,
+      lastLoginAt: true,
+      lastActiveAt: true,
       _count: {
         select: {
           supervisedStudents: true,
@@ -134,6 +137,10 @@ export default async function AdminPage() {
                             )}
                           </div>
                           <div className="text-xs text-slate-500 truncate">{u.email}</div>
+                          <UserActivityLine
+                            lastLoginAt={u.lastLoginAt}
+                            lastActiveAt={u.lastActiveAt}
+                          />
                         </div>
                         <div className="hidden sm:flex items-center gap-3 text-xs text-slate-500">
                           {u._count.supervisedStudents > 0 && (
@@ -163,6 +170,63 @@ export default async function AdminPage() {
           </CardContent>
         </Card>
       ))}
+    </div>
+  );
+}
+
+/**
+ * Tiny admin-only summary line: when did this user last log in / last
+ * browse the app? Renders nothing for users who've never signed in
+ * (lastLoginAt = NULL), so a fresh "Add team member" row looks clean.
+ *
+ * Threshold for "online": active in the last 10 minutes. The bumper
+ * helper writes every ~5 min while the user is browsing, so two
+ * consecutive bumps cover the window.
+ */
+function UserActivityLine({
+  lastLoginAt,
+  lastActiveAt,
+}: {
+  lastLoginAt: Date | null;
+  lastActiveAt: Date | null;
+}) {
+  if (!lastLoginAt && !lastActiveAt) {
+    return (
+      <div className="text-[11px] text-slate-400 italic">
+        Never signed in
+      </div>
+    );
+  }
+  const now = Date.now();
+  const isOnline =
+    lastActiveAt && now - lastActiveAt.getTime() < 10 * 60_000;
+  const pieces: React.ReactNode[] = [];
+  if (isOnline) {
+    pieces.push(
+      <span key="online" className="text-[var(--c-green)] font-medium">
+        ● Active now
+      </span>,
+    );
+  } else if (lastActiveAt) {
+    pieces.push(<span key="active">Active {relativeTime(lastActiveAt)}</span>);
+  }
+  if (lastLoginAt) {
+    pieces.push(
+      <span key="login" className="text-slate-400">
+        Last login {relativeTime(lastLoginAt)}
+      </span>,
+    );
+  }
+  return (
+    <div className="text-[11px] text-slate-500 mt-0.5 flex gap-2 flex-wrap">
+      {pieces.flatMap((p, i) =>
+        i === 0
+          ? [p]
+          : [
+              <span key={`sep-${i}`} className="text-slate-300">·</span>,
+              p,
+            ],
+      )}
     </div>
   );
 }

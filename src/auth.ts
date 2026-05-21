@@ -60,6 +60,14 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
   events: {
     async signIn({ user }) {
       if (!user?.email) return;
+      // Stamp the login moment (admin-visible on /admin).
+      // Fire-and-forget: a failed update should never block sign-in.
+      prisma.user
+        .update({
+          where: { email: user.email },
+          data: { lastLoginAt: new Date(), lastActiveAt: new Date() },
+        })
+        .catch(() => {});
       const envRole = roleFor(user.email);
       const current = await prisma.user.findUnique({
         where: { email: user.email },
