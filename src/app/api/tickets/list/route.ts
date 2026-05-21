@@ -5,6 +5,7 @@ import { studentVisibilityWhere, type Role } from "@/lib/access";
 import { getDismissedTicketIds } from "@/lib/kanban-dismissed";
 import { parseSubtasks } from "@/lib/subtasks";
 import { parseLinks } from "@/lib/links";
+import { asUiStudent, isTeamOnly } from "@/lib/team-task";
 
 /**
  * Polled by the Kanban board client to refresh tickets and highlights without
@@ -28,7 +29,15 @@ export async function GET(req: Request) {
 
   const tickets = await prisma.ticket.findMany({
     where: {
-      studentId: { in: studentIds },
+      // Non-students also see team-only / unassigned tasks; students never do.
+      ...(role === "student"
+        ? { studentId: { in: studentIds } }
+        : {
+            OR: [
+              { studentId: { in: studentIds } },
+              { studentId: null },
+            ],
+          }),
       archivedAt: null,
       ...(studentFilter ? { studentId: studentFilter } : {}),
     },
@@ -94,7 +103,8 @@ export async function GET(req: Request) {
         startsAt: e.startsAt.toISOString(),
       })),
       assignee: t.assignee,
-      student: t.student,
+      student: asUiStudent(t.student),
+      teamOnly: isTeamOnly(t.studentId),
       tags: t.tags,
       subtasks: parseSubtasks(t.subtasks),
       links: parseLinks(t.links),

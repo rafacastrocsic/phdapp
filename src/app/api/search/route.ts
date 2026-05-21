@@ -79,7 +79,10 @@ export async function GET(req: Request) {
       id: t.id,
       title: t.title,
       status: t.status,
-      student: t.student.alias?.trim() || t.student.fullName,
+      // Team-only / unassigned tasks have no student — show a placeholder.
+      student: t.student
+        ? t.student.alias?.trim() || t.student.fullName
+        : "Team only",
     })),
     events: events.map((e) => ({
       id: e.id,

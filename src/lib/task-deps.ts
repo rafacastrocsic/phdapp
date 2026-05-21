@@ -112,7 +112,7 @@ export async function propagateFrom(
  */
 export async function setDependencies(
   dependentId: string,
-  studentId: string,
+  studentId: string | null,
   dependsOnIds: string[],
 ): Promise<string | null> {
   const ids = [...new Set(dependsOnIds)].filter((x) => x && x !== dependentId);
@@ -123,8 +123,12 @@ export async function setDependencies(
     });
     if (parents.length !== ids.length)
       return "Some selected tasks no longer exist.";
+    // Unassigned (team-only) tasks can only depend on other unassigned
+    // tasks; student tasks can only depend on the same student's tasks.
     if (parents.some((p) => p.studentId !== studentId))
-      return "A task can only depend on the same student's tasks.";
+      return studentId === null
+        ? "A team-only task can only depend on other team-only tasks."
+        : "A task can only depend on the same student's tasks.";
     for (const pid of ids) {
       if (await wouldCreateCycle(dependentId, pid))
         return "That dependency would create a cycle.";

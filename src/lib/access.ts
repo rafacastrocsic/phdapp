@@ -83,9 +83,20 @@ export async function assertCanSeeStudent(studentId: string) {
  * (the legacy CoSupervisor join table is kept under the hood, but the concept
  * "co-supervisor" no longer exists in the UI).
  */
-export async function accessForStudent(studentId: string, userId: string, role: Role) {
-  // Admin has supervisor-level access on every student.
+export async function accessForStudent(
+  studentId: string | null,
+  userId: string,
+  role: Role,
+) {
+  // Admin has supervisor-level access on every student, AND can act on
+  // team-only (unassigned) items.
   if (role === "admin") return "supervisor" as const;
+  // Team-only / unassigned items (studentId === null): supervisors and
+  // team advisors can write; students cannot see.
+  if (studentId === null) {
+    if (role === "supervisor") return "supervisor" as const;
+    return null;
+  }
   const sup = await prisma.student.findFirst({
     where: {
       id: studentId,

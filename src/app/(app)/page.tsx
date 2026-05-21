@@ -219,13 +219,21 @@ export default async function DashboardPage() {
                       </Link>
                       <div className="flex items-center gap-2 mt-1 text-xs text-slate-500">
                         <span>
-                          for{" "}
-                          <Link
-                            href={`/students/${t.studentId}`}
-                            className="font-medium text-slate-700 hover:underline"
-                          >
-                            {displayName(t.student)}
-                          </Link>
+                          {t.student ? (
+                            <>
+                              for{" "}
+                              <Link
+                                href={`/students/${t.studentId}`}
+                                className="font-medium text-slate-700 hover:underline"
+                              >
+                                {displayName(t.student)}
+                              </Link>
+                            </>
+                          ) : (
+                            <span className="font-medium text-slate-500 italic">
+                              Team only
+                            </span>
+                          )}
                         </span>
                         <span>·</span>
                         <span>updated {relativeTime(t.updatedAt)}</span>

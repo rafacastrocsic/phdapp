@@ -238,26 +238,30 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
     });
     // Best-effort ping to the student's supervisors (email if configured;
     // the activity entry above already drives the 🔔 bell + Tasks badge).
-    const sups = await prisma.student.findUnique({
-      where: { id: t.studentId },
-      select: {
-        supervisorId: true,
-        coSupervisors: {
-          where: { role: { in: ["supervisor", "co_supervisor"] } },
-          select: { userId: true },
+    // Skipped for team-only / unassigned tasks (no student-side supervisors
+    // to notify — non-student viewers see them through the activity log).
+    if (t.studentId) {
+      const sups = await prisma.student.findUnique({
+        where: { id: t.studentId },
+        select: {
+          supervisorId: true,
+          coSupervisors: {
+            where: { role: { in: ["supervisor", "co_supervisor"] } },
+            select: { userId: true },
+          },
         },
-      },
-    });
-    const ids = [
-      ...(sups?.supervisorId ? [sups.supervisorId] : []),
-      ...(sups?.coSupervisors.map((c) => c.userId) ?? []),
-    ];
-    await notify(ids, {
-      type: "task.completion",
-      message: `“${t.title}” was marked completed — review it and move it to Done.`,
-      link: `/kanban?ticket=${id}`,
-      actorId: session.user.id,
-    }).catch(() => {});
+      });
+      const ids = [
+        ...(sups?.supervisorId ? [sups.supervisorId] : []),
+        ...(sups?.coSupervisors.map((c) => c.userId) ?? []),
+      ];
+      await notify(ids, {
+        type: "task.completion",
+        message: `“${t.title}” was marked completed — review it and move it to Done.`,
+        link: `/kanban?ticket=${id}`,
+        actorId: session.user.id,
+      }).catch(() => {});
+    }
   } else {
     // Only log MATERIAL changes (so opening the form / a no-op blur / a
     // reverted value never produces a log entry), with a succinct,
@@ -356,7 +360,8 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
       // (status / priority / assignee / due date / dependencies) so they
       // hear about it even when away. notify() skips the actor, so a
       // student editing their own task isn't notified.
-      if (significant) {
+      // Skipped entirely for team-only / unassigned tasks (no student to notify).
+      if (significant && t.studentId) {
         const stu = await prisma.student.findUnique({
           where: { id: t.studentId },
           select: { userId: true },

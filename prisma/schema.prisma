@@ -369,8 +369,11 @@ model Ticket {
   // single dedicated field with its own Drive-picker affordance.
   links          String?
 
-  studentId    String
-  student      Student   @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  // Optional student assignment. NULL means "team-only" — only non-student
+  // viewers (admin / supervisor / team advisor) see it. Students cannot
+  // create or own such tasks (server-side enforcement in /api/tickets).
+  studentId    String?
+  student      Student?  @relation(fields: [studentId], references: [id], onDelete: Cascade)
 
   // Optional parent group → 3-level hierarchy: Group > Task > Subtask.
   groupId      String?

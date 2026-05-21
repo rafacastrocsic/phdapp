@@ -10,7 +10,9 @@ import { LinkInput, sanitiseLinks, parseLinks } from "@/lib/links";
 const Body = z.object({
   title: z.string().min(1),
   description: z.string().optional().nullable(),
-  studentId: z.string().min(1),
+  // Null = team-only task. Students cannot create one (enforced below);
+  // supervisors/admin/team-advisors can.
+  studentId: z.string().min(1).nullable(),
   assigneeId: z.string().optional().nullable(),
   status: z.string().default("todo"),
   priority: z.string().default("medium"),
@@ -33,6 +35,14 @@ export async function POST(req: Request) {
 
   const d = parsed.data;
 
+  // Students may only create tasks for themselves — never team-only.
+  if ((session.user.role as Role) === "student" && !d.studentId) {
+    return NextResponse.json(
+      { error: "Students cannot create team-only tasks." },
+      { status: 403 },
+    );
+  }
+
   const access = await accessForStudent(
     d.studentId,
     session.user.id,
@@ -40,7 +50,11 @@ export async function POST(req: Request) {
   );
   if (!canWriteForStudent(access))
     return NextResponse.json(
-      { error: "Only the supervisors of this student can create tasks" },
+      {
+        error: d.studentId
+          ? "Only the supervisors of this student can create tasks"
+          : "Only non-student team members can create team-only tasks",
+      },
       { status: 403 },
     );
 
@@ -52,7 +66,15 @@ export async function POST(req: Request) {
     );
 
   // If assigning to an existing group, it must belong to the same student.
+  // Team-only tasks (studentId === null) cannot belong to a group, since
+  // groups are per-student.
   if (d.groupId) {
+    if (!d.studentId) {
+      return NextResponse.json(
+        { error: "Team-only tasks cannot be grouped." },
+        { status: 400 },
+      );
+    }
     const grp = await prisma.taskGroup.findFirst({
       where: { id: d.groupId, studentId: d.studentId },
       select: { id: true },

@@ -196,13 +196,18 @@ export default async function CalendarPage({
         links: e.links,
         driveFolderUrl: e.driveFolderUrl,
       }))}
-      tasks={linkableTasks.map((t) => ({
-        id: t.id,
-        title: t.title,
-        status: t.status,
-        studentId: t.student.id,
-        studentName: displayName(t.student),
-      }))}
+      tasks={linkableTasks
+        // Team-only / unassigned tasks are filtered out of the link picker
+        // for now — keeps the per-student scoping logic clean. They can
+        // still appear if/when we extend LinkableTask to allow null student.
+        .filter((t) => t.student !== null)
+        .map((t) => ({
+          id: t.id,
+          title: t.title,
+          status: t.status,
+          studentId: t.student!.id,
+          studentName: displayName(t.student!),
+        }))}
       availability={availability}
       myAvailability={myAvailability}
       initialStudent={sp.student ?? null}

@@ -66,7 +66,11 @@ export interface Ticket {
     image: string | null;
     color: string;
   } | null;
+  // For team-only / unassigned tasks the server provides a synthetic
+  // "Team only" placeholder student (id: "__team__") so downstream code
+  // can stay simple. The `teamOnly` flag below carries the real intent.
   student: { id: string; fullName: string; alias: string | null; color: string };
+  teamOnly: boolean;
   tags: { id: string; label: string; color: string }[];
   subtasks: Subtask[];
   completionRequestedAt?: string | null;
@@ -740,22 +744,40 @@ function TicketCard({
         </div>
 
         <div className="mt-3 flex items-center justify-between gap-2">
-          <Link
-            href={`/students/${ticket.student.id}`}
-            onClick={(e) => e.stopPropagation()}
-            className={cn(
-              "flex items-center gap-1.5 text-xs min-w-0",
-              highlight
-                ? "text-white/90 hover:text-white"
-                : "text-slate-500 hover:text-slate-900",
-            )}
-          >
+          {ticket.teamOnly ? (
+            // Team-only task — no student to link to. Use a small italic
+            // pill so it's distinguishable at a glance from student tasks.
             <span
-              className="h-2 w-2 rounded-full shrink-0"
-              style={{ background: highlight ? "#ffffff" : ticket.student.color }}
-            />
-            <span className="truncate">{displayName(ticket.student)}</span>
-          </Link>
+              className={cn(
+                "flex items-center gap-1.5 text-xs min-w-0 italic",
+                highlight ? "text-white/90" : "text-slate-500",
+              )}
+              title="Team-only task (not visible to students)"
+            >
+              <span
+                className="h-2 w-2 rounded-full shrink-0"
+                style={{ background: highlight ? "#ffffff" : "#94a3b8" }}
+              />
+              <span className="truncate">Team only</span>
+            </span>
+          ) : (
+            <Link
+              href={`/students/${ticket.student.id}`}
+              onClick={(e) => e.stopPropagation()}
+              className={cn(
+                "flex items-center gap-1.5 text-xs min-w-0",
+                highlight
+                  ? "text-white/90 hover:text-white"
+                  : "text-slate-500 hover:text-slate-900",
+              )}
+            >
+              <span
+                className="h-2 w-2 rounded-full shrink-0"
+                style={{ background: highlight ? "#ffffff" : ticket.student.color }}
+              />
+              <span className="truncate">{displayName(ticket.student)}</span>
+            </Link>
+          )}
           {ticket.assignee && (
             <Avatar
               name={ticket.assignee.name}
@@ -878,7 +900,13 @@ function NewTicketDialog({
   // "" = no group · "__new__" = create one named newGroupName · <id> = existing
   const [groupId, setGroupId] = useState<string>("");
   const [newGroupName, setNewGroupName] = useState<string>("");
-  const effStudentId = isStudent ? defaultStudentId : studentId || null;
+  // "__team__" in the dropdown means team-only; treat as null for downstream
+  // student-only features (groups, dependency picker, drive scope).
+  const effStudentId = isStudent
+    ? defaultStudentId
+    : studentId && studentId !== "__team__"
+      ? studentId
+      : null;
   // Existing groups for the chosen student (groups are per-student).
   const studentGroups = (() => {
     const m = new Map<string, { id: string; name: string; color: string }>();
@@ -905,11 +933,16 @@ function NewTicketDialog({
       // assigneeId comes from the form select (restricted list); fall back to self
       if (!payload.assigneeId) payload.assigneeId = viewerId;
     }
+    // "__team__" in the student dropdown means "team-only" — the wire
+    // representation is null.
+    const wireStudentId =
+      payload.studentId === "__team__" ? null : payload.studentId;
     const res = await fetch("/api/tickets", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         ...payload,
+        studentId: wireStudentId,
         dependsOnIds: deps,
         driveFolderUrl,
         // Assign to an existing group inline; a brand-new group is created
@@ -975,6 +1008,9 @@ function NewTicketDialog({
                   required
                 >
                   <option value="" disabled>Select…</option>
+                  {/* Team-only (no student) — visible only to non-students.
+                      Students cannot create such tasks. */}
+                  <option value="__team__">— Team only (no student) —</option>
                   {students.map((s) => (
                     <option key={s.id} value={s.id}>{displayName(s)}</option>
                   ))}

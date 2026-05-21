@@ -197,7 +197,11 @@ export default async function TeamPage() {
           .filter((c) => c.role === "supervisor" || c.role === "co_supervisor")
           .map((c) => c.studentId),
       ]);
-      const open = openTickets.filter((t) => studentIds.has(t.studentId));
+      // Team-only tasks (studentId === null) don't belong to any student
+      // and therefore don't count toward a supervisor's per-student workload.
+      const open = openTickets.filter(
+        (t) => t.studentId !== null && studentIds.has(t.studentId),
+      );
       return {
         id: u.id,
         name: u.name ?? u.email,

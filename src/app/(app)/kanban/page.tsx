@@ -4,6 +4,7 @@ import { studentVisibilityWhere, type Role } from "@/lib/access";
 import { clearDismissedTicketIds } from "@/lib/kanban-dismissed";
 import { parseSubtasks } from "@/lib/subtasks";
 import { parseLinks } from "@/lib/links";
+import { asUiStudent, isTeamOnly } from "@/lib/team-task";
 import { KanbanBoard } from "./kanban-board";
 
 export default async function KanbanPage({
@@ -31,7 +32,16 @@ export default async function KanbanPage({
 
   const tickets = await prisma.ticket.findMany({
     where: {
-      studentId: { in: studentIds },
+      // Non-students also see team-only / unassigned tasks (studentId IS
+      // NULL). Students never see them.
+      ...(role === "student"
+        ? { studentId: { in: studentIds } }
+        : {
+            OR: [
+              { studentId: { in: studentIds } },
+              { studentId: null },
+            ],
+          }),
       archivedAt: null,
       ...(sp.student ? { studentId: sp.student } : {}),
     },
@@ -169,7 +179,8 @@ export default async function KanbanPage({
           startsAt: e.startsAt.toISOString(),
         })),
         assignee: t.assignee,
-        student: t.student,
+        student: asUiStudent(t.student),
+        teamOnly: isTeamOnly(t.studentId),
         tags: t.tags,
         subtasks: parseSubtasks(t.subtasks),
         links: parseLinks(t.links),
@@ -203,7 +214,8 @@ export default async function KanbanPage({
         commentCount: t._count.comments,
         linkedEventCount: t._count.linkedEvents,
         assignee: t.assignee,
-        student: t.student,
+        student: asUiStudent(t.student),
+        teamOnly: isTeamOnly(t.studentId),
         tags: t.tags,
         subtasks: parseSubtasks(t.subtasks),
         links: parseLinks(t.links),
