@@ -571,7 +571,17 @@ export function CalendarView({
                   </div>
                 ))}
               </div>
-              <div className="grid grid-cols-7 grid-rows-6 flex-1 overflow-y-auto">
+              {/* `auto-rows-[minmax(110px,auto)]` (instead of grid-rows-6)
+                  matters at narrow viewports where the page becomes a
+                  single column and the Upcoming list stacks under the
+                  calendar. In that layout the grid container's height
+                  is no longer constrained, so `grid-rows-6` (which is
+                  `repeat(6, minmax(0, 1fr))`) collapses every row
+                  track to 0 — cells then overflow their own rows and
+                  events visually bleed into the next week's cell.
+                  Auto-rows gives each row its content height with a
+                  110px floor and keeps the visual alignment intact. */}
+              <div className="grid grid-cols-7 auto-rows-[minmax(110px,auto)] flex-1 overflow-y-auto">
                 {days.map((day) => {
                   const key = format(day, "yyyy-MM-dd");
                   const evs = dayEvents[key] ?? [];
@@ -1942,14 +1952,22 @@ function MeetingPanel({ event }: { event: Event }) {
   });
   const [agendaDraft, setAgendaDraft] = useState("");
   const [notes, setNotes] = useState(event.meetingNotes ?? "");
-  // Keep a live ref of `notes` so the unmount-time flush sees the latest
-  // value without re-creating the cleanup effect on every keystroke.
+  // Mirror of the last server-persisted value, kept in *state* (not just
+  // a ref) so the "Unsaved changes" label and the disabled state of the
+  // Save button update immediately after a successful PATCH — we can't
+  // rely on `event.meetingNotes` here because the parent only re-fetches
+  // on `router.refresh()` and the new prop may not have arrived yet.
+  const [savedNotes, setSavedNotes] = useState(event.meetingNotes ?? "");
+  useEffect(() => {
+    setSavedNotes(event.meetingNotes ?? "");
+  }, [event.meetingNotes]);
+  // Keep a live ref of `notes` so the unmount-time flush sees the
+  // latest value without re-creating the cleanup effect on every
+  // keystroke.
   const notesRef = useRef(notes);
   notesRef.current = notes;
-  const lastSavedNotesRef = useRef(event.meetingNotes ?? "");
-  useEffect(() => {
-    lastSavedNotesRef.current = event.meetingNotes ?? "";
-  }, [event.meetingNotes]);
+  const lastSavedNotesRef = useRef(savedNotes);
+  lastSavedNotesRef.current = savedNotes;
   // If the dialog closes (panel unmounts) with unsaved notes — for
   // example the user clicks the X or outside the modal before the
   // textarea blur fires — flush the pending notes via a best-effort
@@ -2004,7 +2022,7 @@ function MeetingPanel({ event }: { event: Event }) {
       body: JSON.stringify(body),
     });
     if (typeof body.meetingNotes === "string") {
-      lastSavedNotesRef.current = body.meetingNotes;
+      setSavedNotes(body.meetingNotes);
     }
     setSavedMsg("Saved");
     setTimeout(() => setSavedMsg(""), 1500);
@@ -2094,7 +2112,7 @@ function MeetingPanel({ event }: { event: Event }) {
       <div>
         <div className="flex items-center justify-between">
           <span className="text-xs font-semibold text-slate-700">Notes</span>
-          {notes !== (event.meetingNotes ?? "") && (
+          {notes !== savedNotes && (
             <span className="text-[10px] font-medium text-[var(--c-orange)]">
               Unsaved changes
             </span>
@@ -2103,10 +2121,7 @@ function MeetingPanel({ event }: { event: Event }) {
         <Textarea
           value={notes}
           onChange={(e) => setNotes(e.target.value)}
-          onBlur={() =>
-            notes !== (event.meetingNotes ?? "") &&
-            patch({ meetingNotes: notes })
-          }
+          onBlur={() => notes !== savedNotes && patch({ meetingNotes: notes })}
           rows={3}
           className="mt-1"
           placeholder="Decisions, discussion…"
@@ -2118,7 +2133,7 @@ function MeetingPanel({ event }: { event: Event }) {
             type="button"
             size="sm"
             variant="outline"
-            disabled={notes === (event.meetingNotes ?? "")}
+            disabled={notes === savedNotes}
             onClick={() => patch({ meetingNotes: notes })}
           >
             Save notes
