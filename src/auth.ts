@@ -58,7 +58,40 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
     }),
   ],
   events: {
-    async signIn({ user }) {
+    async signIn({ user, account }) {
+      // Persist the *fresh* Google tokens on every sign-in. The
+      // PrismaAdapter's linkAccount only fires on the FIRST link, so
+      // without this block a user who signs out, re-consents, and
+      // signs back in still has the old (possibly revoked) tokens
+      // sitting in their Account row — the very symptom that prompted
+      // this fix. Because we request `prompt: "consent"` above,
+      // Google returns a new refresh_token on every full re-consent.
+      if (account?.provider === "google" && user?.id) {
+        const existing = await prisma.account.findFirst({
+          where: { userId: user.id, provider: "google" },
+          select: { id: true, refresh_token: true },
+        });
+        if (existing) {
+          await prisma.account.update({
+            where: { id: existing.id },
+            data: {
+              access_token: account.access_token ?? null,
+              // Google only returns refresh_token on first consent OR
+              // when prompt=consent forces a new one. Keep the old
+              // value if Google didn't send one this time.
+              refresh_token:
+                account.refresh_token ?? existing.refresh_token ?? null,
+              expires_at:
+                typeof account.expires_at === "number"
+                  ? account.expires_at
+                  : null,
+              token_type: account.token_type ?? null,
+              scope: account.scope ?? null,
+              id_token: account.id_token ?? null,
+            },
+          });
+        }
+      }
       if (!user?.email) return;
       // Stamp the login moment (admin-visible on /admin).
       // Fire-and-forget: a failed update should never block sign-in.
