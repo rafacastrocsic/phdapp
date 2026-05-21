@@ -244,6 +244,33 @@ export default async function StudentDetail({
                   <Mail className="h-3.5 w-3.5" />
                   {student.email}
                 </a>
+                {/* Informational alternate emails — render each as a small
+                    mailto chip next to the primary one. */}
+                {(() => {
+                  let alts: string[] = [];
+                  try {
+                    const parsed = student.alternateEmails
+                      ? JSON.parse(student.alternateEmails)
+                      : [];
+                    if (Array.isArray(parsed))
+                      alts = parsed.filter(
+                        (x): x is string => typeof x === "string",
+                      );
+                  } catch {
+                    /* ignore malformed */
+                  }
+                  return alts.map((em) => (
+                    <a
+                      key={em}
+                      href={`mailto:${em}`}
+                      className="flex items-center gap-1 text-slate-400 hover:text-slate-700"
+                      title={`Alternate email: ${em}`}
+                    >
+                      <Mail className="h-3.5 w-3.5 opacity-60" />
+                      <span className="text-xs">{em}</span>
+                    </a>
+                  ));
+                })()}
                 <span className="flex items-center gap-1">
                   <GraduationCap className="h-3.5 w-3.5" />
                   Year {student.programYear}
@@ -335,6 +362,7 @@ export default async function StudentDetail({
                     orcidId: student.orcidId,
                     websiteUrl: student.websiteUrl,
                     scholarUrl: student.scholarUrl,
+                    alternateEmails: student.alternateEmails,
                   }}
                 />
               )}

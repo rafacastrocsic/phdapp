@@ -33,6 +33,20 @@ interface StudentInput {
   orcidId: string | null;
   websiteUrl: string | null;
   scholarUrl: string | null;
+  alternateEmails: string | null; // raw JSON; parsed in the form
+}
+
+function parseAltEmails(raw: string | null): string[] {
+  if (!raw) return [];
+  try {
+    const j = JSON.parse(raw);
+    return Array.isArray(j) ? j.filter((x): x is string => typeof x === "string") : [];
+  } catch {
+    return [];
+  }
+}
+function looksLikeEmail(s: string): boolean {
+  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(s.trim());
 }
 
 export function EditStudentDialog({
@@ -53,6 +67,11 @@ export function EditStudentDialog({
   );
   const [calendarId, setCalendarId] = useState<string | null>(student.calendarId);
   const [avatarUrl, setAvatarUrl] = useState<string | null>(student.avatarUrl);
+  const [alternateEmails, setAlternateEmails] = useState<string[]>(
+    parseAltEmails(student.alternateEmails),
+  );
+  const [newAlt, setNewAlt] = useState("");
+  const [altError, setAltError] = useState<string | null>(null);
   const router = useRouter();
 
   async function onSubmit(e: React.FormEvent<HTMLFormElement>) {
@@ -65,6 +84,7 @@ export function EditStudentDialog({
       driveFolderId: driveFolderId ?? "",
       calendarId: calendarId ?? "",
       avatarUrl: avatarUrl ?? "",
+      alternateEmails,
     };
     const res = await fetch(`/api/students/${student.id}`, {
       method: "PATCH",
@@ -214,6 +234,79 @@ export function EditStudentDialog({
               defaultValue={student.scholarUrl ?? ""}
               placeholder="https://scholar.google.com/citations?user=…  (or just the user id)"
             />
+          </Field>
+          <Field label="Alternate emails (informational)">
+            <div className="space-y-1.5">
+              {alternateEmails.length > 0 && (
+                <ul className="space-y-1">
+                  {alternateEmails.map((em, i) => (
+                    <li
+                      key={`${em}-${i}`}
+                      className="flex items-center gap-2 rounded-md border bg-slate-50 px-2.5 py-1 text-sm"
+                    >
+                      <span className="flex-1 truncate text-slate-700">
+                        {em}
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() =>
+                          setAlternateEmails((p) =>
+                            p.filter((_, j) => j !== i),
+                          )
+                        }
+                        className="text-slate-400 hover:text-[var(--c-red)] text-[11px] font-semibold"
+                        title="Remove"
+                      >
+                        ×
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+              )}
+              <div className="flex gap-2">
+                <Input
+                  value={newAlt}
+                  onChange={(e) => {
+                    setNewAlt(e.target.value);
+                    if (altError) setAltError(null);
+                  }}
+                  placeholder="another.email@example.com"
+                  type="email"
+                />
+                <button
+                  type="button"
+                  onClick={() => {
+                    const v = newAlt.trim();
+                    if (!v) return;
+                    if (!looksLikeEmail(v)) {
+                      setAltError("That doesn't look like a valid email.");
+                      return;
+                    }
+                    if (
+                      v.toLowerCase() === student.email.toLowerCase() ||
+                      alternateEmails.some(
+                        (e) => e.toLowerCase() === v.toLowerCase(),
+                      )
+                    ) {
+                      setAltError("Already on the list.");
+                      return;
+                    }
+                    setAlternateEmails((p) => [...p, v]);
+                    setNewAlt("");
+                  }}
+                  className="rounded-md bg-slate-900 px-3 py-1.5 text-xs font-semibold text-white hover:bg-slate-700"
+                >
+                  Add
+                </button>
+              </div>
+              {altError && (
+                <div className="text-xs text-[var(--c-red)]">{altError}</div>
+              )}
+              <p className="text-[11px] text-slate-400">
+                Shown on the profile alongside the primary email. Not used
+                for login or notifications.
+              </p>
+            </div>
           </Field>
           <Field label="Profile photo">
             <AvatarUploader

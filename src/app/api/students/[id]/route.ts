@@ -31,6 +31,8 @@ const Patch = z.object({
   orcidId: z.string().nullable().optional(),
   websiteUrl: z.string().nullable().optional(),
   scholarUrl: z.string().nullable().optional(),
+  // Informational; same sanitisation as User.alternateEmails.
+  alternateEmails: z.array(z.string()).optional(),
 });
 
 async function loadOwned(id: string, userId: string, role: Role) {
@@ -86,6 +88,19 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
   if (d.orcidId !== undefined) data.orcidId = normalizeOrcid(d.orcidId);
   if (d.websiteUrl !== undefined) data.websiteUrl = normalizeWebsite(d.websiteUrl);
   if (d.scholarUrl !== undefined) data.scholarUrl = normalizeScholar(d.scholarUrl);
+  if (d.alternateEmails !== undefined) {
+    // Same sanitisation as /api/users/[id]: trim, drop empties, dedupe
+    // case-insensitively, cap at 10.
+    const sane = Array.from(
+      new Map(
+        d.alternateEmails
+          .map((e) => e.trim())
+          .filter((e) => e.length > 0 && e.length <= 254)
+          .map((e) => [e.toLowerCase(), e]),
+      ).values(),
+    ).slice(0, 10);
+    data.alternateEmails = sane.length > 0 ? JSON.stringify(sane) : null;
+  }
 
   try {
     await prisma.student.update({ where: { id }, data });

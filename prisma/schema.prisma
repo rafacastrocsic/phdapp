@@ -142,6 +142,10 @@ model Student {
   orcidId         String?
   websiteUrl      String?
   scholarUrl      String?
+  // Informational alternate emails (JSON array of strings) — mirrors
+  // User.alternateEmails. Displayed on the student profile header
+  // alongside the primary email; not used for login or notifications.
+  alternateEmails String?
 
   supervisorId    String
   supervisor      User      @relation("SupervisorOfStudent", fields: [supervisorId], references: [id])

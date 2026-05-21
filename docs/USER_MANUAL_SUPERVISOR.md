@@ -378,6 +378,8 @@ The **Feedback** entry in the sidebar (📣 megaphone) sends a bug report, impro
 
 Top-right avatar → **Edit profile**. You can change name, color, photo, **external profile links** (LinkedIn / ORCID / Google Scholar — informational icon-links shown beside your name in team views) and **alternate emails** — a list of secondary email addresses kept on your profile for reference (institutional + personal). Alternate emails are *informational only* — notifications and login still use your primary Google account. Your role and permissions are managed by the admin.
 
+For **students**, alternate emails exist in *two* independent places, mirroring how LinkedIn / ORCID work: (1) on their **user account** (Settings → My profile, set by the student themselves), and (2) on their **student record** (the *Edit student* dialog you can open on the student's profile if you're their primary supervisor or admin). The student-profile header shows the alt emails from the *student record*. This duplication is intentional — it lets you fill in a student's contact details before they sign in for the first time.
+
 ## Permissions cheat sheet
 
 | Action | Primary supervisor | Co-supervisor | External advisor | Committee | Team advisor | Admin |
