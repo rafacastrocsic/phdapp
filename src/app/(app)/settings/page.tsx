@@ -22,6 +22,7 @@ export default async function SettingsPage() {
       linkedinUrl: true,
       orcidId: true,
       scholarUrl: true,
+      alternateEmails: true,
     },
   });
 

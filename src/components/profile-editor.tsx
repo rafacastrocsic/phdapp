@@ -17,6 +17,24 @@ interface UserRow {
   linkedinUrl: string | null;
   orcidId: string | null;
   scholarUrl: string | null;
+  // JSON array of strings (informational only — not used for login).
+  alternateEmails: string | null;
+}
+
+// Light email-shape check — purely client-side hint; the server stores
+// what it's given. No DNS / SMTP validation.
+function looksLikeEmail(s: string): boolean {
+  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(s.trim());
+}
+
+function parseAlts(raw: string | null): string[] {
+  if (!raw) return [];
+  try {
+    const j = JSON.parse(raw);
+    return Array.isArray(j) ? j.filter((x): x is string => typeof x === "string") : [];
+  } catch {
+    return [];
+  }
 }
 
 const ROLE_OPTIONS = [
@@ -41,6 +59,11 @@ export function ProfileEditor({
   const [linkedinUrl, setLinkedinUrl] = useState(user.linkedinUrl ?? "");
   const [orcidId, setOrcidId] = useState(user.orcidId ?? "");
   const [scholarUrl, setScholarUrl] = useState(user.scholarUrl ?? "");
+  const [alternateEmails, setAlternateEmails] = useState<string[]>(
+    parseAlts(user.alternateEmails),
+  );
+  const [newAlt, setNewAlt] = useState("");
+  const [altError, setAltError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [msg, setMsg] = useState<{ type: "ok" | "err"; text: string } | null>(null);
@@ -57,6 +80,7 @@ export function ProfileEditor({
       linkedinUrl,
       orcidId,
       scholarUrl,
+      alternateEmails,
     };
     if (canEditRole) payload.role = role;
     const r = await fetch(`/api/users/${user.id}`, {
@@ -208,6 +232,77 @@ export function ProfileEditor({
           These show as small icon links beside your name in team views and on
           your profile.
         </p>
+      </div>
+
+      <div className="space-y-3 border-t pt-4">
+        <div className="text-xs font-semibold text-slate-700">
+          Alternate emails
+        </div>
+        <p className="text-[11px] text-slate-500">
+          For information only — these are shown on your profile alongside
+          your primary <code>{user.email}</code>. Notifications and login
+          still use your primary Google account.
+        </p>
+        {alternateEmails.length > 0 && (
+          <ul className="space-y-1">
+            {alternateEmails.map((em, i) => (
+              <li
+                key={`${em}-${i}`}
+                className="flex items-center gap-2 rounded-md border bg-slate-50 px-2.5 py-1 text-sm"
+              >
+                <span className="flex-1 truncate text-slate-700">{em}</span>
+                <button
+                  type="button"
+                  onClick={() =>
+                    setAlternateEmails((p) => p.filter((_, j) => j !== i))
+                  }
+                  className="text-slate-400 hover:text-[var(--c-red)] text-[11px] font-semibold"
+                  title="Remove"
+                >
+                  ×
+                </button>
+              </li>
+            ))}
+          </ul>
+        )}
+        <div className="flex gap-2">
+          <Input
+            value={newAlt}
+            onChange={(e) => {
+              setNewAlt(e.target.value);
+              if (altError) setAltError(null);
+            }}
+            placeholder="another.email@example.com"
+            type="email"
+          />
+          <Button
+            type="button"
+            variant="default"
+            size="sm"
+            onClick={() => {
+              const v = newAlt.trim();
+              if (!v) return;
+              if (!looksLikeEmail(v)) {
+                setAltError("That doesn't look like a valid email.");
+                return;
+              }
+              if (
+                v.toLowerCase() === user.email.toLowerCase() ||
+                alternateEmails.some((e) => e.toLowerCase() === v.toLowerCase())
+              ) {
+                setAltError("Already on the list.");
+                return;
+              }
+              setAlternateEmails((p) => [...p, v]);
+              setNewAlt("");
+            }}
+          >
+            Add
+          </Button>
+        </div>
+        {altError && (
+          <div className="text-xs text-[var(--c-red)]">{altError}</div>
+        )}
       </div>
 
       {msg && (

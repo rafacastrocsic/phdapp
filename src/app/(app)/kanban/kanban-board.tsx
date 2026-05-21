@@ -68,9 +68,14 @@ export interface Ticket {
   } | null;
   // For team-only / unassigned tasks the server provides a synthetic
   // "Team only" placeholder student (id: "__team__") so downstream code
-  // can stay simple. The `teamOnly` flag below carries the real intent.
+  // can stay simple. The `teamOnly` / `isGeneral` flags below carry the
+  // real intent.
   student: { id: string; fullName: string; alias: string | null; color: string };
+  // True for unassigned non-general tasks (visible only to non-students).
   teamOnly: boolean;
+  // True for unassigned general tasks (visible to everyone). Mutually
+  // exclusive with teamOnly. Both false → tied to a specific student.
+  isGeneral: boolean;
   tags: { id: string; label: string; color: string }[];
   subtasks: Subtask[];
   completionRequestedAt?: string | null;
@@ -190,7 +195,14 @@ export function KanbanBoard({
 
   const filtered = useMemo(() => {
     return tickets.filter((t) => {
-      if (studentFilter && t.student.id !== studentFilter) return false;
+      // Special filter values for the unassigned states.
+      if (studentFilter === "__general__") {
+        if (!t.isGeneral) return false;
+      } else if (studentFilter === "__team__") {
+        if (!t.teamOnly) return false;
+      } else if (studentFilter && t.student.id !== studentFilter) {
+        return false;
+      }
       if (priorityFilter && t.priority !== priorityFilter) return false;
       if (categoryFilter === "other") {
         // "Other" matches literal "other" + any custom user-typed label.
@@ -382,7 +394,9 @@ export function KanbanBoard({
               onChange={(e) => setStudentFilter(e.target.value)}
               className="!w-auto grow-0 basis-44 max-w-xs"
             >
-              <option value="">All students</option>
+              <option value="">All</option>
+              <option value="__general__">— General only —</option>
+              <option value="__team__">— Team only —</option>
               {students.map((s) => (
                 <option key={s.id} value={s.id}>
                   {displayName(s)}
@@ -750,21 +764,34 @@ function TicketCard({
         </div>
 
         <div className="mt-3 flex items-center justify-between gap-2">
-          {ticket.teamOnly ? (
-            // Team-only task — no student to link to. Use a small italic
-            // pill so it's distinguishable at a glance from student tasks.
+          {ticket.teamOnly || ticket.isGeneral ? (
+            // Unassigned task — no student to link to. Use a small italic
+            // pill so it's distinguishable at a glance; colour & title
+            // differentiate team-only (slate) vs general (teal).
             <span
               className={cn(
                 "flex items-center gap-1.5 text-xs min-w-0 italic",
                 highlight ? "text-white/90" : "text-slate-500",
               )}
-              title="Team-only task (not visible to students)"
+              title={
+                ticket.isGeneral
+                  ? "General task (visible to everyone)"
+                  : "Team-only task (not visible to students)"
+              }
             >
               <span
                 className="h-2 w-2 rounded-full shrink-0"
-                style={{ background: highlight ? "#ffffff" : "#94a3b8" }}
+                style={{
+                  background: highlight
+                    ? "#ffffff"
+                    : ticket.isGeneral
+                      ? "var(--c-teal)"
+                      : "#94a3b8",
+                }}
               />
-              <span className="truncate">Team only</span>
+              <span className="truncate">
+                {ticket.isGeneral ? "General" : "Team only"}
+              </span>
             </span>
           ) : (
             <Link
@@ -908,13 +935,16 @@ function NewTicketDialog({
   // "" = no group · "__new__" = create one named newGroupName · <id> = existing
   const [groupId, setGroupId] = useState<string>("");
   const [newGroupName, setNewGroupName] = useState<string>("");
-  // "__team__" in the dropdown means team-only; treat as null for downstream
-  // student-only features (groups, dependency picker, drive scope).
+  // "__team__" and "__general__" in the dropdown mean studentId=null on
+  // the wire. They differ only in the isGeneral flag we send alongside.
+  // Either way, downstream student-only features (groups, dependency
+  // picker, drive scope) treat this as "no student".
   const effStudentId = isStudent
     ? defaultStudentId
-    : studentId && studentId !== "__team__"
+    : studentId && studentId !== "__team__" && studentId !== "__general__"
       ? studentId
       : null;
+  const effIsGeneral = !isStudent && studentId === "__general__";
   // Existing groups for the chosen student (groups are per-student).
   const studentGroups = (() => {
     const m = new Map<string, { id: string; name: string; color: string }>();
@@ -941,16 +971,20 @@ function NewTicketDialog({
       // assigneeId comes from the form select (restricted list); fall back to self
       if (!payload.assigneeId) payload.assigneeId = viewerId;
     }
-    // "__team__" in the student dropdown means "team-only" — the wire
-    // representation is null.
+    // "__team__" / "__general__" both mean studentId=null on the wire;
+    // they only differ in the isGeneral flag.
     const wireStudentId =
-      payload.studentId === "__team__" ? null : payload.studentId;
+      payload.studentId === "__team__" || payload.studentId === "__general__"
+        ? null
+        : payload.studentId;
+    const wireIsGeneral = payload.studentId === "__general__";
     const res = await fetch("/api/tickets", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         ...payload,
         studentId: wireStudentId,
+        isGeneral: wireIsGeneral,
         dependsOnIds: deps,
         driveFolderUrl,
         // Assign to an existing group inline; a brand-new group is created
@@ -1016,8 +1050,11 @@ function NewTicketDialog({
                   required
                 >
                   <option value="" disabled>Select…</option>
-                  {/* Team-only (no student) — visible only to non-students.
-                      Students cannot create such tasks. */}
+                  {/* Three-state visibility (non-student creators only):
+                      __general__ = visible to everyone
+                      __team__    = visible only to non-students
+                      <id>        = student-specific. */}
+                  <option value="__general__">— General (visible to all) —</option>
                   <option value="__team__">— Team only (no student) —</option>
                   {students.map((s) => (
                     <option key={s.id} value={s.id}>{displayName(s)}</option>

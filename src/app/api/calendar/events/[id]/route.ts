@@ -55,6 +55,8 @@ const Patch = z.object({
   links: z.array(LinkInput).optional(),
   // Single Drive folder URL (or null to clear).
   driveFolderUrl: z.string().nullable().optional(),
+  // Visibility for unassigned events.
+  isGeneral: z.boolean().optional(),
 });
 
 export async function PATCH(
@@ -96,6 +98,13 @@ export async function PATCH(
   }
   if (d.driveFolderUrl !== undefined) {
     data.driveFolderUrl = d.driveFolderUrl || null;
+  }
+  if (d.isGeneral !== undefined) {
+    // Only meaningful for unassigned events. If the event keeps a
+    // student, force false on the row.
+    const newStudentId =
+      d.studentId !== undefined ? d.studentId : event.studentId;
+    data.isGeneral = newStudentId ? false : d.isGeneral === true;
   }
   if (d.linkedTaskId !== undefined) {
     const linkedTaskId = d.linkedTaskId || null;

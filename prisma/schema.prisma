@@ -43,6 +43,12 @@ model User {
   orcidId        String?
   scholarUrl     String?
 
+  // Informational alternate emails (JSON array of strings). Displayed on
+  // the user's profile alongside LinkedIn / ORCID / Scholar. Notifications
+  // still go to the primary `email` only; alternates are not used for
+  // login or for digest fan-out (yet).
+  alternateEmails String?
+
   accounts Account[]
   sessions Session[]
 
@@ -369,11 +375,15 @@ model Ticket {
   // single dedicated field with its own Drive-picker affordance.
   links          String?
 
-  // Optional student assignment. NULL means "team-only" — only non-student
-  // viewers (admin / supervisor / team advisor) see it. Students cannot
-  // create or own such tasks (server-side enforcement in /api/tickets).
+  // Optional student assignment. Three-state visibility:
+  //   studentId set                    → student-specific (that student + team)
+  //   studentId null, isGeneral false  → team-only (non-students only)
+  //   studentId null, isGeneral true   → general (visible to everyone)
+  // Students cannot create studentId=null OR isGeneral=true (enforced in
+  // /api/tickets).
   studentId    String?
   student      Student?  @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  isGeneral    Boolean   @default(false)
 
   // Optional parent group → 3-level hierarchy: Group > Task > Subtask.
   groupId      String?
@@ -484,6 +494,11 @@ model Event {
 
   studentId String?
   student   Student? @relation(fields: [studentId], references: [id], onDelete: SetNull)
+  // Three-state visibility (mirrors Ticket.isGeneral):
+  //   studentId set                    → student-specific
+  //   studentId null, isGeneral false  → team-only (non-students only)
+  //   studentId null, isGeneral true   → general (visible to everyone)
+  isGeneral Boolean  @default(false)
 
   // If this event mirrors a task's due date, point back to it. Null for
   // regular events. We render task-events differently in the calendar.

@@ -33,10 +33,18 @@ export default async function KanbanPage({
 
   const tickets = await prisma.ticket.findMany({
     where: {
-      // Non-students also see team-only / unassigned tasks (studentId IS
-      // NULL). Students never see them.
+      // Visibility:
+      //   students   → their own studentId OR general (isGeneral=true)
+      //   non-students → visible students + every unassigned task
+      //                   (team-only AND general); both are surfaced
+      //                   only to them.
       ...(role === "student"
-        ? { studentId: { in: studentIds } }
+        ? {
+            OR: [
+              { studentId: { in: studentIds } },
+              { studentId: null, isGeneral: true },
+            ],
+          }
         : {
             OR: [
               { studentId: { in: studentIds } },
@@ -187,7 +195,8 @@ export default async function KanbanPage({
         })),
         assignee: t.assignee,
         student: asUiStudent(t.student),
-        teamOnly: isTeamOnly(t.studentId),
+        teamOnly: isTeamOnly(t.studentId) && !t.isGeneral,
+        isGeneral: t.isGeneral,
         tags: t.tags,
         subtasks: parseSubtasks(t.subtasks),
         links: parseLinks(t.links),
@@ -223,7 +232,8 @@ export default async function KanbanPage({
         linkedEventCount: t._count.linkedEvents,
         assignee: t.assignee,
         student: asUiStudent(t.student),
-        teamOnly: isTeamOnly(t.studentId),
+        teamOnly: isTeamOnly(t.studentId) && !t.isGeneral,
+        isGeneral: t.isGeneral,
         tags: t.tags,
         subtasks: parseSubtasks(t.subtasks),
         links: parseLinks(t.links),

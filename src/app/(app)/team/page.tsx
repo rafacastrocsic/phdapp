@@ -476,6 +476,7 @@ export default async function TeamPage() {
                       linkedinUrl: u.linkedinUrl,
                       orcidId: u.orcidId,
                       scholarUrl: u.scholarUrl,
+                      alternateEmails: u.alternateEmails,
                     }}
                     isMe={u.id === session.user.id}
                     isAdmin={isAdmin}
@@ -595,6 +596,7 @@ function MemberBody({
     linkedinUrl: string | null;
     orcidId: string | null;
     scholarUrl: string | null;
+    alternateEmails: string | null;
   };
   isMe: boolean;
   rel: Rel;

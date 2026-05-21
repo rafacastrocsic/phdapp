@@ -231,6 +231,7 @@ Click your avatar at the top-right → **Edit profile**. You can change:
 - Your color (used for your avatar and the stripe on your tasks)
 - Your photo
 - **External profile links** — LinkedIn, ORCID, Google Scholar. These render as small icon-links next to your name on your profile header and on team views. Leave any blank to hide it.
+- **Alternate emails** — for information only (like LinkedIn / ORCID). Add any number of secondary email addresses (personal Gmail, institutional address, etc.); they appear on your profile alongside your primary email. Notifications and login still use your primary Google account.
 
 You **cannot** change your role or your supervisor — ask your supervisor or the admin for that.
 

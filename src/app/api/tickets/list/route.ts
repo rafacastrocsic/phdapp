@@ -29,9 +29,15 @@ export async function GET(req: Request) {
 
   const tickets = await prisma.ticket.findMany({
     where: {
-      // Non-students also see team-only / unassigned tasks; students never do.
+      // Students: own + general. Non-students: own + every unassigned
+      // (team-only and general).
       ...(role === "student"
-        ? { studentId: { in: studentIds } }
+        ? {
+            OR: [
+              { studentId: { in: studentIds } },
+              { studentId: null, isGeneral: true },
+            ],
+          }
         : {
             OR: [
               { studentId: { in: studentIds } },
@@ -104,7 +110,8 @@ export async function GET(req: Request) {
       })),
       assignee: t.assignee,
       student: asUiStudent(t.student),
-      teamOnly: isTeamOnly(t.studentId),
+      teamOnly: isTeamOnly(t.studentId) && !t.isGeneral,
+      isGeneral: t.isGeneral,
       tags: t.tags,
       subtasks: parseSubtasks(t.subtasks),
       links: parseLinks(t.links),

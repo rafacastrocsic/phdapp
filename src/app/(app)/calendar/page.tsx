@@ -40,13 +40,26 @@ export default async function CalendarPage({
 
   const events = await prisma.event.findMany({
     where: {
-      // Unassigned (general) events have studentId = null and must show for
-      // everyone — otherwise they'd never appear after reload and the live
-      // poll would flag a freshly-created one as "deleted".
+      // Visibility:
+      //   students   → own students + general (isGeneral=true) events
+      //   non-students → visible students + every unassigned event
+      //                  (team-only AND general)
       AND: [
         sp.student
           ? { studentId: sp.student }
-          : { OR: [{ studentId: { in: studentIds } }, { studentId: null }] },
+          : role === "student"
+            ? {
+                OR: [
+                  { studentId: { in: studentIds } },
+                  { studentId: null, isGeneral: true },
+                ],
+              }
+            : {
+                OR: [
+                  { studentId: { in: studentIds } },
+                  { studentId: null },
+                ],
+              },
         // Recurring events are always loaded (their base startsAt may be far
         // in the past) and expanded client-side; one-offs are windowed.
         { OR: [{ startsAt: { gte: from, lte: to } }, { recurrenceRule: { not: null } }] },
@@ -201,6 +214,7 @@ export default async function CalendarPage({
         linkedTaskTitle: e.linkedTask?.title ?? null,
         links: e.links,
         driveFolderUrl: e.driveFolderUrl,
+        isGeneral: e.isGeneral,
       }))}
       tasks={linkableTasks
         // Team-only / unassigned tasks are filtered out of the link picker

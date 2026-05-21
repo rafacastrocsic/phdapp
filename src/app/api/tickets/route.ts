@@ -10,9 +10,12 @@ import { LinkInput, sanitiseLinks, parseLinks } from "@/lib/links";
 const Body = z.object({
   title: z.string().min(1),
   description: z.string().optional().nullable(),
-  // Null = team-only task. Students cannot create one (enforced below);
-  // supervisors/admin/team-advisors can.
+  // Null = team-only OR general task. Students cannot create either
+  // (enforced below); supervisors/admin/team-advisors can.
   studentId: z.string().min(1).nullable(),
+  // When studentId is null: false = team-only (non-students only),
+  // true = general (visible to all, incl. students).
+  isGeneral: z.boolean().optional(),
   assigneeId: z.string().optional().nullable(),
   status: z.string().default("todo"),
   priority: z.string().default("medium"),
@@ -35,13 +38,15 @@ export async function POST(req: Request) {
 
   const d = parsed.data;
 
-  // Students may only create tasks for themselves — never team-only.
+  // Students may only create tasks for themselves — never team-only or general.
   if ((session.user.role as Role) === "student" && !d.studentId) {
     return NextResponse.json(
-      { error: "Students cannot create team-only tasks." },
+      { error: "Students cannot create team-only or general tasks." },
       { status: 403 },
     );
   }
+  // isGeneral is only meaningful for studentId=null (otherwise just ignored).
+  const isGeneral = d.studentId ? false : d.isGeneral === true;
 
   const access = await accessForStudent(
     d.studentId,
@@ -102,6 +107,7 @@ export async function POST(req: Request) {
       links: d.links && d.links.length > 0
         ? JSON.stringify(sanitiseLinks(d.links))
         : null,
+      isGeneral,
     },
     include: {
       assignee: { select: { id: true, name: true, image: true, color: true } },
@@ -170,7 +176,11 @@ export async function POST(req: Request) {
       linkedEventCount: created._count.linkedEvents,
       linkedEvents: [] as { id: string; title: string; startsAt: string }[],
       assignee: created.assignee,
-      student: created.student,
+      student: created.student
+        ? created.student
+        : { id: "__team__", fullName: "Team only", alias: null, color: "#94a3b8" },
+      teamOnly: !created.studentId && !created.isGeneral,
+      isGeneral: created.isGeneral,
       group: created.group,
       tags: created.tags,
       subtasks: [] as { id: string; text: string; done: boolean }[],

@@ -96,7 +96,11 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
         startsAt: e.startsAt.toISOString(),
       })),
       assignee: t.assignee,
-      student: t.student,
+      student: t.student
+        ? t.student
+        : { id: "__team__", fullName: "Team only", alias: null, color: "#94a3b8" },
+      teamOnly: !t.studentId && !t.isGeneral,
+      isGeneral: t.isGeneral,
       subtasks: parseSubtasks(t.subtasks),
       links: parseLinks(t.links),
       updatedAt: t.updatedAt.toISOString(),

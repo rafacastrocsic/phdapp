@@ -85,6 +85,10 @@ interface Event {
   linkedTaskTitle: string | null;
   links: string | null; // raw JSON; parsed in the detail dialog
   driveFolderUrl: string | null;
+  // Three-state visibility: studentId set → student-specific;
+  // studentId null + isGeneral false → team-only; studentId null +
+  // isGeneral true → general (visible to all).
+  isGeneral: boolean;
   recurring?: boolean; // synthetic occurrence flag (client-only)
 }
 
@@ -223,9 +227,14 @@ export function CalendarView({
   }, [cursor]);
 
   const filtered = useMemo(() => {
-    const base = events.filter(
-      (e) => !studentFilter || e.student?.id === studentFilter,
-    );
+    const base = events.filter((e) => {
+      // Special filter values for the unassigned states.
+      if (studentFilter === "__general__")
+        return e.student === null && e.isGeneral;
+      if (studentFilter === "__team__")
+        return e.student === null && !e.isGeneral;
+      return !studentFilter || e.student?.id === studentFilter;
+    });
     const span = view === "year" ? 13 : 3;
     const rangeStart = startOfMonth(subMonths(cursor, span));
     const rangeEnd = endOfMonth(addMonths(cursor, span));
@@ -426,7 +435,9 @@ export function CalendarView({
               onChange={(e) => setStudentFilter(e.target.value)}
               className="!w-48"
             >
-              <option value="">All students</option>
+              <option value="">All</option>
+              <option value="__general__">— General only —</option>
+              <option value="__team__">— Team only —</option>
               {students.map((s) => (
                 <option key={s.id} value={s.id}>{displayName(s)}</option>
               ))}
@@ -1472,14 +1483,25 @@ function NewEventDialog({
   const [recurInterval, setRecurInterval] = useState(1);
   const [recurUntil, setRecurUntil] = useState("");
   const [isMeeting, setIsMeeting] = useState(false);
-  const [studentId, setStudentId] = useState(defaultStudentId ?? "");
+  // For non-student creators: default to "team-only" when no default
+  // student is provided (the old "No specific student" used to be
+  // implicit-general; we now make the user pick general explicitly).
+  const [studentId, setStudentId] = useState(
+    defaultStudentId ?? (isStudent ? "" : "__team__"),
+  );
   const [linkedTaskId, setLinkedTaskId] = useState("");
   // Optional Drive folder attached at creation (will be sent in payload).
   const [driveFolderUrl, setDriveFolderUrl] = useState<string | null>(null);
 
   // Tasks offered in the picker: scoped to the chosen student when one is
   // set, otherwise all visible tasks (labelled with the student name).
-  const effectiveStudentId = isStudent ? defaultStudentId : studentId || null;
+  // __team__ and __general__ both map to "no student" for downstream
+  // logic — they only differ in the isGeneral flag we POST.
+  const effectiveStudentId = isStudent
+    ? defaultStudentId
+    : studentId && studentId !== "__team__" && studentId !== "__general__"
+      ? studentId
+      : null;
   const taskOptions = effectiveStudentId
     ? tasks.filter((t) => t.studentId === effectiveStudentId)
     : tasks;
@@ -1497,6 +1519,14 @@ function NewEventDialog({
     if (isStudent && defaultStudentId) payload.studentId = defaultStudentId;
     if (linkedTaskId) payload.linkedTaskId = linkedTaskId;
     if (driveFolderUrl) payload.driveFolderUrl = driveFolderUrl;
+    // Translate UI sentinel values to wire fields.
+    const isGeneralChoice = payload.studentId === "__general__";
+    if (payload.studentId === "__team__" || payload.studentId === "__general__") {
+      delete payload.studentId; // server reads it as undefined → null
+    }
+    // payload values are all strings from FormData; the server's Zod
+    // schema accepts isGeneral as a boolean. We attach it after as a
+    // plain prop in the JSON body.
     // Compute exact instants in the browser's timezone so the stored time
     // matches what the user typed (server would otherwise parse as UTC).
     if (payload.date && payload.startTime && payload.endTime) {
@@ -1517,7 +1547,7 @@ function NewEventDialog({
     const r = await fetch("/api/calendar/events", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(payload),
+      body: JSON.stringify({ ...payload, isGeneral: isGeneralChoice }),
     });
     setSubmitting(false);
     if (!r.ok) {
@@ -1549,7 +1579,7 @@ function NewEventDialog({
             <Input name="title" required autoFocus placeholder="Weekly 1:1" />
           </Field>
           {!isStudent && (
-            <Field label="Student">
+            <Field label="Visibility / student">
               <Select
                 name="studentId"
                 value={studentId}
@@ -1558,7 +1588,15 @@ function NewEventDialog({
                   setLinkedTaskId(""); // task list is student-scoped
                 }}
               >
-                <option value="">No specific student</option>
+                {/* Three-state:
+                    __team__    → unassigned + team-only (default for
+                                  non-student creators; replaces the old
+                                  "No specific student" which was always
+                                  visible to everyone)
+                    __general__ → unassigned + visible to all
+                    <id>        → specific student */}
+                <option value="__team__">— Team only (no student) —</option>
+                <option value="__general__">— General (visible to all) —</option>
                 {students.map((s) => (
                   <option key={s.id} value={s.id}>{displayName(s)}</option>
                 ))}

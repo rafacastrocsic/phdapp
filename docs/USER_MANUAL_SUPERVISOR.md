@@ -153,9 +153,24 @@ Above the board:
 - **Due date** — optional. **Setting a due date automatically creates a Google Calendar event** on the student's shared calendar.
 - **Drive folder** — link a Google Drive folder where this task's deliverables live. Click **Pick from Drive** to browse and select a folder. When the task is tied to a specific student, the picker **opens inside that student's shared Drive folder** (the one you provisioned via *Share Drive* on their profile), not in your whole "My Drive" — fewer clicks, less chance of attaching the wrong folder. When the task has **no student** (a team-only task), the picker shows a **multi-root chooser** instead: pick one of the visible students' Drive folders, or the **Team folder** (the URL the admin set on the Team page). Your own "My Drive" is never shown for team-managed work. A small *Browse my Drive instead* link lets you escape the scope on the rare occasions you need to attach something outside it. The same field is also available on **calendar events** — assigned events open inside the student's folder; unassigned events get the same multi-root chooser.
 
-### Team-only tasks (no student)
+### Three visibility states for tasks and events
 
-Non-student team members (supervisors, team advisors, admin) can create **team-only** tasks — pick "*— Team only (no student) —*" in the Student dropdown of the New task form. Such tasks are **not visible to any student** and are useful for internal planning (committee preparation, supervisor-side decisions, group logistics, etc.). On the Tasks board they show an italic *Team only* pill in slate grey instead of a student name. They cannot be grouped (groups are per-student) and can only depend on other team-only tasks. Students cannot create them — the option doesn't appear in their form, and the server rejects the request if anyone tries to craft one.
+When creating a task or event, the Student dropdown (visible only to non-students — supervisors, team advisors, admin) offers three choices:
+
+- **A specific student** — student-specific, the default for day-to-day work. The student sees it; so do you and the rest of their team.
+- **— Team only (no student) —** — **hidden from all students.** Useful for internal planning (committee prep, group logistics, supervisor-side decisions). On the Tasks board / Calendar these items show an italic *Team only* pill in slate grey instead of a student name.
+- **— General (visible to all) —** — **visible to every user** including all students. Useful for group-wide announcements (a seminar, a department deadline, an open call). They show an italic *General* pill in teal instead of a student name.
+
+Both unassigned states cannot be grouped (groups are per-student) and team-only tasks can only depend on other team-only tasks. **Students cannot create either** — the options don't appear in their form, and the server rejects the request if anyone tries to craft one. Students can only create tasks for themselves.
+
+### Filtering by visibility
+
+The toolbar filter on the Tasks board and the Calendar now includes two extra entries above the per-student list:
+
+- **— General only —** — show only general items
+- **— Team only —** — show only team-only items
+
+These are the natural pair to the per-student filter — pick one of the visible students to scope to them, or one of the two new entries to scope to unassigned visibility states.
 
 **Create task** saves and opens the new task in the detail dialog.
 
@@ -361,7 +376,7 @@ The **Feedback** entry in the sidebar (📣 megaphone) sends a bug report, impro
 
 ## Your profile
 
-Top-right avatar → **Edit profile**. You can change name, color, photo. Your role and permissions are managed by the admin.
+Top-right avatar → **Edit profile**. You can change name, color, photo, **external profile links** (LinkedIn / ORCID / Google Scholar — informational icon-links shown beside your name in team views) and **alternate emails** — a list of secondary email addresses kept on your profile for reference (institutional + personal). Alternate emails are *informational only* — notifications and login still use your primary Google account. Your role and permissions are managed by the admin.
 
 ## Permissions cheat sheet
 

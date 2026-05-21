@@ -43,6 +43,7 @@ export default async function AdminPage() {
       linkedinUrl: true,
       orcidId: true,
       scholarUrl: true,
+      alternateEmails: true,
       lastLoginAt: true,
       lastActiveAt: true,
       _count: {

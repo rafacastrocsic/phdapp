@@ -12,6 +12,8 @@ const Patch = z.object({
   linkedinUrl: z.string().nullable().optional(),
   orcidId: z.string().nullable().optional(),
   scholarUrl: z.string().nullable().optional(),
+  // Informational only — JSON-encoded array of strings.
+  alternateEmails: z.array(z.string()).optional(),
 });
 
 export async function PATCH(
@@ -42,6 +44,18 @@ export async function PATCH(
   if (d.linkedinUrl !== undefined) data.linkedinUrl = normalizeLinkedIn(d.linkedinUrl);
   if (d.orcidId !== undefined) data.orcidId = normalizeOrcid(d.orcidId);
   if (d.scholarUrl !== undefined) data.scholarUrl = normalizeScholar(d.scholarUrl);
+  if (d.alternateEmails !== undefined) {
+    // Sanitise: trim, drop empties, dedupe (case-insensitive), cap at 10.
+    const sane = Array.from(
+      new Map(
+        d.alternateEmails
+          .map((e) => e.trim())
+          .filter((e) => e.length > 0 && e.length <= 254)
+          .map((e) => [e.toLowerCase(), e]),
+      ).values(),
+    ).slice(0, 10);
+    data.alternateEmails = sane.length > 0 ? JSON.stringify(sane) : null;
+  }
   if (d.role !== undefined) {
     if (!isAdmin)
       return NextResponse.json(

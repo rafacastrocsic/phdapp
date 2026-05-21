@@ -393,6 +393,30 @@ Per-user, per-type preferences (extend the Settings page; a `NotificationPref` m
 
 ---
 
+## 35. Three-state visibility (general/team-only/student) + visibility filters + alt emails  ✅ COMPLETED (2026-05-21, user request)
+
+**What:** three improvements rolled into one commit:
+
+1. **Third visibility state — "General"** — tasks and events can now be visible to **everyone** (all students AND non-students), not just student-specific or team-only. The Student dropdown in the New task / New event forms (non-students only) gets a third entry, `— General (visible to all) —`. Cards/chips render a teal *General* pill (vs the existing slate *Team only* pill). Students still cannot create either unassigned state — they can only create items for themselves, enforced server-side.
+2. **Visibility filters** — the toolbar's per-student filter on the Tasks board and on the Calendar gains two extra entries above the per-student list: `— General only —` and `— Team only —`. Lets non-students slice by visibility state quickly.
+3. **Alternate emails** — every user can add a list of secondary email addresses to their profile, shown alongside LinkedIn / ORCID / Scholar. **Informational only** — notifications and login still use the primary Google account.
+
+**Implementation:**
+- Migration `20260521190000_general_visibility` adds `Ticket.isGeneral BOOLEAN NOT NULL DEFAULT false`, `Event.isGeneral` (same), and `User.alternateEmails TEXT NULL` (JSON-encoded string array).
+- API: `/api/tickets` POST and `/api/calendar/events` POST/PATCH accept an `isGeneral` flag; the server forces it to false when `studentId` is set, so the combination "student + general" is impossible. Students get a 403 if they POST `studentId=null` (already existed) — the message updated to mention "team-only or general".
+- Visibility queries: students now see `studentId IN (visible) OR (studentId IS NULL AND isGeneral = true)`. Non-students see `studentId IN (visible) OR studentId IS NULL` (covers both team-only AND general).
+- UI: new-task and new-event dropdowns get the third option. Wire payload maps `__team__` → `studentId:null, isGeneral:false`, `__general__` → `studentId:null, isGeneral:true`. Board card / List row render a teal *General* pill alongside the existing slate *Team only* pill. Filter dropdowns gain the two extra entries.
+- Alternate emails: `<ProfileEditor>` gains an inputs-and-list block under External profile links — typed entries go through a light `looksLikeEmail` check + dedupe + 10-item cap server-side. PATCH `/api/users/[id]` accepts `alternateEmails: string[]`; the row stores them as JSON.
+
+**Docs:**
+- `USER_MANUAL_STUDENT.md` + `USER_MANUAL_SUPERVISOR.md` updated. Supervisor manual replaces the old "Team-only tasks" subsection with a broader "Three visibility states" + "Filtering by visibility" pair. Student profile bullet gains "Alternate emails".
+- Slide decks: student deck slide 3 (Signing in → Your profile) and supervisor deck slide 4 (Your profile · external links) both gain the alternate-emails bullet. Supervisor Tasks · approval slide adds a `Student / Team-only / General` visibility bullet.
+- IMPROVEMENT_PLAN.md §35 added.
+
+**Scope/risk:** medium-low. One additive migration. Three new boolean/text columns with safe defaults. The visibility query change for non-students is backwards-compatible (`studentId IN ... OR studentId IS NULL` already accepted both team-only and general because both have null studentId).
+
+---
+
 ## 34. Team-only tasks + multi-root Drive picker + Drive on New Event  ✅ COMPLETED (2026-05-21, user request)
 
 **What:** three related improvements to how unassigned (team-managed) work flows through Tasks and Calendar:

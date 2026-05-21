@@ -37,6 +37,9 @@ const Body = z.object({
   links: z.array(LinkInput).optional(),
   // Optional single Drive folder URL.
   driveFolderUrl: z.string().optional().nullable(),
+  // When studentId is null: false = team-only, true = general (visible
+  // to everyone). Ignored if studentId is set.
+  isGeneral: z.boolean().optional(),
 });
 
 export async function POST(req: Request) {
@@ -204,6 +207,8 @@ export async function POST(req: Request) {
         ? JSON.stringify(sanitiseLinks(d.links))
         : null,
       driveFolderUrl: d.driveFolderUrl || null,
+      // isGeneral only meaningful for studentId=null.
+      isGeneral: d.studentId ? false : d.isGeneral === true,
     },
     include: {
       student: { select: { id: true, fullName: true, alias: true, color: true } },
