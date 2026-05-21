@@ -1,6 +1,6 @@
 "use client";
 import { useState } from "react";
-import { Link as LinkIcon, ExternalLink, Trash2, Pencil, Check, X } from "lucide-react";
+import { Link as LinkIcon, ExternalLink, Trash2, Pencil, Check, X, Copy } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import type { ExternalLink as ExtLink } from "@/lib/links";
@@ -33,6 +33,22 @@ export function LinksSection({
   const [editLabel, setEditLabel] = useState("");
   const [editUrl, setEditUrl] = useState("");
   const [busy, setBusy] = useState(false);
+  // Ephemeral "Copied!" feedback per link id; clears after a beat.
+  const [copiedId, setCopiedId] = useState<string | null>(null);
+
+  async function copyUrl(l: ExtLink) {
+    try {
+      await navigator.clipboard.writeText(l.url);
+      setCopiedId(l.id);
+      setTimeout(() => {
+        setCopiedId((cur) => (cur === l.id ? null : cur));
+      }, 1400);
+    } catch {
+      // Clipboard API can be blocked (insecure context, permission); fall
+      // back to a select-and-prompt so the user can still grab the URL.
+      window.prompt("Copy the URL:", l.url);
+    }
+  }
 
   function makeId() {
     // Server canonicalises ids on save anyway; this is just for keys.
@@ -140,6 +156,10 @@ export function LinksSection({
               </>
             ) : (
               <>
+                {/* The LABEL is the dominant clickable area. URL is no
+                    longer rendered as text — it's accessed via the copy
+                    icon to the right. Title attribute keeps the URL
+                    discoverable on hover for power users. */}
                 <a
                   href={l.url}
                   target="_blank"
@@ -147,17 +167,30 @@ export function LinksSection({
                   className="min-w-0 flex-1 flex items-center gap-1.5 text-slate-800 hover:text-[var(--c-violet)]"
                   title={l.url}
                 >
-                  <ExternalLink className="h-3 w-3 shrink-0 text-slate-400" />
+                  <ExternalLink className="h-3.5 w-3.5 shrink-0 text-slate-400" />
                   <span className="truncate font-medium">{l.label}</span>
-                  <span className="truncate text-[11px] text-slate-400 hidden md:inline">
-                    {l.url.replace(/^https?:\/\//, "")}
-                  </span>
                 </a>
-                <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                <div className="flex items-center gap-2 shrink-0">
+                  <button
+                    type="button"
+                    onClick={() => copyUrl(l)}
+                    className={
+                      copiedId === l.id
+                        ? "text-[var(--c-green)]"
+                        : "text-slate-400 hover:text-slate-700"
+                    }
+                    title={copiedId === l.id ? "Copied!" : "Copy URL"}
+                  >
+                    {copiedId === l.id ? (
+                      <Check className="h-3.5 w-3.5" />
+                    ) : (
+                      <Copy className="h-3.5 w-3.5" />
+                    )}
+                  </button>
                   <button
                     type="button"
                     onClick={() => startEdit(l)}
-                    className="text-slate-400 hover:text-slate-700"
+                    className="text-slate-400 hover:text-slate-700 opacity-0 group-hover:opacity-100 transition-opacity"
                     title="Edit link"
                   >
                     <Pencil className="h-3.5 w-3.5" />
@@ -165,7 +198,7 @@ export function LinksSection({
                   <button
                     type="button"
                     onClick={() => remove(l.id)}
-                    className="text-slate-400 hover:text-[var(--c-red)]"
+                    className="text-slate-400 hover:text-[var(--c-red)] opacity-0 group-hover:opacity-100 transition-opacity"
                     title="Remove link"
                   >
                     <Trash2 className="h-3.5 w-3.5" />
