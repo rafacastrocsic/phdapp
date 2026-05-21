@@ -595,23 +595,31 @@ export function CalendarView({
                         }
                       }}
                       className={cn(
-                        "cursor-pointer text-left border-b border-r p-2 min-h-[110px] hover:bg-slate-50 transition-colors group",
+                        "flex flex-col cursor-pointer text-left border-b border-r p-2 min-h-[110px] hover:bg-slate-50 transition-colors group",
                         !inMonth && "bg-slate-50/50",
                       )}
                     >
-                      <div
-                        className={cn(
-                          "inline-flex h-6 w-6 items-center justify-center rounded-full text-xs font-semibold",
-                          today
-                            ? "bg-[var(--c-violet)] text-white"
-                            : inMonth
-                            ? "text-slate-700"
-                            : "text-slate-400",
-                        )}
-                      >
-                        {format(day, "d")}
+                      {/* Explicit flex row keeps the day badge anchored at
+                          the top of its own cell — previously the badge was
+                          `inline-flex` directly inside a block cell, which
+                          on some browsers visually pulled the events block
+                          downward, making events appear to belong to the
+                          next week's cell. */}
+                      <div className="flex items-center">
+                        <span
+                          className={cn(
+                            "inline-flex h-6 w-6 items-center justify-center rounded-full text-xs font-semibold",
+                            today
+                              ? "bg-[var(--c-violet)] text-white"
+                              : inMonth
+                              ? "text-slate-700"
+                              : "text-slate-400",
+                          )}
+                        >
+                          {format(day, "d")}
+                        </span>
                       </div>
-                      <div className="mt-1 space-y-1">
+                      <div className="mt-1 flex-1 space-y-1">
                         {(() => {
                           const av = availabilityByDay[key] ?? [];
                           if (av.length === 0) return null;
@@ -1934,6 +1942,32 @@ function MeetingPanel({ event }: { event: Event }) {
   });
   const [agendaDraft, setAgendaDraft] = useState("");
   const [notes, setNotes] = useState(event.meetingNotes ?? "");
+  // Keep a live ref of `notes` so the unmount-time flush sees the latest
+  // value without re-creating the cleanup effect on every keystroke.
+  const notesRef = useRef(notes);
+  notesRef.current = notes;
+  const lastSavedNotesRef = useRef(event.meetingNotes ?? "");
+  useEffect(() => {
+    lastSavedNotesRef.current = event.meetingNotes ?? "";
+  }, [event.meetingNotes]);
+  // If the dialog closes (panel unmounts) with unsaved notes — for
+  // example the user clicks the X or outside the modal before the
+  // textarea blur fires — flush the pending notes via a best-effort
+  // PATCH so the content is never silently lost.
+  useEffect(() => {
+    return () => {
+      const pending = notesRef.current;
+      if (pending !== lastSavedNotesRef.current) {
+        fetch(`/api/calendar/events/${event.id}`, {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ meetingNotes: pending }),
+          keepalive: true,
+        }).catch(() => {});
+      }
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [event.id]);
   type ActionItem = {
     text: string;
     dueDate: string;
@@ -1969,6 +2003,9 @@ function MeetingPanel({ event }: { event: Event }) {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(body),
     });
+    if (typeof body.meetingNotes === "string") {
+      lastSavedNotesRef.current = body.meetingNotes;
+    }
     setSavedMsg("Saved");
     setTimeout(() => setSavedMsg(""), 1500);
     router.refresh();
@@ -2055,7 +2092,14 @@ function MeetingPanel({ event }: { event: Event }) {
       </div>
 
       <div>
-        <span className="text-xs font-semibold text-slate-700">Notes</span>
+        <div className="flex items-center justify-between">
+          <span className="text-xs font-semibold text-slate-700">Notes</span>
+          {notes !== (event.meetingNotes ?? "") && (
+            <span className="text-[10px] font-medium text-[var(--c-orange)]">
+              Unsaved changes
+            </span>
+          )}
+        </div>
         <Textarea
           value={notes}
           onChange={(e) => setNotes(e.target.value)}
@@ -2067,6 +2111,19 @@ function MeetingPanel({ event }: { event: Event }) {
           className="mt-1"
           placeholder="Decisions, discussion…"
         />
+        {/* Explicit Save preserves notes even if the dialog is closed
+            before the textarea blur fires (e.g. user clicks the X). */}
+        <div className="mt-1 flex justify-end">
+          <Button
+            type="button"
+            size="sm"
+            variant="outline"
+            disabled={notes === (event.meetingNotes ?? "")}
+            onClick={() => patch({ meetingNotes: notes })}
+          >
+            Save notes
+          </Button>
+        </div>
       </div>
 
       <div>
