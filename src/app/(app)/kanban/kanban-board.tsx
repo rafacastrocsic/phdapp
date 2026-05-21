@@ -195,14 +195,7 @@ export function KanbanBoard({
 
   const filtered = useMemo(() => {
     return tickets.filter((t) => {
-      // Special filter values for the unassigned states.
-      if (studentFilter === "__general__") {
-        if (!t.isGeneral) return false;
-      } else if (studentFilter === "__team__") {
-        if (!t.teamOnly) return false;
-      } else if (studentFilter && t.student.id !== studentFilter) {
-        return false;
-      }
+      if (studentFilter && t.student.id !== studentFilter) return false;
       if (priorityFilter && t.priority !== priorityFilter) return false;
       if (categoryFilter === "other") {
         // "Other" matches literal "other" + any custom user-typed label.
@@ -394,9 +387,7 @@ export function KanbanBoard({
               onChange={(e) => setStudentFilter(e.target.value)}
               className="!w-auto grow-0 basis-44 max-w-xs"
             >
-              <option value="">All</option>
-              <option value="__general__">— General only —</option>
-              <option value="__team__">— Team only —</option>
+              <option value="">All students</option>
               {students.map((s) => (
                 <option key={s.id} value={s.id}>
                   {displayName(s)}
@@ -764,53 +755,22 @@ function TicketCard({
         </div>
 
         <div className="mt-3 flex items-center justify-between gap-2">
-          {ticket.teamOnly || ticket.isGeneral ? (
-            // Unassigned task — no student to link to. Use a small italic
-            // pill so it's distinguishable at a glance; colour & title
-            // differentiate team-only (slate) vs general (teal).
+          <Link
+            href={`/students/${ticket.student.id}`}
+            onClick={(e) => e.stopPropagation()}
+            className={cn(
+              "flex items-center gap-1.5 text-xs min-w-0",
+              highlight
+                ? "text-white/90 hover:text-white"
+                : "text-slate-500 hover:text-slate-900",
+            )}
+          >
             <span
-              className={cn(
-                "flex items-center gap-1.5 text-xs min-w-0 italic",
-                highlight ? "text-white/90" : "text-slate-500",
-              )}
-              title={
-                ticket.isGeneral
-                  ? "General task (visible to everyone)"
-                  : "Team-only task (not visible to students)"
-              }
-            >
-              <span
-                className="h-2 w-2 rounded-full shrink-0"
-                style={{
-                  background: highlight
-                    ? "#ffffff"
-                    : ticket.isGeneral
-                      ? "var(--c-teal)"
-                      : "#94a3b8",
-                }}
-              />
-              <span className="truncate">
-                {ticket.isGeneral ? "General" : "Team only"}
-              </span>
-            </span>
-          ) : (
-            <Link
-              href={`/students/${ticket.student.id}`}
-              onClick={(e) => e.stopPropagation()}
-              className={cn(
-                "flex items-center gap-1.5 text-xs min-w-0",
-                highlight
-                  ? "text-white/90 hover:text-white"
-                  : "text-slate-500 hover:text-slate-900",
-              )}
-            >
-              <span
-                className="h-2 w-2 rounded-full shrink-0"
-                style={{ background: highlight ? "#ffffff" : ticket.student.color }}
-              />
-              <span className="truncate">{displayName(ticket.student)}</span>
-            </Link>
-          )}
+              className="h-2 w-2 rounded-full shrink-0"
+              style={{ background: highlight ? "#ffffff" : ticket.student.color }}
+            />
+            <span className="truncate">{displayName(ticket.student)}</span>
+          </Link>
           {ticket.assignee && (
             <Avatar
               name={ticket.assignee.name}
@@ -935,16 +895,9 @@ function NewTicketDialog({
   // "" = no group · "__new__" = create one named newGroupName · <id> = existing
   const [groupId, setGroupId] = useState<string>("");
   const [newGroupName, setNewGroupName] = useState<string>("");
-  // "__team__" and "__general__" in the dropdown mean studentId=null on
-  // the wire. They differ only in the isGeneral flag we send alongside.
-  // Either way, downstream student-only features (groups, dependency
-  // picker, drive scope) treat this as "no student".
-  const effStudentId = isStudent
-    ? defaultStudentId
-    : studentId && studentId !== "__team__" && studentId !== "__general__"
-      ? studentId
-      : null;
-  const effIsGeneral = !isStudent && studentId === "__general__";
+  // Tasks always have a student. The picker no longer surfaces the
+  // team-only/general sentinels — every task is bound to a student.
+  const effStudentId = isStudent ? defaultStudentId : studentId || null;
   // Existing groups for the chosen student (groups are per-student).
   const studentGroups = (() => {
     const m = new Map<string, { id: string; name: string; color: string }>();
@@ -971,20 +924,11 @@ function NewTicketDialog({
       // assigneeId comes from the form select (restricted list); fall back to self
       if (!payload.assigneeId) payload.assigneeId = viewerId;
     }
-    // "__team__" / "__general__" both mean studentId=null on the wire;
-    // they only differ in the isGeneral flag.
-    const wireStudentId =
-      payload.studentId === "__team__" || payload.studentId === "__general__"
-        ? null
-        : payload.studentId;
-    const wireIsGeneral = payload.studentId === "__general__";
     const res = await fetch("/api/tickets", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         ...payload,
-        studentId: wireStudentId,
-        isGeneral: wireIsGeneral,
         dependsOnIds: deps,
         driveFolderUrl,
         // Assign to an existing group inline; a brand-new group is created
@@ -1050,12 +994,9 @@ function NewTicketDialog({
                   required
                 >
                   <option value="" disabled>Select…</option>
-                  {/* Three-state visibility (non-student creators only):
-                      __general__ = visible to everyone
-                      __team__    = visible only to non-students
-                      <id>        = student-specific. */}
-                  <option value="__general__">— General (visible to all) —</option>
-                  <option value="__team__">— Team only (no student) —</option>
+                  {/* Tasks are always student-specific (per product
+                      decision). Team-only / general are reserved for
+                      calendar events. */}
                   {students.map((s) => (
                     <option key={s.id} value={s.id}>{displayName(s)}</option>
                   ))}
@@ -1120,33 +1061,11 @@ function NewTicketDialog({
           </Field>
           <Field label="Drive folder (optional)">
             {(() => {
+              // Tasks are always student-scoped — Drive picker is always
+              // rooted at that student's folder (no multi-root chooser).
               const stu = effStudentId
                 ? students.find((s) => s.id === effStudentId)
                 : null;
-              // Team-only: hand the picker a multi-root chooser with every
-              // visible student's drive folder + the admin-set team folder.
-              // No "My Drive" is ever offered for team-only items.
-              const multiRoots =
-                !stu && !isStudent
-                  ? [
-                      ...(teamDriveFolderId
-                        ? [
-                            {
-                              id: teamDriveFolderId,
-                              name: "Team folder",
-                              kind: "team" as const,
-                            },
-                          ]
-                        : []),
-                      ...students
-                        .filter((s) => s.driveFolderId)
-                        .map((s) => ({
-                          id: s.driveFolderId!,
-                          name: (s.alias?.trim() || s.fullName) + " · Drive",
-                          kind: "student" as const,
-                        })),
-                    ]
-                  : undefined;
               return (
                 <DriveFolderField
                   value={driveFolderUrl}
@@ -1155,7 +1074,6 @@ function NewTicketDialog({
                   studentFolderName={
                     stu ? displayName(stu) + " · Drive" : null
                   }
-                  roots={multiRoots}
                 />
               );
             })()}
@@ -1494,32 +1412,9 @@ function TicketDetailDialog({
 
           <Field label="Drive folder">
             {(() => {
-              // Tied to a student → scope to that student's folder. Team-
-              // only → multi-root chooser (every student's folder + team
-              // folder). Never "My Drive" in either case.
-              const stu = ticket.teamOnly
-                ? null
-                : students.find((s) => s.id === ticket.student.id);
-              const multiRoots = ticket.teamOnly
-                ? [
-                    ...(teamDriveFolderId
-                      ? [
-                          {
-                            id: teamDriveFolderId,
-                            name: "Team folder",
-                            kind: "team" as const,
-                          },
-                        ]
-                      : []),
-                    ...students
-                      .filter((s) => s.driveFolderId)
-                      .map((s) => ({
-                        id: s.driveFolderId!,
-                        name: (s.alias?.trim() || s.fullName) + " · Drive",
-                        kind: "student" as const,
-                      })),
-                  ]
-                : undefined;
+              // Tasks are always student-scoped → root the picker at that
+              // student's Drive folder.
+              const stu = students.find((s) => s.id === ticket.student.id);
               return (
                 <DriveFolderField
                   value={ticket.driveFolderUrl ?? null}
@@ -1528,7 +1423,6 @@ function TicketDetailDialog({
                   studentFolderName={
                     stu ? displayName(stu) + " · Drive" : null
                   }
-                  roots={multiRoots}
                 />
               );
             })()}

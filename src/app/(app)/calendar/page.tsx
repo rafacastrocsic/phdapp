@@ -40,26 +40,20 @@ export default async function CalendarPage({
 
   const events = await prisma.event.findMany({
     where: {
-      // Visibility:
-      //   students   → own students + general (isGeneral=true) events
-      //   non-students → visible students + every unassigned event
-      //                  (team-only AND general)
+      // Visibility (two states only — student-specific or general):
+      //   students      → own students + general events
+      //   non-students  → visible students + general events
+      // Any legacy team-only rows (studentId null + isGeneral false) are
+      // filtered out everywhere — they're not surfaced anywhere.
       AND: [
         sp.student
           ? { studentId: sp.student }
-          : role === "student"
-            ? {
-                OR: [
-                  { studentId: { in: studentIds } },
-                  { studentId: null, isGeneral: true },
-                ],
-              }
-            : {
-                OR: [
-                  { studentId: { in: studentIds } },
-                  { studentId: null },
-                ],
-              },
+          : {
+              OR: [
+                { studentId: { in: studentIds } },
+                { studentId: null, isGeneral: true },
+              ],
+            },
         // Recurring events are always loaded (their base startsAt may be far
         // in the past) and expanded client-side; one-offs are windowed.
         { OR: [{ startsAt: { gte: from, lte: to } }, { recurrenceRule: { not: null } }] },

@@ -29,21 +29,8 @@ export async function GET(req: Request) {
 
   const tickets = await prisma.ticket.findMany({
     where: {
-      // Students: own + general. Non-students: own + every unassigned
-      // (team-only and general).
-      ...(role === "student"
-        ? {
-            OR: [
-              { studentId: { in: studentIds } },
-              { studentId: null, isGeneral: true },
-            ],
-          }
-        : {
-            OR: [
-              { studentId: { in: studentIds } },
-              { studentId: null },
-            ],
-          }),
+      // Always student-scoped (no team-only / general tasks).
+      studentId: { in: studentIds },
       archivedAt: null,
       ...(studentFilter ? { studentId: studentFilter } : {}),
     },

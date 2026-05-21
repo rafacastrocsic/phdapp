@@ -10,12 +10,9 @@ import { LinkInput, sanitiseLinks, parseLinks } from "@/lib/links";
 const Body = z.object({
   title: z.string().min(1),
   description: z.string().optional().nullable(),
-  // Null = team-only OR general task. Students cannot create either
-  // (enforced below); supervisors/admin/team-advisors can.
-  studentId: z.string().min(1).nullable(),
-  // When studentId is null: false = team-only (non-students only),
-  // true = general (visible to all, incl. students).
-  isGeneral: z.boolean().optional(),
+  // Tasks must be tied to a student (product decision — only events can
+  // be General). Server enforces this regardless of role.
+  studentId: z.string().min(1),
   assigneeId: z.string().optional().nullable(),
   status: z.string().default("todo"),
   priority: z.string().default("medium"),
@@ -37,16 +34,6 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "Invalid payload", issues: parsed.error.issues }, { status: 400 });
 
   const d = parsed.data;
-
-  // Students may only create tasks for themselves — never team-only or general.
-  if ((session.user.role as Role) === "student" && !d.studentId) {
-    return NextResponse.json(
-      { error: "Students cannot create team-only or general tasks." },
-      { status: 403 },
-    );
-  }
-  // isGeneral is only meaningful for studentId=null (otherwise just ignored).
-  const isGeneral = d.studentId ? false : d.isGeneral === true;
 
   const access = await accessForStudent(
     d.studentId,
@@ -107,7 +94,7 @@ export async function POST(req: Request) {
       links: d.links && d.links.length > 0
         ? JSON.stringify(sanitiseLinks(d.links))
         : null,
-      isGeneral,
+      isGeneral: false,
     },
     include: {
       assignee: { select: { id: true, name: true, image: true, color: true } },

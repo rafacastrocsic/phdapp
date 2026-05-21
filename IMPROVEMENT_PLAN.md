@@ -393,6 +393,25 @@ Per-user, per-type preferences (extend the Settings page; a `NotificationPref` m
 
 ---
 
+## 36. Walk back team-only; tasks student-only; events student-or-general  ✅ COMPLETED (2026-05-21, user request)
+
+**What:** product revision of the three-state model shipped a few hours earlier (§35). New rule:
+
+- **Tasks**: always student-specific. No team-only, no general.
+- **Events**: student-specific OR General (visible to all). Team-only events removed.
+
+**Implementation:** UI-and-API only — schema columns from §35 stay (`Ticket.studentId` nullable, `Ticket.isGeneral`, `Event.isGeneral`) so no destructive migration is needed. New rows are constrained at the seams:
+- `/api/tickets` POST narrows `studentId` from `z.string().nullable()` back to `z.string().min(1)`; the `isGeneral` field is dropped from the body and stored as `false` on create. `prisma.ticket.findMany` calls in the kanban server page and `/api/tickets/list` drop the `OR null` branch, so any pre-existing null-studentId rows from §35 experiments are filtered out everywhere (legacy ghosts).
+- `/api/calendar/events` POST adds a rule: if no `studentId` is supplied, `isGeneral` MUST be true (`400` otherwise — "An event must either be tied to a student or marked as General"). Calendar visibility query drops the `OR studentId IS NULL` branch and uses `OR { studentId: null, isGeneral: true }` for both students and non-students; any legacy team-only rows become invisible.
+- UI: Tasks board student picker no longer offers `__team__` / `__general__`. Tasks filter no longer offers `— General only —` / `— Team only —`. Board card simply renders the student name + dot (no team-only/general pill). Calendar new-event picker keeps `__general__` only; default for non-student creators with no defaultStudentId is `__general__` (used to be `__team__`). Calendar filter drops `— Team only —`.
+- The multi-root Drive picker on the Tasks side is removed (no unassigned tasks → no multi-root branch). On the Calendar event side it's kept for General events.
+
+**Docs & decks:** USER_MANUAL_SUPERVISOR.md replaces the §35 "Three visibility states" + "Filtering by visibility" subsections with a tighter "Visibility — tasks vs. events" + "Filtering events by visibility" pair. Supervisor deck slide 8 third card retitled back to "Groups & filters" with bullets reflecting the new rule.
+
+**Scope/risk:** very low. No migration. Existing data: any team-only / unassigned tasks from §35 experimentation are filtered out of queries (not deleted — admin can clean up via the DB if anything's there). Existing student-specific tasks and events keep working unchanged.
+
+---
+
 ## 35. Three-state visibility (general/team-only/student) + visibility filters + alt emails  ✅ COMPLETED (2026-05-21, user request)
 
 **What:** three improvements rolled into one commit:

@@ -62,7 +62,21 @@ export async function POST(req: Request) {
   if (isNaN(startsAt.getTime()) || isNaN(endsAt.getTime()))
     return NextResponse.json({ error: "bad date/time" }, { status: 400 });
 
-  // Anyone linked to the student can create events for them; unassigned events are supervisor-only
+  // Events without a studentId MUST be 'General' (visible to everyone) —
+  // team-only events were removed (per product decision). Reject any
+  // attempt to POST a non-general unassigned event.
+  if (!d.studentId && !d.isGeneral) {
+    return NextResponse.json(
+      {
+        error:
+          "An event must either be tied to a student or marked as General (visible to all).",
+      },
+      { status: 400 },
+    );
+  }
+
+  // Anyone linked to the student can create events for them; General
+  // (unassigned) events are supervisor / admin only.
   if (d.studentId) {
     const access = await accessForStudent(
       d.studentId,
@@ -76,7 +90,7 @@ export async function POST(req: Request) {
       );
   } else if (session.user.role !== "supervisor" && !isAdmin(session.user.role)) {
     return NextResponse.json(
-      { error: "Only supervisors can create unassigned events" },
+      { error: "Only supervisors can create General events" },
       { status: 403 },
     );
   }

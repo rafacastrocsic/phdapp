@@ -228,11 +228,8 @@ export function CalendarView({
 
   const filtered = useMemo(() => {
     const base = events.filter((e) => {
-      // Special filter values for the unassigned states.
       if (studentFilter === "__general__")
         return e.student === null && e.isGeneral;
-      if (studentFilter === "__team__")
-        return e.student === null && !e.isGeneral;
       return !studentFilter || e.student?.id === studentFilter;
     });
     const span = view === "year" ? 13 : 3;
@@ -437,7 +434,6 @@ export function CalendarView({
             >
               <option value="">All</option>
               <option value="__general__">— General only —</option>
-              <option value="__team__">— Team only —</option>
               {students.map((s) => (
                 <option key={s.id} value={s.id}>{displayName(s)}</option>
               ))}
@@ -1483,11 +1479,10 @@ function NewEventDialog({
   const [recurInterval, setRecurInterval] = useState(1);
   const [recurUntil, setRecurUntil] = useState("");
   const [isMeeting, setIsMeeting] = useState(false);
-  // For non-student creators: default to "team-only" when no default
-  // student is provided (the old "No specific student" used to be
-  // implicit-general; we now make the user pick general explicitly).
+  // Default for non-student creators with no defaultStudentId is
+  // "General" — events without a student are visible to everyone.
   const [studentId, setStudentId] = useState(
-    defaultStudentId ?? (isStudent ? "" : "__team__"),
+    defaultStudentId ?? (isStudent ? "" : "__general__"),
   );
   const [linkedTaskId, setLinkedTaskId] = useState("");
   // Optional Drive folder attached at creation (will be sent in payload).
@@ -1495,11 +1490,10 @@ function NewEventDialog({
 
   // Tasks offered in the picker: scoped to the chosen student when one is
   // set, otherwise all visible tasks (labelled with the student name).
-  // __team__ and __general__ both map to "no student" for downstream
-  // logic — they only differ in the isGeneral flag we POST.
+  // __general__ maps to "no student" for downstream logic.
   const effectiveStudentId = isStudent
     ? defaultStudentId
-    : studentId && studentId !== "__team__" && studentId !== "__general__"
+    : studentId && studentId !== "__general__"
       ? studentId
       : null;
   const taskOptions = effectiveStudentId
@@ -1519,14 +1513,11 @@ function NewEventDialog({
     if (isStudent && defaultStudentId) payload.studentId = defaultStudentId;
     if (linkedTaskId) payload.linkedTaskId = linkedTaskId;
     if (driveFolderUrl) payload.driveFolderUrl = driveFolderUrl;
-    // Translate UI sentinel values to wire fields.
+    // Translate the sentinel value: __general__ means "no specific
+    // student, visible to all" — POST with studentId omitted +
+    // isGeneral:true. (Team-only is no longer offered.)
     const isGeneralChoice = payload.studentId === "__general__";
-    if (payload.studentId === "__team__" || payload.studentId === "__general__") {
-      delete payload.studentId; // server reads it as undefined → null
-    }
-    // payload values are all strings from FormData; the server's Zod
-    // schema accepts isGeneral as a boolean. We attach it after as a
-    // plain prop in the JSON body.
+    if (isGeneralChoice) delete payload.studentId;
     // Compute exact instants in the browser's timezone so the stored time
     // matches what the user typed (server would otherwise parse as UTC).
     if (payload.date && payload.startTime && payload.endTime) {
@@ -1588,14 +1579,9 @@ function NewEventDialog({
                   setLinkedTaskId(""); // task list is student-scoped
                 }}
               >
-                {/* Three-state:
-                    __team__    → unassigned + team-only (default for
-                                  non-student creators; replaces the old
-                                  "No specific student" which was always
-                                  visible to everyone)
-                    __general__ → unassigned + visible to all
-                    <id>        → specific student */}
-                <option value="__team__">— Team only (no student) —</option>
+                {/* Events are either tied to a specific student or
+                    'General' (visible to everyone). Team-only events
+                    are not supported (per product decision). */}
                 <option value="__general__">— General (visible to all) —</option>
                 {students.map((s) => (
                   <option key={s.id} value={s.id}>{displayName(s)}</option>

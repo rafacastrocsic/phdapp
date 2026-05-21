@@ -153,24 +153,22 @@ Above the board:
 - **Due date** — optional. **Setting a due date automatically creates a Google Calendar event** on the student's shared calendar.
 - **Drive folder** — link a Google Drive folder where this task's deliverables live. Click **Pick from Drive** to browse and select a folder. When the task is tied to a specific student, the picker **opens inside that student's shared Drive folder** (the one you provisioned via *Share Drive* on their profile), not in your whole "My Drive" — fewer clicks, less chance of attaching the wrong folder. When the task has **no student** (a team-only task), the picker shows a **multi-root chooser** instead: pick one of the visible students' Drive folders, or the **Team folder** (the URL the admin set on the Team page). Your own "My Drive" is never shown for team-managed work. A small *Browse my Drive instead* link lets you escape the scope on the rare occasions you need to attach something outside it. The same field is also available on **calendar events** — assigned events open inside the student's folder; unassigned events get the same multi-root chooser.
 
-### Three visibility states for tasks and events
+### Visibility — tasks vs. events
 
-When creating a task or event, the Student dropdown (visible only to non-students — supervisors, team advisors, admin) offers three choices:
+Tasks and events have different visibility models:
 
-- **A specific student** — student-specific, the default for day-to-day work. The student sees it; so do you and the rest of their team.
-- **— Team only (no student) —** — **hidden from all students.** Useful for internal planning (committee prep, group logistics, supervisor-side decisions). On the Tasks board / Calendar these items show an italic *Team only* pill in slate grey instead of a student name.
-- **— General (visible to all) —** — **visible to every user** including all students. Useful for group-wide announcements (a seminar, a department deadline, an open call). They show an italic *General* pill in teal instead of a student name.
+- **Tasks are always tied to a single student.** No "team-only" or "general" tasks — every task belongs to a specific student, and students only see their own. The Student dropdown in the New task form only shows the visible students.
+- **Calendar events are either student-specific or General.** Pick a student in the dropdown for normal supervision events, or *— General (visible to all) —* for group-wide events (seminars, departmental deadlines, open calls). General events are visible to **everyone** including all students. Team-only events are not supported.
 
-Both unassigned states cannot be grouped (groups are per-student) and team-only tasks can only depend on other team-only tasks. **Students cannot create either** — the options don't appear in their form, and the server rejects the request if anyone tries to craft one. Students can only create tasks for themselves.
+Students can only create tasks and events for themselves — they never see the visibility dropdown.
 
-### Filtering by visibility
+### Filtering events by visibility
 
-The toolbar filter on the Tasks board and the Calendar now includes two extra entries above the per-student list:
+The toolbar filter on the Calendar (non-students only) gains one extra entry above the per-student list:
 
-- **— General only —** — show only general items
-- **— Team only —** — show only team-only items
+- **— General only —** — show only general events
 
-These are the natural pair to the per-student filter — pick one of the visible students to scope to them, or one of the two new entries to scope to unassigned visibility states.
+The Tasks board filter stays as a simple per-student picker.
 
 **Create task** saves and opens the new task in the detail dialog.
 

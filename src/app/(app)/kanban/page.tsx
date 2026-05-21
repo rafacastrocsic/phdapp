@@ -33,24 +33,11 @@ export default async function KanbanPage({
 
   const tickets = await prisma.ticket.findMany({
     where: {
-      // Visibility:
-      //   students   → their own studentId OR general (isGeneral=true)
-      //   non-students → visible students + every unassigned task
-      //                   (team-only AND general); both are surfaced
-      //                   only to them.
-      ...(role === "student"
-        ? {
-            OR: [
-              { studentId: { in: studentIds } },
-              { studentId: null, isGeneral: true },
-            ],
-          }
-        : {
-            OR: [
-              { studentId: { in: studentIds } },
-              { studentId: null },
-            ],
-          }),
+      // Tasks are always student-specific (no team-only / general). Both
+      // students and non-students see only tasks tied to a student they
+      // can see. Any pre-existing null-studentId rows from earlier
+      // experiments are deliberately filtered out (legacy ghosts).
+      studentId: { in: studentIds },
       archivedAt: null,
       ...(sp.student ? { studentId: sp.student } : {}),
     },
