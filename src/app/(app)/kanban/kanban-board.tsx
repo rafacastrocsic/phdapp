@@ -239,11 +239,19 @@ export function KanbanBoard({
 
   // Poll for ticket changes so the board updates without a full page reload.
   // Slower when user is dragging or has a dialog open (to avoid clobbering UX).
+  // Paused entirely when the tab is hidden so we don't burn Vercel
+  // function invocations on a tab nobody is looking at.
   useEffect(() => {
     let cancelled = false;
     let timer: ReturnType<typeof setTimeout> | null = null;
 
     async function tick() {
+      if (
+        typeof document !== "undefined" &&
+        document.visibilityState === "hidden"
+      ) {
+        return;
+      }
       // Skip while dragging or while a dialog is open to avoid yanking state.
       if (!draggingId && !newOpen && !openId) {
         try {
@@ -273,14 +281,37 @@ export function KanbanBoard({
           // ignore transient network errors
         }
       }
-      if (!cancelled) timer = setTimeout(tick, 8000);
+      // Stretched 8s → 30s. Board state changes are not high-frequency
+      // and the user can always tab out + back to force a refresh.
+      if (!cancelled) timer = setTimeout(tick, 30_000);
     }
-    // Fetch immediately so the full set is in memory fast (the SSR
-    // `initial` may be scoped by a ?student deep-link).
-    tick();
+    function onVisibility() {
+      if (typeof document === "undefined") return;
+      if (document.visibilityState === "hidden") {
+        if (timer) {
+          clearTimeout(timer);
+          timer = null;
+        }
+      } else {
+        if (timer) clearTimeout(timer);
+        tick();
+      }
+    }
+    if (
+      typeof document === "undefined" ||
+      document.visibilityState !== "hidden"
+    ) {
+      tick();
+    }
+    if (typeof document !== "undefined") {
+      document.addEventListener("visibilitychange", onVisibility);
+    }
     return () => {
       cancelled = true;
       if (timer) clearTimeout(timer);
+      if (typeof document !== "undefined") {
+        document.removeEventListener("visibilitychange", onVisibility);
+      }
     };
   }, [draggingId, newOpen, openId]);
 

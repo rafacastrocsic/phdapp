@@ -305,12 +305,23 @@ export function CalendarView({
   }, [availability]);
 
   // Poll for events + highlight changes so the calendar updates without
-  // requiring the user to leave and come back. Skips while a dialog is open.
+  // requiring the user to leave and come back. Skips while a dialog is
+  // open, AND skips entirely while the tab is hidden — Vercel function
+  // invocations are a constrained resource on the Hobby tier and there
+  // is no value polling for a tab the user isn't looking at.
   useEffect(() => {
     let cancelled = false;
     let timer: ReturnType<typeof setTimeout> | null = null;
 
     async function tick() {
+      if (
+        typeof document !== "undefined" &&
+        document.visibilityState === "hidden"
+      ) {
+        // Don't reschedule while hidden; visibilitychange handler
+        // will fire `tick()` again on return.
+        return;
+      }
       if (!newOpen && !openEventId) {
         // Pull a window around the cursor. Year view needs the whole year;
         // other views use the 3-month context (matches the page-load query).
@@ -363,13 +374,40 @@ export function CalendarView({
           // ignore transient errors
         }
       }
-      if (!cancelled) timer = setTimeout(tick, 8000);
+      // Stretched 8s → 20s. The calendar grid doesn't need
+      // second-level freshness; users notice changes on navigation
+      // anyway, and 20s is plenty for collaborative awareness.
+      if (!cancelled) timer = setTimeout(tick, 20_000);
     }
-    // First tick: fire immediately so view/cursor changes show fresh data.
-    tick();
+    function onVisibility() {
+      if (typeof document === "undefined") return;
+      if (document.visibilityState === "hidden") {
+        if (timer) {
+          clearTimeout(timer);
+          timer = null;
+        }
+      } else {
+        // Returning to the tab: refresh immediately, then resume.
+        if (timer) clearTimeout(timer);
+        tick();
+      }
+    }
+    // First tick: fire only if visible.
+    if (
+      typeof document === "undefined" ||
+      document.visibilityState !== "hidden"
+    ) {
+      tick();
+    }
+    if (typeof document !== "undefined") {
+      document.addEventListener("visibilitychange", onVisibility);
+    }
     return () => {
       cancelled = true;
       if (timer) clearTimeout(timer);
+      if (typeof document !== "undefined") {
+        document.removeEventListener("visibilitychange", onVisibility);
+      }
     };
   }, [cursor, newOpen, openEventId, studentFilter, view]);
 

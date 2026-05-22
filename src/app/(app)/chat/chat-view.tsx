@@ -207,6 +207,15 @@ export function ChatView({
     markRead();
 
     async function tick() {
+      // Skip entirely when the tab is hidden — no point polling chat
+      // for a tab the user isn't looking at, and these fetches were a
+      // top contributor to Vercel function invocations.
+      if (
+        typeof document !== "undefined" &&
+        document.visibilityState === "hidden"
+      ) {
+        return;
+      }
       const r = await fetch(`/api/channels/${activeId}/messages`);
       if (!cancelled && r.ok) {
         const j = await r.json();
@@ -231,17 +240,29 @@ export function ChatView({
         };
         if (j.chat?.byChannel) setUnreadByChannel(j.chat.byChannel);
       }
-      // Stretched from 3.5s → 8s. Still feels real-time inside a
-      // channel because the messages fetch above is the actual
-      // freshness driver; this map only updates other channels'
-      // sidebar badges, which can tolerate the longer cadence.
-      if (!cancelled) timer = setTimeout(tick, 8_000);
+      // 12s default — feels real-time inside a channel for messages
+      // arriving from teammates; the visibility-pause above is what
+      // delivers the real saving.
+      if (!cancelled) timer = setTimeout(tick, 12_000);
     }
-    tick();
 
-    // When the tab regains visibility, mark read.
     function onVisibility() {
-      if (document.visibilityState === "visible") markRead();
+      if (document.visibilityState === "visible") {
+        markRead();
+        // Re-fire poll immediately on return so the user sees fresh
+        // content right away, then resume the timer.
+        if (timer) clearTimeout(timer);
+        tick();
+      } else if (timer) {
+        clearTimeout(timer);
+        timer = null;
+      }
+    }
+    if (
+      typeof document === "undefined" ||
+      document.visibilityState !== "hidden"
+    ) {
+      tick();
     }
     if (typeof document !== "undefined") {
       document.addEventListener("visibilitychange", onVisibility);
