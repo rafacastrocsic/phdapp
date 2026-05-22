@@ -42,6 +42,10 @@ import {
 } from "@/components/ui/dialog";
 import { cn, relativeTime, displayName } from "@/lib/utils";
 import {
+  useSectionVersion,
+  useUnread,
+} from "@/components/app-shell/unread-provider";
+import {
   playChatSound,
   getSoundType,
   getVolume,
@@ -183,99 +187,117 @@ export function ChatView({
   // Mark as read when opening the channel and whenever the tab is visible
   // and we get new messages (so a real viewer's badge clears, but the badge
   // grows when the user is on a different page/tab).
+  // Version-gated chat refresh — replaces the old 12s poll.
+  //
+  // The UnreadProvider polls /api/unread every 20s while visible and
+  // exposes chat.byChannel + a chat-wide version (max
+  // Message.createdAt/editedAt across visible channels for peer
+  // messages). We use those as the freshness signal:
+  //
+  //   - activeId change → mark read + initial messages fetch.
+  //   - chat version changes  → refetch this channel's messages
+  //                             (also catches peer edits anywhere).
+  //   - byChannel[activeId] up → mark read (we just refetched and
+  //                             rendered, so claim them seen).
+  //
+  // No setInterval, no setTimeout. Idle sessions where nobody is
+  // sending messages generate exactly zero /api/channels/[id]/messages
+  // fetches.
+  const { refresh: refreshUnread, data: unreadData } = useUnread();
+  const chatVersion = useSectionVersion("chat");
+  const lastSeenChatVersionRef = useRef<string | null>(null);
+  const messagesFetchInFlightRef = useRef(false);
+
+  // Mirror provider's byChannel into local state so we can clear it
+  // optimistically on channel-open before the provider's next poll.
   useEffect(() => {
-    if (!activeId) return;
-    let cancelled = false;
-    let timer: ReturnType<typeof setTimeout> | null = null;
-    let lastMessageCount = 0;
-
-    async function markRead() {
-      await fetch(`/api/channels/${activeId}/read`, { method: "POST" });
-      // optimistically clear the per-channel badge
-      setUnreadByChannel((prev) => ({ ...prev, [activeId!]: 0 }));
-      // refresh authoritative counts via the unified endpoint
-      const r = await fetch("/api/unread", { cache: "no-store" });
-      if (r.ok) {
-        const j = (await r.json()) as {
-          chat?: { byChannel?: Record<string, number> };
-        };
-        if (j.chat?.byChannel) setUnreadByChannel(j.chat.byChannel);
-      }
+    if (unreadData?.chat?.byChannel) {
+      setUnreadByChannel(unreadData.chat.byChannel);
     }
+  }, [unreadData?.chat?.byChannel]);
 
-    // Initial open: explicit "I'm here, clear unread"
-    markRead();
+  async function markRead(channelId: string) {
+    await fetch(`/api/channels/${channelId}/read`, { method: "POST" });
+    setUnreadByChannel((prev) => ({ ...prev, [channelId]: 0 }));
+    // Trigger a provider refresh so the canonical counts reflect the
+    // mark-read without waiting up to 20s for the next tick.
+    refreshUnread();
+  }
 
-    async function tick() {
-      // Skip entirely when the tab is hidden — no point polling chat
-      // for a tab the user isn't looking at, and these fetches were a
-      // top contributor to Vercel function invocations.
-      if (
-        typeof document !== "undefined" &&
-        document.visibilityState === "hidden"
-      ) {
-        return;
-      }
-      const r = await fetch(`/api/channels/${activeId}/messages`);
-      if (!cancelled && r.ok) {
+  async function fetchActiveChannelMessages(channelId: string) {
+    if (messagesFetchInFlightRef.current) return;
+    messagesFetchInFlightRef.current = true;
+    try {
+      const r = await fetch(`/api/channels/${channelId}/messages`);
+      if (r.ok) {
         const j = await r.json();
         setMessages(j.messages);
         setReads(j.reads ?? []);
-        // Auto-mark as read only while the tab is actually visible AND new
-        // messages have arrived since last poll.
-        if (
-          typeof document !== "undefined" &&
-          document.visibilityState === "visible" &&
-          j.messages.length > lastMessageCount
-        ) {
-          markRead();
-        }
-        lastMessageCount = j.messages.length;
       }
-      // refresh per-channel unread map so other channels' badges update
-      const u = await fetch("/api/unread", { cache: "no-store" });
-      if (!cancelled && u.ok) {
-        const j = (await u.json()) as {
-          chat?: { byChannel?: Record<string, number> };
-        };
-        if (j.chat?.byChannel) setUnreadByChannel(j.chat.byChannel);
-      }
-      // 12s default — feels real-time inside a channel for messages
-      // arriving from teammates; the visibility-pause above is what
-      // delivers the real saving.
-      if (!cancelled) timer = setTimeout(tick, 12_000);
+    } finally {
+      messagesFetchInFlightRef.current = false;
     }
+  }
 
-    function onVisibility() {
-      if (document.visibilityState === "visible") {
-        markRead();
-        // Re-fire poll immediately on return so the user sees fresh
-        // content right away, then resume the timer.
-        if (timer) clearTimeout(timer);
-        tick();
-      } else if (timer) {
-        clearTimeout(timer);
-        timer = null;
-      }
+  // (1) Channel switch — mark read, initial fetch, reset version
+  // baseline so the next chatVersion tick is judged against this
+  // moment, not against the previous channel's history.
+  useEffect(() => {
+    if (!activeId) return;
+    lastSeenChatVersionRef.current = chatVersion;
+    markRead(activeId);
+    fetchActiveChannelMessages(activeId);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeId]);
+
+  // (2) Refetch when chat version moves — peer sent or edited a
+  // message anywhere visible. Skip if it's just the baseline being
+  // established or if nothing changed.
+  useEffect(() => {
+    if (!activeId) return;
+    if (chatVersion === null) return;
+    if (lastSeenChatVersionRef.current === null) {
+      lastSeenChatVersionRef.current = chatVersion;
+      return;
     }
+    if (lastSeenChatVersionRef.current === chatVersion) return;
+    lastSeenChatVersionRef.current = chatVersion;
+    // Tab visible → refetch + mark read (we'll show them immediately).
+    // Tab hidden → don't fetch; the unread count will tick up via the
+    // provider and the visibilitychange handler below will refetch
+    // on return.
     if (
       typeof document === "undefined" ||
-      document.visibilityState !== "hidden"
+      document.visibilityState === "visible"
     ) {
-      tick();
+      fetchActiveChannelMessages(activeId).then(() => {
+        if (
+          typeof document === "undefined" ||
+          document.visibilityState === "visible"
+        ) {
+          markRead(activeId);
+        }
+      });
     }
-    if (typeof document !== "undefined") {
-      document.addEventListener("visibilitychange", onVisibility);
-    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [chatVersion]);
 
-    return () => {
-      cancelled = true;
-      if (timer) clearTimeout(timer);
-      if (typeof document !== "undefined") {
-        document.removeEventListener("visibilitychange", onVisibility);
-      }
-    };
-  }, [activeId]);
+  // (3) On return-to-tab, mark read for the open channel.
+  useEffect(() => {
+    if (!activeId) return;
+    function onVisibility() {
+      if (document.visibilityState !== "visible") return;
+      // Re-baseline the version so the (2) effect re-runs only on
+      // changes that happen AFTER return; then mark this channel as
+      // read and refetch to display any messages we missed.
+      lastSeenChatVersionRef.current = chatVersion;
+      fetchActiveChannelMessages(activeId!).then(() => markRead(activeId!));
+    }
+    document.addEventListener("visibilitychange", onVisibility);
+    return () =>
+      document.removeEventListener("visibilitychange", onVisibility);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeId, chatVersion]);
 
   useEffect(() => {
     scrollRef.current?.scrollTo({

@@ -1,6 +1,7 @@
 "use client";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
+import { useSectionVersion } from "@/components/app-shell/unread-provider";
 import { BookOpen, ExternalLink, Check, X, Plus } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -80,31 +81,69 @@ export function ReadingView({
   );
   const [busy, setBusy] = useState(false);
 
-  // Auto-refresh so approvals / new items / status changes by others show
-  // without a manual reload (mirrors the Tasks & Calendar polling).
+  // Version-gated refresh — see calendar/kanban for the same pattern.
+  // We only do a /api/reading/list fetch when the reading version
+  // moves (peer activity). Idle sessions generate zero list fetches.
+  const readingVersion = useSectionVersion("reading");
+  const lastSeenReadingVersionRef = useRef<string | null>(null);
+
+  async function fetchReading() {
+    try {
+      const q = studentFilter
+        ? `?student=${encodeURIComponent(studentFilter)}`
+        : "";
+      const r = await fetch(`/api/reading/list${q}`, { cache: "no-store" });
+      if (r.ok) {
+        const j = await r.json();
+        setItems(j.items);
+      }
+    } catch {
+      /* ignore transient errors */
+    }
+  }
+
+  // Refetch on version move.
+  useEffect(() => {
+    if (readingVersion === null) return;
+    if (lastSeenReadingVersionRef.current === null) {
+      lastSeenReadingVersionRef.current = readingVersion;
+      return;
+    }
+    if (lastSeenReadingVersionRef.current === readingVersion) return;
+    lastSeenReadingVersionRef.current = readingVersion;
+    fetchReading();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [readingVersion]);
+
+  // Refetch when the student filter changes (different scope).
+  useEffect(() => {
+    fetchReading();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [studentFilter]);
+
+  // 5-minute safety backstop.
   useEffect(() => {
     let cancelled = false;
-    const tick = async () => {
-      if (document.hidden) return;
-      try {
-        const q = studentFilter
-          ? `?student=${encodeURIComponent(studentFilter)}`
-          : "";
-        const r = await fetch(`/api/reading/list${q}`, { cache: "no-store" });
-        if (!cancelled && r.ok) {
-          const j = await r.json();
-          setItems(j.items);
+    let timer: ReturnType<typeof setTimeout> | null = null;
+    function schedule() {
+      if (cancelled) return;
+      timer = setTimeout(async () => {
+        if (
+          typeof document === "undefined" ||
+          document.visibilityState !== "hidden"
+        ) {
+          await fetchReading();
         }
-      } catch {
-        /* ignore transient errors */
-      }
-    };
-    const t = setInterval(tick, 15000);
+        schedule();
+      }, 5 * 60_000);
+    }
+    schedule();
     return () => {
       cancelled = true;
-      clearInterval(t);
+      if (timer) clearTimeout(timer);
     };
-  }, [studentFilter]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const visible = useMemo(
     () => (studentFilter ? items.filter((i) => i.studentId === studentFilter) : items),

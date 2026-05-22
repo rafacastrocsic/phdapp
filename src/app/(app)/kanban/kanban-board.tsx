@@ -40,6 +40,7 @@ import { GanttView } from "./gantt-view";
 import { DriveFolderPicker } from "@/components/drive-folder-picker";
 import { CommentsThread } from "@/components/comments-thread";
 import { LinksSection } from "@/components/links-section";
+import { useSectionVersion } from "@/components/app-shell/unread-provider";
 
 export interface Ticket {
   id: string;
@@ -237,83 +238,90 @@ export function KanbanBoard({
     return m;
   }, [filtered]);
 
-  // Poll for ticket changes so the board updates without a full page reload.
-  // Slower when user is dragging or has a dialog open (to avoid clobbering UX).
-  // Paused entirely when the tab is hidden so we don't burn Vercel
-  // function invocations on a tab nobody is looking at.
+  // Version-gated refetch. Subscribes to the kanban section version
+  // published by /api/unread via UnreadProvider. The provider's single
+  // poll drives freshness for the whole app; here we only do a full
+  // /api/tickets/list fetch when the version moves (i.e. another user
+  // actually did something). When nobody else is active, this useEffect
+  // never fires its inner fetch.
+  //
+  // Self-changes don't bump the version (server filters actorId != me),
+  // so the user's own optimistic state updates won't ricochet into
+  // spurious refetches.
+  const kanbanVersion = useSectionVersion("kanban");
+  const lastSeenVersionRef = useRef<string | null>(null);
+
+  async function fetchTickets() {
+    // Skip while dragging or while a dialog is open to avoid yanking
+    // state mid-interaction.
+    if (draggingId || newOpen || openId) return;
+    try {
+      // Always fetch the FULL visible set — the student filter is
+      // applied client-side. Scoping the fetch by student made
+      // switching filters show nothing until the next refetch.
+      const r = await fetch(`/api/tickets/list`, { cache: "no-store" });
+      if (!r.ok) return;
+      const j = await r.json();
+      setTickets((prev) => {
+        const newIds = new Set<string>(j.tickets.map((t: Ticket) => t.id));
+        const gone = prev.filter((t) => !newIds.has(t.id));
+        if (gone.length > 0) {
+          setRecentlyDeleted((rd) => {
+            const have = new Set(rd.map((t) => t.id));
+            return [...rd, ...gone.filter((t) => !have.has(t.id))];
+          });
+        }
+        return j.tickets;
+      });
+      setHighlightByTicket(j.highlightByTicket ?? {});
+    } catch {
+      // ignore transient network errors
+    }
+  }
+
+  // Refetch whenever the kanban version moves (peer activity). The
+  // very first version we see is treated as the baseline — we don't
+  // refetch immediately on mount because the SSR'd initial tickets
+  // already reflect that snapshot.
+  useEffect(() => {
+    if (kanbanVersion === null) return;
+    if (lastSeenVersionRef.current === null) {
+      lastSeenVersionRef.current = kanbanVersion;
+      return;
+    }
+    if (lastSeenVersionRef.current === kanbanVersion) return;
+    lastSeenVersionRef.current = kanbanVersion;
+    fetchTickets();
+    // fetchTickets reads draggingId/newOpen/openId at call time but
+    // we intentionally only re-trigger on version changes here.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [kanbanVersion]);
+
+  // Safety backstop: a full refresh every 5 minutes catches any drift
+  // if a change escaped the version aggregate (or was masked by
+  // dismissal logic). Cheap — 12 fetches/hour vs. the previous 450.
   useEffect(() => {
     let cancelled = false;
     let timer: ReturnType<typeof setTimeout> | null = null;
-
-    async function tick() {
-      if (
-        typeof document !== "undefined" &&
-        document.visibilityState === "hidden"
-      ) {
-        return;
-      }
-      // Skip while dragging or while a dialog is open to avoid yanking state.
-      if (!draggingId && !newOpen && !openId) {
-        try {
-          // Always fetch the FULL visible set — the student filter is
-          // applied client-side (`filtered`). Scoping the fetch by student
-          // made switching back to "all"/another student show nothing
-          // until the next poll.
-          const r = await fetch(`/api/tickets/list`, { cache: "no-store" });
-          if (!cancelled && r.ok) {
-            const j = await r.json();
-            // Same query scope every poll, so a ticket missing now was
-            // genuinely deleted by someone else → keep it as a ghost.
-            setTickets((prev) => {
-              const newIds = new Set<string>(j.tickets.map((t: Ticket) => t.id));
-              const gone = prev.filter((t) => !newIds.has(t.id));
-              if (gone.length > 0) {
-                setRecentlyDeleted((rd) => {
-                  const have = new Set(rd.map((t) => t.id));
-                  return [...rd, ...gone.filter((t) => !have.has(t.id))];
-                });
-              }
-              return j.tickets;
-            });
-            setHighlightByTicket(j.highlightByTicket ?? {});
-          }
-        } catch {
-          // ignore transient network errors
+    function schedule() {
+      if (cancelled) return;
+      timer = setTimeout(async () => {
+        if (
+          typeof document === "undefined" ||
+          document.visibilityState !== "hidden"
+        ) {
+          await fetchTickets();
         }
-      }
-      // Stretched 8s → 30s. Board state changes are not high-frequency
-      // and the user can always tab out + back to force a refresh.
-      if (!cancelled) timer = setTimeout(tick, 30_000);
+        schedule();
+      }, 5 * 60_000);
     }
-    function onVisibility() {
-      if (typeof document === "undefined") return;
-      if (document.visibilityState === "hidden") {
-        if (timer) {
-          clearTimeout(timer);
-          timer = null;
-        }
-      } else {
-        if (timer) clearTimeout(timer);
-        tick();
-      }
-    }
-    if (
-      typeof document === "undefined" ||
-      document.visibilityState !== "hidden"
-    ) {
-      tick();
-    }
-    if (typeof document !== "undefined") {
-      document.addEventListener("visibilitychange", onVisibility);
-    }
+    schedule();
     return () => {
       cancelled = true;
       if (timer) clearTimeout(timer);
-      if (typeof document !== "undefined") {
-        document.removeEventListener("visibilitychange", onVisibility);
-      }
     };
-  }, [draggingId, newOpen, openId]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   async function requestCompletion(id: string) {
     setTickets((prev) =>

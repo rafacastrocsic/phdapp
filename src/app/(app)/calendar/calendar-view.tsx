@@ -37,6 +37,7 @@ import {
 import { PRIORITIES, CATEGORIES } from "@/lib/kanban-constants";
 import { useRouter } from "next/navigation";
 import { openCalendarUrl } from "@/components/google-calendar-picker";
+import { useSectionVersion } from "@/components/app-shell/unread-provider";
 import { TaskPeek } from "@/components/task-peek";
 import { CommentsThread } from "@/components/comments-thread";
 import { LinksSection } from "@/components/links-section";
@@ -304,112 +305,114 @@ export function CalendarView({
     return map;
   }, [availability]);
 
-  // Poll for events + highlight changes so the calendar updates without
-  // requiring the user to leave and come back. Skips while a dialog is
-  // open, AND skips entirely while the tab is hidden — Vercel function
-  // invocations are a constrained resource on the Hobby tier and there
-  // is no value polling for a tab the user isn't looking at.
+  // Version-gated refetch — replaces the 20s interval poll. The
+  // UnreadProvider drives /api/unread freshness across the app; here
+  // we only do a full /api/calendar/events/list fetch when the
+  // calendar version actually moves (someone else made a change).
+  // Idle sessions where nothing's happening generate zero list
+  // fetches. Self-changes don't bump the version (server filters
+  // actorId != me), so optimistic state updates from create/edit/
+  // delete don't ricochet here.
+  const calendarVersion = useSectionVersion("calendar");
+  const lastSeenCalendarVersionRef = useRef<string | null>(null);
+
+  async function fetchEvents() {
+    // Skip while a dialog is open — yanking state during interaction
+    // is the worst-case UX.
+    if (newOpen || openEventId) return;
+    const isYear = view === "year";
+    const from = (isYear
+      ? new Date(cursor.getFullYear(), 0, 1)
+      : subMonths(startOfMonth(cursor), 1)
+    ).toISOString();
+    const to = (isYear
+      ? new Date(cursor.getFullYear(), 11, 31, 23, 59, 59)
+      : addMonths(endOfMonth(cursor), 1)
+    ).toISOString();
+    const params = new URLSearchParams({ from, to });
+    if (studentFilter) params.set("student", studentFilter);
+    const pollKey = `${from}|${to}|${studentFilter}|${view}`;
+    try {
+      const r = await fetch(
+        `/api/calendar/events/list?${params.toString()}`,
+        { cache: "no-store" },
+      );
+      if (!r.ok) return;
+      const j = await r.json();
+      setEvents((prev) => {
+        const newIds = new Set<string>(j.events.map((e: Event) => e.id));
+        if (pollKeyRef.current === pollKey) {
+          const gone = prev.filter(
+            (e) =>
+              !newIds.has(e.id) &&
+              !e.recurring &&
+              !e.ticketId &&
+              !e.linkedTaskId,
+          );
+          if (gone.length > 0) {
+            setRecentlyDeleted((rd) => {
+              const have = new Set(rd.map((e) => e.id));
+              return [...rd, ...gone.filter((e) => !have.has(e.id))];
+            });
+          }
+        }
+        pollKeyRef.current = pollKey;
+        return j.events;
+      });
+      setHighlightByEvent(j.highlightByEvent ?? {});
+    } catch {
+      // ignore transient errors
+    }
+  }
+
+  // Refetch when calendar version moves. First version observed sets
+  // the baseline (SSR'd events are already that snapshot).
+  useEffect(() => {
+    if (calendarVersion === null) return;
+    if (lastSeenCalendarVersionRef.current === null) {
+      lastSeenCalendarVersionRef.current = calendarVersion;
+      return;
+    }
+    if (lastSeenCalendarVersionRef.current === calendarVersion) return;
+    lastSeenCalendarVersionRef.current = calendarVersion;
+    fetchEvents();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [calendarVersion]);
+
+  // Refetch when navigation/filter changes (different window or
+  // student filter — the server may return a different set even if
+  // peers haven't done anything). Cursor + view + studentFilter
+  // changes here mirror what the old poll's deps used to be.
+  useEffect(() => {
+    fetchEvents();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [cursor, studentFilter, view]);
+
+  // Safety backstop: a full refresh every 5 minutes catches any drift
+  // (events whose deletion isn't logged, etc). Cheap relative to the
+  // previous 20s polling.
   useEffect(() => {
     let cancelled = false;
     let timer: ReturnType<typeof setTimeout> | null = null;
-
-    async function tick() {
-      if (
-        typeof document !== "undefined" &&
-        document.visibilityState === "hidden"
-      ) {
-        // Don't reschedule while hidden; visibilitychange handler
-        // will fire `tick()` again on return.
-        return;
-      }
-      if (!newOpen && !openEventId) {
-        // Pull a window around the cursor. Year view needs the whole year;
-        // other views use the 3-month context (matches the page-load query).
-        const isYear = view === "year";
-        const from = (isYear
-          ? new Date(cursor.getFullYear(), 0, 1)
-          : subMonths(startOfMonth(cursor), 1)
-        ).toISOString();
-        const to = (isYear
-          ? new Date(cursor.getFullYear(), 11, 31, 23, 59, 59)
-          : addMonths(endOfMonth(cursor), 1)
-        ).toISOString();
-        const params = new URLSearchParams({ from, to });
-        if (studentFilter) params.set("student", studentFilter);
-        const pollKey = `${from}|${to}|${studentFilter}|${view}`;
-        try {
-          const r = await fetch(`/api/calendar/events/list?${params.toString()}`, {
-            cache: "no-store",
-          });
-          if (!cancelled && r.ok) {
-            const j = await r.json();
-            setEvents((prev) => {
-              const newIds = new Set<string>(j.events.map((e: Event) => e.id));
-              // Only diff for genuine deletions within the SAME window/filter
-              // as the previous poll. A different key = navigation or a
-              // filter change, not a deletion. Task/sub-task deadline
-              // mirrors are excluded — they vanish when a task's due date
-              // changes, which isn't a user deleting an event.
-              if (pollKeyRef.current === pollKey) {
-                const gone = prev.filter(
-                  (e) =>
-                    !newIds.has(e.id) &&
-                    !e.recurring &&
-                    !e.ticketId &&
-                    !e.linkedTaskId,
-                );
-                if (gone.length > 0) {
-                  setRecentlyDeleted((rd) => {
-                    const have = new Set(rd.map((e) => e.id));
-                    return [...rd, ...gone.filter((e) => !have.has(e.id))];
-                  });
-                }
-              }
-              pollKeyRef.current = pollKey;
-              return j.events;
-            });
-            setHighlightByEvent(j.highlightByEvent ?? {});
-          }
-        } catch {
-          // ignore transient errors
+    function schedule() {
+      if (cancelled) return;
+      timer = setTimeout(async () => {
+        if (
+          typeof document === "undefined" ||
+          document.visibilityState !== "hidden"
+        ) {
+          await fetchEvents();
         }
-      }
-      // Stretched 8s → 20s. The calendar grid doesn't need
-      // second-level freshness; users notice changes on navigation
-      // anyway, and 20s is plenty for collaborative awareness.
-      if (!cancelled) timer = setTimeout(tick, 20_000);
+        schedule();
+      }, 5 * 60_000);
     }
-    function onVisibility() {
-      if (typeof document === "undefined") return;
-      if (document.visibilityState === "hidden") {
-        if (timer) {
-          clearTimeout(timer);
-          timer = null;
-        }
-      } else {
-        // Returning to the tab: refresh immediately, then resume.
-        if (timer) clearTimeout(timer);
-        tick();
-      }
-    }
-    // First tick: fire only if visible.
-    if (
-      typeof document === "undefined" ||
-      document.visibilityState !== "hidden"
-    ) {
-      tick();
-    }
-    if (typeof document !== "undefined") {
-      document.addEventListener("visibilitychange", onVisibility);
-    }
+    schedule();
     return () => {
       cancelled = true;
       if (timer) clearTimeout(timer);
-      if (typeof document !== "undefined") {
-        document.removeEventListener("visibilitychange", onVisibility);
-      }
     };
-  }, [cursor, newOpen, openEventId, studentFilter, view]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   async function syncFromGoogle() {
     setSyncing(true);
