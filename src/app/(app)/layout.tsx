@@ -4,6 +4,7 @@ import { prisma } from "@/lib/prisma";
 import { Sidebar } from "@/components/app-shell/sidebar";
 import { Topbar } from "@/components/app-shell/topbar";
 import { TabAlerts } from "@/components/app-shell/tab-alerts";
+import { UnreadProvider } from "@/components/app-shell/unread-provider";
 import {
   isSupervisingUser,
   studentVisibilityWhereAllForAdmin,
@@ -97,21 +98,26 @@ export default async function AppLayout({
   const showLog = session.user.role === "student" || isSupervising;
 
   return (
-    <div className="flex h-screen overflow-hidden print:block print:h-auto print:overflow-visible">
-      <TabAlerts />
-      <Sidebar
-        role={session.user.role}
-        showLog={showLog}
-        unreadChat={unreadChat}
-        unreadKanban={unreadKanban}
-        unreadCalendar={unreadCalendar}
-      />
-      <div className="flex flex-1 min-w-0 flex-col print:block print:min-w-0">
-        <Topbar user={session.user} studentId={studentId} />
-        <main className="flex-1 min-w-0 overflow-auto print:overflow-visible">
-          {children}
-        </main>
+    // UnreadProvider wraps everything inside (app) so a single poller
+    // drives every consumer's unread state — sidebar badges, tab-title
+    // alerts, and the version gates inside each page-level view.
+    <UnreadProvider>
+      <div className="flex h-screen overflow-hidden print:block print:h-auto print:overflow-visible">
+        <TabAlerts />
+        <Sidebar
+          role={session.user.role}
+          showLog={showLog}
+          unreadChat={unreadChat}
+          unreadKanban={unreadKanban}
+          unreadCalendar={unreadCalendar}
+        />
+        <div className="flex flex-1 min-w-0 flex-col print:block print:min-w-0">
+          <Topbar user={session.user} studentId={studentId} />
+          <main className="flex-1 min-w-0 overflow-auto print:overflow-visible">
+            {children}
+          </main>
+        </div>
       </div>
-    </div>
+    </UnreadProvider>
   );
 }

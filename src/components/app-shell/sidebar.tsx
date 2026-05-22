@@ -2,6 +2,7 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { useUnread } from "@/components/app-shell/unread-provider";
 import {
   LayoutDashboard,
   Users,
@@ -59,12 +60,17 @@ export function Sidebar({
 }) {
   const pathname = usePathname();
   const isAdmin = role === "admin";
-  const [unreadChat, setUnreadChat] = useState(initialUnread);
-  const [unreadKanban, setUnreadKanban] = useState(initialUnreadKanban);
-  const [unreadCalendar, setUnreadCalendar] = useState(initialUnreadCalendar);
-  const [unreadReading, setUnreadReading] = useState(0);
-  const [unreadTeam, setUnreadTeam] = useState(0);
-  const [unreadFeedback, setUnreadFeedback] = useState(0);
+  // Read unread counts from the shared UnreadProvider — single poll
+  // shared across sidebar + tab-alerts + page-level views. Falls
+  // back to the SSR-rendered initial counts until the first poll
+  // resolves (data === null), so the badges never flash empty.
+  const { data: unread } = useUnread();
+  const unreadChat = unread?.chat?.count ?? initialUnread;
+  const unreadKanban = unread?.kanban?.count ?? initialUnreadKanban;
+  const unreadCalendar = unread?.calendar?.count ?? initialUnreadCalendar;
+  const unreadReading = unread?.reading?.count ?? 0;
+  const unreadTeam = unread?.team?.count ?? 0;
+  const unreadFeedback = unread?.feedback?.count ?? 0;
   const [collapsed, setCollapsed] = useState(false);
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -81,80 +87,6 @@ export function Sidebar({
       return next;
     });
   }
-
-  useEffect(() => {
-    let cancelled = false;
-
-    async function fetchCounts() {
-      // ONE request instead of six. /api/unread bundles every
-      // module's unread blob into a single function invocation.
-      const r = await fetch("/api/unread", { cache: "no-store" });
-      if (!r.ok || cancelled) return;
-      const j = (await r.json()) as {
-        chat?: { count?: number };
-        kanban?: { count?: number };
-        calendar?: { count?: number };
-        reading?: { count?: number };
-        team?: { count?: number };
-        feedback?: { count?: number };
-      };
-      if (cancelled) return;
-      setUnreadChat(j.chat?.count ?? 0);
-      setUnreadKanban(j.kanban?.count ?? 0);
-      setUnreadCalendar(j.calendar?.count ?? 0);
-      setUnreadReading(j.reading?.count ?? 0);
-      setUnreadTeam(j.team?.count ?? 0);
-      setUnreadFeedback(j.feedback?.count ?? 0);
-    }
-
-    // Faster cadence on active sections, but much gentler overall —
-    // unread badges don't need second-level freshness. Hobby-tier
-    // invocations are the constraint, not user experience.
-    const onChat = pathname.startsWith("/chat");
-    const onKanban = pathname.startsWith("/kanban");
-    const onCalendar = pathname.startsWith("/calendar");
-    const interval = onChat || onKanban || onCalendar ? 15_000 : 30_000;
-    let t: ReturnType<typeof setInterval> | null = null;
-
-    function start() {
-      if (t !== null) return;
-      // Fire immediately on (re)start so a returning tab refreshes
-      // its badges right away rather than waiting up to `interval`ms.
-      fetchCounts();
-      t = setInterval(fetchCounts, interval);
-    }
-    function stop() {
-      if (t !== null) {
-        clearInterval(t);
-        t = null;
-      }
-    }
-    function onVisibility() {
-      if (typeof document === "undefined") return;
-      if (document.visibilityState === "hidden") stop();
-      else start();
-    }
-
-    if (
-      typeof document !== "undefined" &&
-      document.visibilityState === "hidden"
-    ) {
-      // Don't poll if the user opened a new tab away from PhDapp —
-      // we'll start as soon as they come back.
-    } else {
-      start();
-    }
-    if (typeof document !== "undefined") {
-      document.addEventListener("visibilitychange", onVisibility);
-    }
-    return () => {
-      cancelled = true;
-      stop();
-      if (typeof document !== "undefined") {
-        document.removeEventListener("visibilitychange", onVisibility);
-      }
-    };
-  }, [pathname]);
   return (
     <aside
       className={cn(
