@@ -1349,7 +1349,7 @@ function EventDetailDialog({
           )}
 
           {event.isMeeting ? (
-            <MeetingPanel event={event} />
+            <MeetingPanel event={event} onUpdated={onUpdated} />
           ) : (
             // Lets the user upgrade a regular event into a 1:1 meeting
             // after the fact — flips isMeeting=true via PATCH so the
@@ -2124,7 +2124,19 @@ function EventDriveField({
   );
 }
 
-function MeetingPanel({ event }: { event: Event }) {
+function MeetingPanel({
+  event,
+  onUpdated,
+}: {
+  event: Event;
+  // Mirror of EventDetailDialog's onUpdated — called after every
+  // successful PATCH so the parent's events state picks up the new
+  // values immediately. Without this, the calendar's polled events
+  // (which filter out the user's own activity by design) stay
+  // stale and the user has to reload the page to see their own
+  // saved notes / agenda / etc.
+  onUpdated: (updates: Partial<Event>) => void;
+}) {
   const router = useRouter();
   type Bullet = { id: string; text: string };
   const [agenda, setAgenda] = useState<Bullet[]>(() => {
@@ -2216,6 +2228,25 @@ function MeetingPanel({ event }: { event: Event }) {
     }
     setSavedMsg("Saved");
     setTimeout(() => setSavedMsg(""), 1500);
+    // Sync the parent's events state with the patched fields so the
+    // calendar's view of THIS event updates immediately — the
+    // version-gated poll excludes the user's own actions, so without
+    // this hand-off the user has to reload the page to see their
+    // own saved notes / agenda / etc.
+    const updates: Partial<Event> = {};
+    if (typeof body.meetingNotes === "string" || body.meetingNotes === null) {
+      updates.meetingNotes = body.meetingNotes as string | null;
+    }
+    if (body.agenda !== undefined) {
+      // The DB row stores agenda as JSON string; the API does the
+      // serialization. Stringify here too so the parent's events
+      // state matches what the next poll would return.
+      updates.agenda = JSON.stringify(body.agenda);
+    }
+    if (typeof body.isMeeting === "boolean") {
+      updates.isMeeting = body.isMeeting;
+    }
+    if (Object.keys(updates).length > 0) onUpdated(updates);
     router.refresh();
   }
   function addBullet() {
