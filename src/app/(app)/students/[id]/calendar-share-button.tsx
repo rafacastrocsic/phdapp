@@ -43,8 +43,12 @@ export function CalendarShareButton({
       alert(j.warning);
     } else {
       const fail = (j.failed ?? []).length;
+      const shared = j.shared ?? 0;
+      const auto = j.autoAdded ?? 0;
       alert(
-        `Done — ${j.shared} member${j.shared === 1 ? "" : "s"} have writer access${fail ? ` (${fail} failed)` : ""}.`,
+        `Done — ${shared} member${shared === 1 ? "" : "s"} have writer access; ` +
+          `${auto} of them had the calendar auto-added to their Google Calendar list. ` +
+          `The rest got an email invite with an "Add this calendar" link${fail ? ` (${fail} failed)` : ""}.`,
       );
     }
     router.refresh();
