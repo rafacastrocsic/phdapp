@@ -56,6 +56,14 @@ export async function POST(req: Request) {
       orphanGoogleCalendarId: string | null;
       action: "would-delete" | "deleted-db" | "deleted-db+google" | "kept-google-error";
     }>;
+    danglingPrefixed: Array<{
+      title: string;
+      day: string;
+      eventId: string;
+      googleEventId: string | null;
+      googleCalendarId: string | null;
+      action: "would-delete" | "deleted-db" | "deleted-db+google" | "kept-google-error";
+    }>;
     orphans: Array<{
       taskId: string;
       taskTitle: string;
@@ -63,7 +71,7 @@ export async function POST(req: Request) {
       action: "would-resync" | "resynced" | "resync-failed";
       error?: string;
     }>;
-  } = { dryRun, duplicates: [], orphans: [] };
+  } = { dryRun, duplicates: [], danglingPrefixed: [], orphans: [] };
 
   // ─── (A) Old-sync-bug duplicates ────────────────────────────────────
   // Pull all rows that look like task mirrors (title starts with
@@ -146,6 +154,84 @@ export async function POST(req: Request) {
       report.duplicates.push(entry);
     }
     void key;
+  }
+
+  // ─── (A.2) Dangling prefixed events ─────────────────────────────────
+  // Any Event whose title starts with "[Task]_" or "[Sub-task]_" but
+  // which is NOT linked to a current Ticket/sub-task. Two ways this
+  // happens:
+  //   - Old-sync-bug imported the row with ticketId=null. Its task-
+  //     mirror twin has since been deleted (e.g. user cleared the
+  //     due date), leaving the orphan with no twin to pair against.
+  //   - A task was deleted (or its dueDate cleared) but the OLD sync
+  //     copy had drifted to a separate row and wasn't cleaned up.
+  //
+  // Genuine user-created events that happen to use these prefixes are
+  // not a real concern — the prefixes are reserved markers added by
+  // syncTaskDueEvent and syncSubtaskDueEvents.
+  const danglingTasks = await prisma.event.findMany({
+    where: {
+      title: { startsWith: "[Task]_" },
+      ticketId: null,
+    },
+    select: {
+      id: true,
+      title: true,
+      startsAt: true,
+      googleEventId: true,
+      googleCalendarId: true,
+    },
+  });
+  const danglingSubtasks = await prisma.event.findMany({
+    where: {
+      title: { startsWith: "[Sub-task]_" },
+      subtaskParentId: null,
+    },
+    select: {
+      id: true,
+      title: true,
+      startsAt: true,
+      googleEventId: true,
+      googleCalendarId: true,
+    },
+  });
+  for (const e of [...danglingTasks, ...danglingSubtasks]) {
+    // Skip if this row is already in `duplicates` (we'd be double-
+    // counting it). Match by orphanId.
+    if (report.duplicates.some((d) => d.orphanId === e.id)) continue;
+    const entry: (typeof report.danglingPrefixed)[number] = {
+      title: e.title,
+      day: e.startsAt.toISOString().slice(0, 10),
+      eventId: e.id,
+      googleEventId: e.googleEventId,
+      googleCalendarId: e.googleCalendarId,
+      action: "would-delete",
+    };
+    if (!dryRun) {
+      let googleOk = true;
+      if (e.googleEventId && e.googleCalendarId) {
+        const cal = await calendarForUser(session.user.id);
+        if (cal) {
+          try {
+            await cal.events.delete({
+              calendarId: e.googleCalendarId,
+              eventId: e.googleEventId,
+              sendUpdates: "none",
+            });
+          } catch (err) {
+            googleOk = false;
+            console.error("cleanup: Google delete (dangling) failed", err);
+          }
+        }
+      }
+      await prisma.event.delete({ where: { id: e.id } }).catch(() => {});
+      entry.action = googleOk
+        ? e.googleEventId
+          ? "deleted-db+google"
+          : "deleted-db"
+        : "kept-google-error";
+    }
+    report.danglingPrefixed.push(entry);
   }
 
   // ─── (B) OAuth-failure orphans ──────────────────────────────────────
