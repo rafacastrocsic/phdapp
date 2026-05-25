@@ -7,6 +7,7 @@ import {
   canDeleteStudent,
   canEditStudentProfile,
   canManageTeam,
+  canWriteForStudent,
   studentVisibilityWhereAllForAdmin,
   teamLevelForStudent,
   canSeeSupervisorPrivate,
@@ -100,10 +101,14 @@ export default async function StudentDetail({
   const canEdit = canEditStudentProfile(access);
   const canTeam = canManageTeam(access);
   const canDelete = canDeleteStudent(access);
-  // Provisioning shared Google resources (calendar, drive folder) is now
-  // student-only — they own their own Google account, the calendar/folder
-  // lives there, and supervisors get writer access via ACL.
   const isSelfStudent = access === "self";
+  // Whether the viewer can create/re-sync the student's shared Google
+  // calendar. Originally restricted to the student (who'd own the
+  // calendar in their own Google account), but admin/supervisors
+  // often need to do this on the student's behalf — the acting
+  // user's Google account becomes the calendar owner. The API
+  // route enforces the same check (canWriteForStudent).
+  const canManageStudentCalendar = canWriteForStudent(access);
 
   const student = await prisma.student.findFirst({
     where: { id, ...studentVisibilityWhereAllForAdmin(session.user.id, role) },
@@ -399,7 +404,7 @@ export default async function StudentDetail({
               {role !== "student" && !isSelfStudent && (
                 <StudentCatchupButton studentId={student.id} />
               )}
-              {isSelfStudent && (
+              {canManageStudentCalendar && (
                 <CalendarShareButton
                   studentId={student.id}
                   hasCalendar={!!student.calendarId}
@@ -747,19 +752,25 @@ export default async function StudentDetail({
                 <p className="text-xs text-slate-500">
                   {isSelfStudent
                     ? "No shared calendar yet. PhDapp can create one in your Google account and grant the team writer access."
-                    : "No shared calendar yet. The student has yet to create one."}
+                    : canManageStudentCalendar
+                      ? "No shared calendar yet. You can create one in your Google account and grant the team writer access."
+                      : "No shared calendar yet. Ask the student or a supervisor to create one."}
                 </p>
               )}
-              {isSelfStudent && (
+              {(canManageStudentCalendar || isSelfStudent) && (
                 <div className="pt-1 flex flex-wrap gap-2">
-                  <CalendarShareButton
-                    studentId={student.id}
-                    hasCalendar={!!student.calendarId}
-                  />
-                  <DriveShareButton
-                    studentId={student.id}
-                    hasFolder={!!student.driveFolderId}
-                  />
+                  {canManageStudentCalendar && (
+                    <CalendarShareButton
+                      studentId={student.id}
+                      hasCalendar={!!student.calendarId}
+                    />
+                  )}
+                  {isSelfStudent && (
+                    <DriveShareButton
+                      studentId={student.id}
+                      hasFolder={!!student.driveFolderId}
+                    />
+                  )}
                 </div>
               )}
               {student.linkedinUrl && (

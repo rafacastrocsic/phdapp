@@ -621,14 +621,15 @@ export function CalendarView({
             shared Google Calendar yet.{" "}
             {isStudent
               ? "Create one and your supervisors will be granted writer access automatically."
-              : "Ask the student to create a shared calendar from their profile so events created here land directly on it."}
+              : "Create one in your Google account; the student and the rest of the team will get writer access automatically."}
           </div>
-          {isStudent && (
-            <CalendarShareButton
-              studentId={activeStudent.id}
-              hasCalendar={false}
-            />
-          )}
+          {/* Admin / supervisor can also provision now — the API
+              accepts canWriteForStudent, not just self. The acting
+              user becomes the Google calendar owner. */}
+          <CalendarShareButton
+            studentId={activeStudent.id}
+            hasCalendar={false}
+          />
         </div>
       )}
 
