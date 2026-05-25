@@ -39,16 +39,29 @@ export function CalendarShareButton({
       return;
     }
     const j = await r.json();
+    const fails: { email: string; error: string }[] = j.failed ?? [];
+    const shared = j.shared ?? 0;
+    const auto = j.autoAdded ?? 0;
     if (j.warning) {
-      alert(j.warning);
+      // A warning explains why we couldn't do the work (e.g.
+      // calendar already exists, no owner found among tried
+      // accounts). Show it verbatim plus any per-target errors.
+      const detail =
+        fails.length > 0
+          ? "\n\nPer-target errors:\n" +
+            fails.map((f) => `  • ${f.email}: ${f.error}`).join("\n")
+          : "";
+      alert(j.warning + detail);
+    } else if (fails.length > 0) {
+      alert(
+        `Partially done — ${shared} grants applied, ${fails.length} failed:\n\n` +
+          fails.map((f) => `  • ${f.email}: ${f.error}`).join("\n"),
+      );
     } else {
-      const fail = (j.failed ?? []).length;
-      const shared = j.shared ?? 0;
-      const auto = j.autoAdded ?? 0;
       alert(
         `Done — ${shared} member${shared === 1 ? "" : "s"} have writer access; ` +
           `${auto} of them had the calendar auto-added to their Google Calendar list. ` +
-          `The rest got an email invite with an "Add this calendar" link${fail ? ` (${fail} failed)` : ""}.`,
+          `The rest got an email invite with an "Add this calendar" link.`,
       );
     }
     router.refresh();
