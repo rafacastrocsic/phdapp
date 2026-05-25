@@ -7,6 +7,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input, Select, Textarea } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
+import { CommentsThread } from "@/components/comments-thread";
 
 interface Person {
   id: string;
@@ -411,7 +412,8 @@ function Row({
 }) {
   const st = STATUS[i.status] ?? STATUS.approved!;
   return (
-    <li className="flex items-start gap-3 rounded-lg border bg-white p-3">
+    <li className="rounded-lg border bg-white p-3 space-y-3">
+    <div className="flex items-start gap-3">
       <span
         className="mt-0.5 flex h-8 w-8 items-center justify-center rounded-lg shrink-0"
         style={{ background: `${st.color}1f`, color: st.color }}
@@ -528,6 +530,19 @@ function Row({
           </button>
         )}
       </div>
+    </div>
+    {/* Threaded discussion (student ↔ supervisors). Same shared
+        component used by Tasks and Calendar events; the API base
+        is the only thing that changes. Mounted unconditionally so
+        students can also use it to ask "why was this rejected?"
+        or to keep notes while reading. */}
+    <div className="border-t pt-2">
+      <CommentsThread
+        apiBase={`/api/students/${i.studentId}/reading/${i.id}/comments`}
+        emptyHint="No comments yet — start a discussion with your supervisors."
+        composerPlaceholder="Add a comment for the team…"
+      />
+    </div>
     </li>
   );
 }

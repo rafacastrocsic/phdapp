@@ -283,6 +283,7 @@ async function computeReading(userId: string, role: Role) {
     "reading.propose",
     "reading.decision",
     "reading.delete",
+    "reading.comment",
   ];
 
   const [count, versionAgg] = await Promise.all([

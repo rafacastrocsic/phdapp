@@ -224,6 +224,9 @@ model ReadingItem {
   decisionById     String?
   decisionBy       User?    @relation("ReadingItemDecisionBy", fields: [decisionById], references: [id])
   decisionNote     String?  // supervisor's note on approve / reject
+  // Threaded discussion (student ↔ supervisors) — same Comment table
+  // used for Tasks and Calendar events. See model Comment.
+  comments         Comment[] @relation("ReadingComments")
   createdAt        DateTime @default(now())
   updatedAt        DateTime @updatedAt
 }
@@ -453,22 +456,25 @@ model TicketTag {
 // Comments can also be threaded via parentId (1-level reply UX); the parent
 // lives in the same Ticket/Event as the reply (server enforces).
 model Comment {
-  id        String    @id @default(cuid())
-  body      String
-  ticketId  String?
-  eventId   String?
-  parentId  String?
-  authorId  String
-  ticket    Ticket?   @relation(fields: [ticketId], references: [id], onDelete: Cascade)
-  event     Event?    @relation("EventComments", fields: [eventId], references: [id], onDelete: Cascade)
-  parent    Comment?  @relation("CommentReplies", fields: [parentId], references: [id], onDelete: Cascade)
-  replies   Comment[] @relation("CommentReplies")
-  author    User      @relation(fields: [authorId], references: [id])
-  createdAt DateTime  @default(now())
-  editedAt  DateTime? // set when the author edits; drives the "edited" mark
+  id            String       @id @default(cuid())
+  body          String
+  ticketId      String?
+  eventId       String?
+  readingItemId String?
+  parentId      String?
+  authorId      String
+  ticket        Ticket?      @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+  event         Event?       @relation("EventComments", fields: [eventId], references: [id], onDelete: Cascade)
+  readingItem   ReadingItem? @relation("ReadingComments", fields: [readingItemId], references: [id], onDelete: Cascade)
+  parent        Comment?     @relation("CommentReplies", fields: [parentId], references: [id], onDelete: Cascade)
+  replies       Comment[]    @relation("CommentReplies")
+  author        User         @relation(fields: [authorId], references: [id])
+  createdAt     DateTime     @default(now())
+  editedAt      DateTime? // set when the author edits; drives the "edited" mark
 
   @@index([ticketId])
   @@index([eventId])
+  @@index([readingItemId])
   @@index([parentId])
 }
 
