@@ -2567,14 +2567,32 @@ function TimeGrid({
           end: endOfWeek(cursor, { weekStartsOn: 1 }),
         });
 
-  const eventsByDay = useMemo(() => {
+  // Two passes — all-day events go in a strip above the hour grid,
+  // timed events go in their hour slot. Without the split, all-day
+  // task/sub-task mirrors (anchored at noon UTC) showed up at 14:00
+  // CEST in the body and were impossible to spot.
+  const allDayByDay = useMemo(() => {
     const map: Record<string, Event[]> = {};
     for (const e of events) {
+      if (!e.allDay) continue;
       const key = format(new Date(e.startsAt), "yyyy-MM-dd");
       (map[key] ??= []).push(e);
     }
     return map;
   }, [events]);
+  const eventsByDay = useMemo(() => {
+    const map: Record<string, Event[]> = {};
+    for (const e of events) {
+      if (e.allDay) continue;
+      const key = format(new Date(e.startsAt), "yyyy-MM-dd");
+      (map[key] ??= []).push(e);
+    }
+    return map;
+  }, [events]);
+  // True when ANY day in the visible range has at least one all-day
+  // item — used to conditionally render the all-day strip so it
+  // doesn't take up space on empty weeks.
+  const anyAllDay = Object.values(allDayByDay).some((arr) => arr.length > 0);
 
   return (
     <div className="flex flex-col flex-1 overflow-hidden">
@@ -2621,6 +2639,68 @@ function TimeGrid({
           );
         })}
       </div>
+
+      {/* All-day strip — only shown when something fills it */}
+      {anyAllDay && (
+        <div
+          className="grid border-b bg-white"
+          style={{
+            gridTemplateColumns: `48px repeat(${days.length}, minmax(0, 1fr))`,
+          }}
+        >
+          <div className="border-r flex items-start justify-end p-1">
+            <span className="text-[9px] uppercase font-semibold tracking-wide text-slate-400">
+              all
+            </span>
+          </div>
+          {days.map((d) => {
+            const key = format(d, "yyyy-MM-dd");
+            const items = allDayByDay[key] ?? [];
+            return (
+              <div
+                key={d.toISOString()}
+                className="min-h-[28px] border-r p-1 space-y-0.5"
+              >
+                {items.map((e) => {
+                  const isTask = !!e.ticketId;
+                  const isSubtask = !!e.subtaskParentId;
+                  const kind = effectiveKind(e.id);
+                  return (
+                    <button
+                      key={e.id}
+                      onClick={(ev) => {
+                        ev.stopPropagation();
+                        onEventClick(e.id);
+                      }}
+                      className={cn(
+                        "block w-full truncate rounded px-1.5 py-0.5 text-left text-[11px] font-medium",
+                        isTask || isSubtask
+                          ? "border bg-white text-slate-700"
+                          : "border-l-2",
+                        isSubtask && "border-dashed",
+                        kind === "new" && "ring-2 ring-[var(--c-red)]",
+                        kind === "updated" && "ring-2 ring-[var(--c-blue)]",
+                      )}
+                      style={
+                        isTask || isSubtask
+                          ? undefined
+                          : {
+                              background: `${e.student?.color ?? "#6366f1"}1f`,
+                              color: e.student?.color ?? "#6366f1",
+                              borderLeftColor: e.student?.color ?? "#6366f1",
+                            }
+                      }
+                      title={e.title}
+                    >
+                      {e.title}
+                    </button>
+                  );
+                })}
+              </div>
+            );
+          })}
+        </div>
+      )}
 
       {/* Body */}
       <div className="relative flex-1 overflow-y-auto">

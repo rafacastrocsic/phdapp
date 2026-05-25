@@ -114,7 +114,13 @@ export async function syncTaskDueEvent(
     return;
   }
 
-  // Case 3: linked event exists → patch both.
+  // Case 3a: linked event exists AND was previously pushed → patch.
+  // Case 3b: linked event exists BUT was never pushed (e.g. push
+  // failed during an invalid_grant period) → insert now and remember
+  // the new googleEventId. Without this branch, the DB row would
+  // forever stay locally-only.
+  let newGoogleEventId: string | null = null;
+  let newGoogleCalendarId: string | null = null;
   if (cal && task.dueEvent.googleEventId && task.dueEvent.googleCalendarId) {
     try {
       await cal.events.patch({
@@ -125,6 +131,19 @@ export async function syncTaskDueEvent(
       });
     } catch (err) {
       console.error("task→Google event patch failed", err);
+    }
+  } else if (cal && !task.dueEvent.googleEventId) {
+    // Never-pushed Event row — attempt the first insert now.
+    try {
+      const r = await cal.events.insert({
+        calendarId: targetCalendarId,
+        requestBody: googleAllDayBody(task.title, task.description, dueDate),
+        sendUpdates: "none",
+      });
+      newGoogleEventId = r.data.id ?? null;
+      newGoogleCalendarId = targetCalendarId;
+    } catch (err) {
+      console.error("task→Google event late-insert failed", err);
     }
   }
   const anchorStart = new Date(dueDate);
@@ -138,6 +157,14 @@ export async function syncTaskDueEvent(
       description: task.description,
       startsAt: anchorStart,
       endsAt: anchorEnd,
+      // Only set Google fields if the late-insert succeeded; never
+      // overwrite an existing googleEventId.
+      ...(newGoogleEventId
+        ? {
+            googleEventId: newGoogleEventId,
+            googleCalendarId: newGoogleCalendarId,
+          }
+        : {}),
     },
   });
 }
