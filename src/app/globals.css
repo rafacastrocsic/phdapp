@@ -72,6 +72,17 @@ html, body {
 ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 6px; }
 ::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
 
+/* Hide the browser-native clear/calendar/spin controls on date
+   inputs. We provide an explicit "Clear" button next to the input
+   so the native ✕ (visible in Chrome/Edge) was redundant — users
+   saw two affordances doing the same thing. */
+input[type="date"]::-webkit-clear-button,
+input[type="date"]::-webkit-inner-spin-button,
+input[type="date"]::-webkit-outer-spin-button {
+  display: none;
+  -webkit-appearance: none;
+}
+
 /* Utility: gradient brand text */
 .brand-gradient {
   background: linear-gradient(90deg, var(--c-violet), var(--c-pink), var(--c-orange));

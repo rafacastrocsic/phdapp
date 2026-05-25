@@ -2532,8 +2532,13 @@ function MyAvailabilityDialog({
 }
 
 // ─── Week / Day time grid ──────────────────────────────────────────────────
-const FIRST_HOUR = 7;
-const LAST_HOUR = 22;
+// Full 24h so all hours are reachable regardless of viewport size.
+// On tall windows the 07–22 default hid early hours entirely (no
+// content to scroll to). Auto-scroll-on-mount lands users at 8 AM
+// (or the current hour today), so they don't have to scroll to find
+// the typical workday.
+const FIRST_HOUR = 0;
+const LAST_HOUR = 23;
 const HOUR_PX = 56;
 const HOURS = Array.from(
   { length: LAST_HOUR - FIRST_HOUR + 1 },
