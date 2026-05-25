@@ -72,13 +72,18 @@ html, body {
 ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 6px; }
 ::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
 
-/* Hide the browser-native clear/calendar/spin controls on date
-   inputs. We provide an explicit "Clear" button next to the input
-   so the native ✕ (visible in Chrome/Edge) was redundant — users
-   saw two affordances doing the same thing. */
+/* Hide the browser-native clear / spin / calendar-picker indicators
+   on date inputs across the app. We provide an explicit "Clear"
+   button next to the input as the cross-browser affordance; the
+   native ✕ + calendar 📅 icon (visible in Chrome/Edge) were
+   redundant and visually cluttered the field.
+   Clicking the input itself still opens the date picker via the
+   Input component's onClick/onFocus, so removing the indicator
+   icon doesn't lose any functionality. */
 input[type="date"]::-webkit-clear-button,
 input[type="date"]::-webkit-inner-spin-button,
-input[type="date"]::-webkit-outer-spin-button {
+input[type="date"]::-webkit-outer-spin-button,
+input[type="date"]::-webkit-calendar-picker-indicator {
   display: none;
   -webkit-appearance: none;
 }

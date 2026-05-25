@@ -14,6 +14,7 @@ import {
   AlertCircle,
   CheckSquare,
   X,
+  Trash2,
 } from "lucide-react";
 import { Avatar } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
@@ -2033,10 +2034,14 @@ function SubtaskChecklist({
               <button
                 type="button"
                 onClick={() => remove(s.id)}
-                className="text-slate-300 hover:text-[var(--c-red)] opacity-0 group-hover:opacity-100 transition-opacity"
+                className="ml-1 text-slate-300 hover:text-[var(--c-red)] opacity-0 group-hover:opacity-100 transition-opacity"
                 title="Remove subtask"
               >
-                <X className="h-3.5 w-3.5" />
+                {/* Trash icon (was ✕) — visually distinct from the
+                    text-only "Clear" affordance to its left, so users
+                    don't confuse "clear the date" with "remove the
+                    whole subtask". */}
+                <Trash2 className="h-3.5 w-3.5" />
               </button>
             </li>
           ))}
