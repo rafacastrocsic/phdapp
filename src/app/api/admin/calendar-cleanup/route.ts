@@ -4,6 +4,7 @@ import { prisma } from "@/lib/prisma";
 import { isAdmin, type Role } from "@/lib/access";
 import { calendarForUser } from "@/lib/google";
 import { syncTaskDueEvent } from "@/lib/task-event-sync";
+import { getGeneralCalendarId } from "@/lib/general-calendar";
 
 // Admin-only one-shot cleanup for legacy calendar disparities.
 //
@@ -64,6 +65,14 @@ export async function POST(req: Request) {
       googleCalendarId: string | null;
       action: "would-delete" | "deleted-db" | "deleted-db+google" | "kept-google-error";
     }>;
+    googleGhosts: Array<{
+      title: string;
+      day: string;
+      googleEventId: string;
+      googleCalendarId: string;
+      action: "would-delete" | "deleted" | "delete-failed";
+      error?: string;
+    }>;
     orphans: Array<{
       taskId: string;
       taskTitle: string;
@@ -71,7 +80,13 @@ export async function POST(req: Request) {
       action: "would-resync" | "resynced" | "resync-failed";
       error?: string;
     }>;
-  } = { dryRun, duplicates: [], danglingPrefixed: [], orphans: [] };
+  } = {
+    dryRun,
+    duplicates: [],
+    danglingPrefixed: [],
+    googleGhosts: [],
+    orphans: [],
+  };
 
   // ─── (A) Old-sync-bug duplicates ────────────────────────────────────
   // Pull all rows that look like task mirrors (title starts with
@@ -232,6 +247,111 @@ export async function POST(req: Request) {
         : "kept-google-error";
     }
     report.danglingPrefixed.push(entry);
+  }
+
+  // ─── (A.3) Google-side ghosts ───────────────────────────────────────
+  // Scan PhDapp's General Calendar (and any student calendar PhDapp
+  // pushes to) for events with a [Task]_ title that have no Event row
+  // in our DB pointing at them. Those are leftovers from the old
+  // buggy sync — the corresponding PhDapp row was deleted but the
+  // Google copy stayed. Delete them from Google so the calendars
+  // match.
+  //
+  // Scope is intentionally narrow: only events whose title starts with
+  // "[Task]_". The prefix is reserved by syncTaskDueEvent; manual
+  // events made by humans don't use it.
+  const cal = await calendarForUser(session.user.id);
+  if (cal) {
+    // Collect the calendar IDs PhDapp owns (General + per-student).
+    const generalId = await getGeneralCalendarId();
+    const studentCals = await prisma.student.findMany({
+      where: { calendarId: { not: null } },
+      select: { calendarId: true },
+    });
+    const calendarIds = Array.from(
+      new Set(
+        [
+          generalId,
+          ...studentCals.map((s) => s.calendarId).filter((x): x is string => !!x),
+        ].filter((x): x is string => !!x),
+      ),
+    );
+
+    // Lookup table of every googleEventId PhDapp currently knows about.
+    const knownRows = await prisma.event.findMany({
+      where: { googleEventId: { not: null } },
+      select: { googleEventId: true },
+    });
+    const knownGoogleIds = new Set(
+      knownRows
+        .map((r) => r.googleEventId)
+        .filter((x): x is string => !!x),
+    );
+
+    for (const calendarId of calendarIds) {
+      let pageToken: string | undefined;
+      let safety = 0;
+      do {
+        try {
+          const r = await cal.events.list({
+            calendarId,
+            // Reasonable window — far enough to catch stale stuff
+            // without scanning all history.
+            timeMin: new Date(
+              Date.now() - 1000 * 60 * 60 * 24 * 90,
+            ).toISOString(),
+            timeMax: new Date(
+              Date.now() + 1000 * 60 * 60 * 24 * 365,
+            ).toISOString(),
+            singleEvents: false,
+            maxResults: 250,
+            pageToken,
+          });
+          for (const item of r.data.items ?? []) {
+            const title = item.summary ?? "";
+            if (!title.startsWith("[Task]_") && !title.startsWith("[Sub-task]_"))
+              continue;
+            if (!item.id) continue;
+            if (knownGoogleIds.has(item.id)) continue;
+            // Found a ghost.
+            const startIso =
+              item.start?.dateTime ??
+              (item.start?.date ? item.start.date : null);
+            const day = startIso ? startIso.slice(0, 10) : "";
+            const entry: (typeof report.googleGhosts)[number] = {
+              title,
+              day,
+              googleEventId: item.id,
+              googleCalendarId: calendarId,
+              action: "would-delete",
+            };
+            if (!dryRun) {
+              try {
+                await cal.events.delete({
+                  calendarId,
+                  eventId: item.id,
+                  sendUpdates: "none",
+                });
+                entry.action = "deleted";
+              } catch (err) {
+                entry.action = "delete-failed";
+                entry.error = (err as Error).message;
+              }
+            }
+            report.googleGhosts.push(entry);
+          }
+          pageToken = r.data.nextPageToken ?? undefined;
+        } catch (err) {
+          console.error(
+            "cleanup: Google list failed for calendar",
+            calendarId,
+            err,
+          );
+          break;
+        }
+        safety++;
+      } while (pageToken && safety < 20);
+    }
   }
 
   // ─── (B) OAuth-failure orphans ──────────────────────────────────────

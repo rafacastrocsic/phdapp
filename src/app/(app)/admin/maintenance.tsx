@@ -64,12 +64,13 @@ export function MaintenanceTools() {
     const j = await r.json();
     const dup = (j.duplicates ?? []).length;
     const dangling = (j.danglingPrefixed ?? []).length;
+    const ghosts = (j.googleGhosts ?? []).length;
     const ophs = (j.orphans ?? []).length;
     setMsg({
       type: "ok",
       text: dryRun
-        ? `Dry-run: would delete ${dup} duplicate + ${dangling} dangling event row(s), would re-sync ${ophs} task(s) to Google. Re-run without dry-run to apply.`
-        : `Cleanup done — removed ${dup + dangling} event row(s), re-synced ${ophs} task(s). Refresh the Calendar to see the result.`,
+        ? `Dry-run: ${dup} duplicate + ${dangling} dangling PhDapp row(s), ${ghosts} Google ghost(s), ${ophs} task(s) to re-sync. Re-run without dry-run to apply.`
+        : `Cleanup done — removed ${dup + dangling} PhDapp row(s), deleted ${ghosts} Google ghost(s), re-synced ${ophs} task(s). Refresh the Calendar to see the result.`,
     });
   }
 
