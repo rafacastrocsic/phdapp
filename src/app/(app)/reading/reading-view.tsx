@@ -214,129 +214,14 @@ export function ReadingView({
     });
   }
 
-  function Row({ i }: { i: ReadingItem }) {
-    const st = STATUS[i.status] ?? STATUS.approved!;
-    return (
-      <li className="flex items-start gap-3 rounded-lg border bg-white p-3">
-        <span
-          className="mt-0.5 flex h-8 w-8 items-center justify-center rounded-lg shrink-0"
-          style={{ background: `${st.color}1f`, color: st.color }}
-        >
-          <BookOpen className="h-4 w-4" />
-        </span>
-        <div className="flex-1 min-w-0">
-          <div className="flex items-center gap-2 flex-wrap">
-            {i.url ? (
-              <a
-                href={i.url}
-                target="_blank"
-                rel="noopener"
-                className="text-sm font-medium text-slate-900 hover:text-[var(--c-blue)] truncate inline-flex items-center gap-1"
-              >
-                {i.title}
-                <ExternalLink className="h-3 w-3 shrink-0" />
-              </a>
-            ) : (
-              <span className="text-sm font-medium text-slate-900 truncate">
-                {i.title}
-              </span>
-            )}
-            <Badge color={st.color}>{st.label}</Badge>
-            {!studentFilter && (
-              <span className="text-[10px] text-slate-500">
-                · {studentName(i.student)}
-              </span>
-            )}
-          </div>
-          {i.authors && (
-            <div className="text-xs text-slate-500 mt-0.5 truncate">{i.authors}</div>
-          )}
-          <div className="text-[10px] text-slate-400 mt-0.5">
-            {i.proposedByStudent ? "Proposed by student" : "Added"} by{" "}
-            {i.addedBy.name ?? "someone"}
-          </div>
-          {i.proposalNote && (
-            <p className="text-xs text-slate-600 mt-1 border-l-2 border-amber-200 pl-2 whitespace-pre-wrap">
-              <span className="text-slate-400">Why: </span>
-              {i.proposalNote}
-            </p>
-          )}
-          {i.decisionNote && (
-            <p className="text-xs text-slate-600 mt-1 border-l-2 border-slate-200 pl-2 whitespace-pre-wrap">
-              <span className="text-slate-400">
-                {i.status === "rejected" ? "Rejected" : "Approved"}
-                {i.decisionBy?.name ? ` by ${i.decisionBy.name}` : ""}:{" "}
-              </span>
-              {i.decisionNote}
-            </p>
-          )}
-          {i.status === "proposed" && canDecide(i) && (
-            <Textarea
-              value={decisionDrafts[i.id] ?? ""}
-              onChange={(e) =>
-                setDecisionDrafts((p) => ({ ...p, [i.id]: e.target.value }))
-              }
-              placeholder="Reason / comment (optional) — shown to the student"
-              rows={2}
-              className="mt-2 text-xs"
-            />
-          )}
-        </div>
-        <div className="flex flex-col gap-1 items-end shrink-0">
-          {i.status === "proposed" && canDecide(i) && (
-            <div className="flex gap-1">
-              <Button
-                type="button"
-                size="sm"
-                variant="brand"
-                onClick={() => decide(i, "approved")}
-              >
-                <Check className="h-3.5 w-3.5" /> Approve
-              </Button>
-              <Button
-                type="button"
-                size="sm"
-                variant="outline"
-                onClick={() => decide(i, "rejected")}
-              >
-                Reject
-              </Button>
-            </div>
-          )}
-          {i.status === "approved" && canProgress(i) && (
-            <Button
-              type="button"
-              size="sm"
-              variant="outline"
-              onClick={() => patch(i, { status: "reading" })}
-            >
-              Start reading
-            </Button>
-          )}
-          {i.status === "reading" && canProgress(i) && (
-            <Button
-              type="button"
-              size="sm"
-              variant="outline"
-              onClick={() => patch(i, { status: "done" })}
-            >
-              Mark read
-            </Button>
-          )}
-          {canProgress(i) && (
-            <button
-              type="button"
-              onClick={() => del(i)}
-              className="text-slate-300 hover:text-[var(--c-red)]"
-              title="Delete"
-            >
-              <X className="h-3.5 w-3.5" />
-            </button>
-          )}
-        </div>
-      </li>
-    );
-  }
+  // Row is defined OUTSIDE this component (see bottom of file).
+  // Previously it was a nested function declaration: every render of
+  // ReadingView created a new Row reference, so React saw a different
+  // component type and unmounted/remounted the <li>, including the
+  // textarea inside. That killed input focus on every keystroke —
+  // users could only type one character into the decision note. By
+  // moving Row to module scope and passing dependencies as props,
+  // React keeps the same fiber across renders and focus survives.
 
   const isStudentViewer = viewerRole === "student";
 
@@ -446,7 +331,20 @@ export function ReadingView({
           <CardContent>
             <ul className="space-y-2">
               {pending.map((i) => (
-                <Row key={i.id} i={i} />
+                <Row
+                  key={i.id}
+                  i={i}
+                  studentFilter={studentFilter}
+                  canDecide={canDecide(i)}
+                  canProgress={canProgress(i)}
+                  decisionDraft={decisionDrafts[i.id] ?? ""}
+                  onDecisionDraftChange={(v) =>
+                    setDecisionDrafts((p) => ({ ...p, [i.id]: v }))
+                  }
+                  onDecide={(status) => decide(i, status)}
+                  onProgress={(next) => patch(i, { status: next })}
+                  onDelete={() => del(i)}
+                />
               ))}
             </ul>
           </CardContent>
@@ -463,12 +361,173 @@ export function ReadingView({
           ) : (
             <ul className="space-y-2">
               {rest.map((i) => (
-                <Row key={i.id} i={i} />
+                <Row
+                  key={i.id}
+                  i={i}
+                  studentFilter={studentFilter}
+                  canDecide={canDecide(i)}
+                  canProgress={canProgress(i)}
+                  decisionDraft={decisionDrafts[i.id] ?? ""}
+                  onDecisionDraftChange={(v) =>
+                    setDecisionDrafts((p) => ({ ...p, [i.id]: v }))
+                  }
+                  onDecide={(status) => decide(i, status)}
+                  onProgress={(next) => patch(i, { status: next })}
+                  onDelete={() => del(i)}
+                />
               ))}
             </ul>
           )}
         </CardContent>
       </Card>
     </div>
+  );
+}
+
+// Defined at MODULE SCOPE on purpose — see comment inside ReadingView
+// where this used to live. A nested function declaration would cause
+// React to unmount/remount this row on every parent state update,
+// killing focus on the textarea below.
+function Row({
+  i,
+  studentFilter,
+  canDecide,
+  canProgress,
+  decisionDraft,
+  onDecisionDraftChange,
+  onDecide,
+  onProgress,
+  onDelete,
+}: {
+  i: ReadingItem;
+  studentFilter: string;
+  canDecide: boolean;
+  canProgress: boolean;
+  decisionDraft: string;
+  onDecisionDraftChange: (v: string) => void;
+  onDecide: (status: "approved" | "rejected") => void;
+  onProgress: (next: "reading" | "done") => void;
+  onDelete: () => void;
+}) {
+  const st = STATUS[i.status] ?? STATUS.approved!;
+  return (
+    <li className="flex items-start gap-3 rounded-lg border bg-white p-3">
+      <span
+        className="mt-0.5 flex h-8 w-8 items-center justify-center rounded-lg shrink-0"
+        style={{ background: `${st.color}1f`, color: st.color }}
+      >
+        <BookOpen className="h-4 w-4" />
+      </span>
+      <div className="flex-1 min-w-0">
+        <div className="flex items-center gap-2 flex-wrap">
+          {i.url ? (
+            <a
+              href={i.url}
+              target="_blank"
+              rel="noopener"
+              className="text-sm font-medium text-slate-900 hover:text-[var(--c-blue)] truncate inline-flex items-center gap-1"
+            >
+              {i.title}
+              <ExternalLink className="h-3 w-3 shrink-0" />
+            </a>
+          ) : (
+            <span className="text-sm font-medium text-slate-900 truncate">
+              {i.title}
+            </span>
+          )}
+          <Badge color={st.color}>{st.label}</Badge>
+          {!studentFilter && (
+            <span className="text-[10px] text-slate-500">
+              · {studentName(i.student)}
+            </span>
+          )}
+        </div>
+        {i.authors && (
+          <div className="text-xs text-slate-500 mt-0.5 truncate">
+            {i.authors}
+          </div>
+        )}
+        <div className="text-[10px] text-slate-400 mt-0.5">
+          {i.proposedByStudent ? "Proposed by student" : "Added"} by{" "}
+          {i.addedBy.name ?? "someone"}
+        </div>
+        {i.proposalNote && (
+          <p className="text-xs text-slate-600 mt-1 border-l-2 border-amber-200 pl-2 whitespace-pre-wrap">
+            <span className="text-slate-400">Why: </span>
+            {i.proposalNote}
+          </p>
+        )}
+        {i.decisionNote && (
+          <p className="text-xs text-slate-600 mt-1 border-l-2 border-slate-200 pl-2 whitespace-pre-wrap">
+            <span className="text-slate-400">
+              {i.status === "rejected" ? "Rejected" : "Approved"}
+              {i.decisionBy?.name ? ` by ${i.decisionBy.name}` : ""}:{" "}
+            </span>
+            {i.decisionNote}
+          </p>
+        )}
+        {i.status === "proposed" && canDecide && (
+          <Textarea
+            value={decisionDraft}
+            onChange={(e) => onDecisionDraftChange(e.target.value)}
+            placeholder="Reason / comment (optional) — shown to the student"
+            rows={2}
+            className="mt-2 text-xs"
+          />
+        )}
+      </div>
+      <div className="flex flex-col gap-1 items-end shrink-0">
+        {i.status === "proposed" && canDecide && (
+          <div className="flex gap-1">
+            <Button
+              type="button"
+              size="sm"
+              variant="brand"
+              onClick={() => onDecide("approved")}
+            >
+              <Check className="h-3.5 w-3.5" /> Approve
+            </Button>
+            <Button
+              type="button"
+              size="sm"
+              variant="outline"
+              onClick={() => onDecide("rejected")}
+            >
+              Reject
+            </Button>
+          </div>
+        )}
+        {i.status === "approved" && canProgress && (
+          <Button
+            type="button"
+            size="sm"
+            variant="outline"
+            onClick={() => onProgress("reading")}
+          >
+            Start reading
+          </Button>
+        )}
+        {i.status === "reading" && canProgress && (
+          <Button
+            type="button"
+            size="sm"
+            variant="outline"
+            onClick={() => onProgress("done")}
+          >
+            Mark read
+          </Button>
+        )}
+        {canProgress && (
+          <button
+            type="button"
+            onClick={onDelete}
+            className="text-slate-300 hover:text-[var(--c-red)]"
+            title="Delete"
+          >
+            <X className="h-3.5 w-3.5" />
+          </button>
+        )}
+      </div>
+    </li>
   );
 }
