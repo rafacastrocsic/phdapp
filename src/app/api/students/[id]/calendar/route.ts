@@ -112,25 +112,87 @@ export async function POST(
     if (r.ok) return NextResponse.json(r);
   }
 
-  // Nobody could complete the sync cleanly. Return the last attempt
-  // along with a helpful summary so the caller knows which accounts
-  // we tried.
+  // Nobody could complete the sync cleanly. Classify each
+  // attempt's failure mode so the caller knows what to actually do.
+  //
+  //   "invalid_grant"  → the user's Google refresh token is dead;
+  //                       they need to sign out and back in to
+  //                       PhDapp. We CAN'T tell from the outside
+  //                       whether they own the calendar, only that
+  //                       their account is unreachable.
+  //   "Forbidden"      → the user's token works but Google says
+  //                       they're not allowed to mutate this
+  //                       calendar's ACL. They don't own it.
+  //   other            → some other Google error; show it raw.
+  //
+  // The right next step is very different in each case, so we
+  // tailor the warning to what we actually saw.
   const tried = await prisma.user.findMany({
     where: { id: { in: candidates } },
     select: { id: true, name: true, email: true },
   });
-  const triedNames = candidates
-    .map((id) => {
-      const u = tried.find((t) => t.id === id);
-      return u?.name ?? u?.email ?? "unknown user";
-    })
-    .join(", ");
+  function nameFor(uid: string): string {
+    const u = tried.find((t) => t.id === uid);
+    return u?.name ?? u?.email ?? "unknown user";
+  }
+  function classify(err: string): "invalid_grant" | "forbidden" | "other" {
+    const m = err.toLowerCase();
+    if (m.includes("invalid_grant") || m.includes("token has been expired") || m.includes("revoked")) {
+      return "invalid_grant";
+    }
+    if (m.includes("forbidden") || m.includes("403")) return "forbidden";
+    return "other";
+  }
+
+  const expiredUsers = new Set<string>();
+  const notOwnerUsers = new Set<string>();
+  const otherFailures: Array<{ user: string; error: string }> = [];
+  for (const a of attempts) {
+    const classes = new Set(a.failed.map((f) => classify(f.error)));
+    // If ALL failures for this attempt are invalid_grant, this user
+    // simply can't be reached — mark for re-sign-in.
+    if (classes.size === 1 && classes.has("invalid_grant")) {
+      expiredUsers.add(nameFor(a.userId));
+    } else if (classes.size === 1 && classes.has("forbidden")) {
+      notOwnerUsers.add(nameFor(a.userId));
+    } else {
+      // Mixed or other — surface raw.
+      for (const f of a.failed) {
+        otherFailures.push({ user: nameFor(a.userId), error: f.error });
+      }
+    }
+  }
+
+  const lines: string[] = [];
+  if (expiredUsers.size > 0) {
+    lines.push(
+      `These accounts have an expired Google sign-in (invalid_grant) — they need to sign out of PhDapp and sign back in, then try Sync sharing again: ` +
+        [...expiredUsers].join(", ") +
+        ".",
+    );
+  }
+  if (notOwnerUsers.size > 0) {
+    lines.push(
+      `These accounts can reach Google but don't own this calendar: ` +
+        [...notOwnerUsers].join(", ") +
+        ". Sign in as the calendar's actual owner (often the student) and click Sync sharing again — or share manually from calendar.google.com.",
+    );
+  }
+  if (otherFailures.length > 0) {
+    lines.push(
+      "Other Google errors: " +
+        otherFailures.map((f) => `${f.user}: ${f.error}`).join("; "),
+    );
+  }
+  if (lines.length === 0) {
+    lines.push(
+      `Could not sync ACL via any of: ${candidates.map(nameFor).join(", ")}.`,
+    );
+  }
+
   const last = attempts[attempts.length - 1];
   return NextResponse.json({
     ...last,
-    warning:
-      `None of the tried Google accounts owns this calendar, so the ACL couldn't be updated. ` +
-      `Tried: ${triedNames}. ` +
-      `Sign in as the calendar's actual owner and click Sync sharing again — or share the calendar manually from calendar.google.com.`,
+    warning: lines.join("\n\n"),
   });
 }
