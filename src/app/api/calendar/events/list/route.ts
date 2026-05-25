@@ -116,6 +116,10 @@ export async function GET(req: Request) {
       taskPriority: e.ticket?.priority ?? null,
       linkedTaskId: e.linkedTaskId,
       linkedTaskTitle: e.linkedTask?.title ?? null,
+      // Surfaced so the client renders task/sub-task mirror events
+      // as "all day" instead of at their noon-UTC anchor time.
+      allDay: e.allDay,
+      subtaskParentId: e.subtaskParentId,
     })),
     highlightByEvent,
   });

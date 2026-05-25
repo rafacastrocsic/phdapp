@@ -1441,11 +1441,26 @@ function TicketDetailDialog({
               </Select>
             </Field>
             <Field label="Due date">
-              <Input
-                type="date"
-                value={ticket.dueDate?.slice(0, 10) ?? ""}
-                onChange={(e) => update({ dueDate: e.target.value || null })}
-              />
+              <div className="flex items-center gap-2">
+                <Input
+                  type="date"
+                  value={ticket.dueDate?.slice(0, 10) ?? ""}
+                  onChange={(e) =>
+                    update({ dueDate: e.target.value || null })
+                  }
+                  className="flex-1"
+                />
+                {ticket.dueDate && (
+                  <button
+                    type="button"
+                    onClick={() => update({ dueDate: null })}
+                    className="shrink-0 rounded px-2 py-1 text-xs font-medium text-slate-500 hover:bg-slate-100 hover:text-[var(--c-red)]"
+                    title="Clear due date — also removes the calendar mirror"
+                  >
+                    Clear
+                  </button>
+                )}
+              </div>
             </Field>
           </div>
 
@@ -2005,6 +2020,16 @@ function SubtaskChecklist({
                 }
                 className="h-7 w-[8.5rem] shrink-0 rounded-md border bg-white px-1.5 text-xs text-slate-600 focus:outline-none focus:ring-2 focus:ring-[var(--ring)]/20"
               />
+              {s.due && (
+                <button
+                  type="button"
+                  onClick={() => setDue(s.id, "")}
+                  className="shrink-0 text-slate-300 hover:text-[var(--c-red)] opacity-0 group-hover:opacity-100 transition-opacity"
+                  title="Clear deadline — also removes the calendar mirror"
+                >
+                  <X className="h-3 w-3" />
+                </button>
+              )}
               <button
                 type="button"
                 onClick={() => remove(s.id)}

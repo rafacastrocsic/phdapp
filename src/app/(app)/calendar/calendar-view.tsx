@@ -91,6 +91,14 @@ interface Event {
   // isGeneral true → general (visible to all).
   isGeneral: boolean;
   recurring?: boolean; // synthetic occurrence flag (client-only)
+  // True for task / sub-task mirror events (which use a noon-UTC
+  // anchor as their startsAt). When true, render without a time
+  // prefix and treat the event as an all-day pill.
+  allDay?: boolean;
+  // Set on sub-task mirror events. Used so the grid can route a
+  // click to the parent task instead of opening a generic event
+  // dialog, and so we can render sub-task pills distinctly.
+  subtaskParentId?: string | null;
 }
 
 type LinkableTask = {
@@ -732,6 +740,37 @@ export function CalendarView({
                         {evs.slice(0, 3).map((e) => {
                           const kind = effectiveKind(e.id);
                           const isTask = !!e.ticketId;
+                          // Sub-task mirror events have a parent task
+                          // but no ticketId of their own. Render them
+                          // with the same task-chip style (no time
+                          // prefix) and route clicks to the parent
+                          // task so the user lands in context.
+                          const isSubtask = !!e.subtaskParentId;
+                          if (isSubtask) {
+                            const cleanTitle = e.title;
+                            return (
+                              <button
+                                key={e.id}
+                                onClick={(ev) => {
+                                  ev.stopPropagation();
+                                  dismissEvent(e.id);
+                                  if (e.subtaskParentId)
+                                    setPeekTicketId(e.subtaskParentId);
+                                }}
+                                className={cn(
+                                  "group flex w-full items-center gap-1 text-left text-[11px] truncate rounded border border-dashed bg-white pl-1.5 pr-1.5 py-0.5 font-medium hover:bg-slate-50",
+                                  kind === "new" && "ring-2 ring-[var(--c-red)]",
+                                  kind === "updated" && "ring-2 ring-[var(--c-blue)]",
+                                )}
+                                title={`Sub-task · ${cleanTitle}${e.student ? " · " + displayName(e.student) : ""}`}
+                              >
+                                <span className="inline-block h-2 w-2 shrink-0 rounded-full bg-slate-400" />
+                                <span className="flex-1 truncate text-slate-600">
+                                  {cleanTitle}
+                                </span>
+                              </button>
+                            );
+                          }
                           if (isTask) {
                             const pColor = taskPriorityColor(e.taskPriority);
                             const cleanTitle = e.title;
@@ -807,7 +846,14 @@ export function CalendarView({
                                   {kind === "new" ? "new" : "upd"}
                                 </span>
                               )}
-                              {format(new Date(e.startsAt), "HH:mm")} {e.title}
+                              {e.allDay ? (
+                                <span className="mr-1 inline-block rounded-sm bg-slate-400/20 px-1 text-[8px] font-bold uppercase text-slate-600">
+                                  all day
+                                </span>
+                              ) : (
+                                <>{format(new Date(e.startsAt), "HH:mm")} </>
+                              )}
+                              {e.title}
                             </button>
                           );
                         })}
@@ -939,7 +985,10 @@ export function CalendarView({
                         <span className="truncate">{e.title}</span>
                       </div>
                       <div className="text-xs text-slate-500 mt-0.5">
-                        {format(new Date(e.startsAt), "EEE MMM d · HH:mm")}
+                        {e.allDay
+                          ? format(new Date(e.startsAt), "EEE MMM d") +
+                            " · All day"
+                          : format(new Date(e.startsAt), "EEE MMM d · HH:mm")}
                       </div>
                       {e.student && (
                         <Badge

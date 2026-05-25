@@ -209,6 +209,8 @@ export default async function CalendarPage({
         links: e.links,
         driveFolderUrl: e.driveFolderUrl,
         isGeneral: e.isGeneral,
+        allDay: e.allDay,
+        subtaskParentId: e.subtaskParentId,
       }))}
       tasks={linkableTasks
         // Team-only / unassigned tasks are filtered out of the link picker
