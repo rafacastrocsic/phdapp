@@ -1,6 +1,6 @@
 "use client";
 import { useState } from "react";
-import { Trash2, Wand2 } from "lucide-react";
+import { Trash2, Wand2, CalendarSync } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 
@@ -30,6 +30,46 @@ export function MaintenanceTools() {
     setMsg({
       type: "ok",
       text: `Backfill done — scanned ${j.scanned} student${j.scanned === 1 ? "" : "s"}, created ${j.created} new team channel${j.created === 1 ? "" : "s"}.`,
+    });
+  }
+
+  async function runCalendarCleanup(dryRun: boolean) {
+    if (
+      !dryRun &&
+      !confirm(
+        "Clean up calendar duplicates and re-push orphaned task events?\n\n" +
+          "This will:\n" +
+          " • Delete leftover [Task]_ / [Sub-task]_ events that are no longer\n" +
+          "   linked to a real task in PhDapp (and remove their copy from\n" +
+          "   Google Calendar where possible).\n" +
+          " • Re-push to Google any task whose due-event failed to sync\n" +
+          "   originally (e.g. during the recent invalid_grant period).\n\n" +
+          "Sub-task events stay in PhDapp only (by design). Run the\n" +
+          "dry-run first if you want to preview.",
+      )
+    )
+      return;
+    setBusy(true);
+    setMsg(null);
+    const r = await fetch(
+      `/api/admin/calendar-cleanup${dryRun ? "?dryRun=1" : ""}`,
+      { method: "POST" },
+    );
+    setBusy(false);
+    if (!r.ok) {
+      const j = await r.json().catch(() => ({}));
+      setMsg({ type: "err", text: j.error ?? "Cleanup failed" });
+      return;
+    }
+    const j = await r.json();
+    const dup = (j.duplicates ?? []).length;
+    const dangling = (j.danglingPrefixed ?? []).length;
+    const ophs = (j.orphans ?? []).length;
+    setMsg({
+      type: "ok",
+      text: dryRun
+        ? `Dry-run: would delete ${dup} duplicate + ${dangling} dangling event row(s), would re-sync ${ophs} task(s) to Google. Re-run without dry-run to apply.`
+        : `Cleanup done — removed ${dup + dangling} event row(s), re-synced ${ophs} task(s). Refresh the Calendar to see the result.`,
     });
   }
 
@@ -87,6 +127,25 @@ export function MaintenanceTools() {
           >
             <Wand2 className="h-4 w-4" />
             {busy ? "Working…" : "Backfill missing team channels"}
+          </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => runCalendarCleanup(true)}
+            disabled={busy}
+            title="Show what the calendar cleanup would do without changing anything"
+          >
+            <CalendarSync className="h-4 w-4" />
+            {busy ? "Working…" : "Calendar cleanup — dry run"}
+          </Button>
+          <Button
+            variant="danger"
+            size="sm"
+            onClick={() => runCalendarCleanup(false)}
+            disabled={busy}
+          >
+            <CalendarSync className="h-4 w-4" />
+            {busy ? "Working…" : "Calendar cleanup — apply"}
           </Button>
         </div>
         {msg && (
