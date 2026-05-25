@@ -3,7 +3,10 @@ import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
 import { isAdmin, type Role } from "@/lib/access";
 import { calendarForUser } from "@/lib/google";
-import { syncTaskDueEvent } from "@/lib/task-event-sync";
+import {
+  syncSubtaskDueEvents,
+  syncTaskDueEvent,
+} from "@/lib/task-event-sync";
 import { getGeneralCalendarId } from "@/lib/general-calendar";
 
 // Admin-only one-shot cleanup for legacy calendar disparities.
@@ -388,6 +391,44 @@ export async function POST(req: Request) {
         entry.action = after?.googleEventId ? "resynced" : "resync-failed";
         if (!after?.googleEventId)
           entry.error = "syncTaskDueEvent did not set googleEventId";
+      } catch (err) {
+        entry.action = "resync-failed";
+        entry.error = (err as Error).message;
+      }
+    }
+    report.orphans.push(entry);
+  }
+
+  // ─── (B.2) Sub-task OAuth-failure orphans ───────────────────────────
+  // Any task whose subtaskDueEvents include rows with googleEventId=null
+  // (created in-app only, or pushed during invalid_grant). Re-run
+  // syncSubtaskDueEvents for the parent task; the helper now inserts
+  // missing Google copies via its late-insert branch.
+  const tasksWithSubtaskOrphans = await prisma.ticket.findMany({
+    where: {
+      subtaskDueEvents: { some: { googleEventId: null } },
+    },
+    select: { id: true, title: true },
+  });
+  for (const t of tasksWithSubtaskOrphans) {
+    // We piggyback on the same `orphans` array — UI just shows them
+    // as "would-resync" alongside the parent-task ones. taskId here
+    // is the parent task; eventId is intentionally empty.
+    const entry: (typeof report.orphans)[number] = {
+      taskId: t.id,
+      taskTitle: `${t.title} (sub-tasks)`,
+      eventId: "",
+      action: "would-resync",
+    };
+    if (!dryRun) {
+      try {
+        await syncSubtaskDueEvents(t.id, session.user.id);
+        const remaining = await prisma.event.count({
+          where: { subtaskParentId: t.id, googleEventId: null },
+        });
+        entry.action = remaining === 0 ? "resynced" : "resync-failed";
+        if (remaining > 0)
+          entry.error = `${remaining} sub-task event(s) still missing googleEventId`;
       } catch (err) {
         entry.action = "resync-failed";
         entry.error = (err as Error).message;

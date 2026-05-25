@@ -2594,6 +2594,22 @@ function TimeGrid({
   // doesn't take up space on empty weeks.
   const anyAllDay = Object.values(allDayByDay).some((arr) => arr.length > 0);
 
+  // Auto-scroll the body to the current hour (or 8 AM if "now" is
+  // outside the visible range). Runs once on mount per view/cursor
+  // change so users land on relevant content without needing to
+  // scroll the inner container themselves — which was reported as
+  // unintuitive on smaller screens.
+  const bodyRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    const now = new Date();
+    const isToday = days.some((d) => isSameDay(d, now));
+    const targetHour = isToday
+      ? Math.max(FIRST_HOUR, Math.min(LAST_HOUR, now.getHours() - 1))
+      : 8;
+    const offset = (targetHour - FIRST_HOUR) * HOUR_PX;
+    bodyRef.current?.scrollTo({ top: offset, behavior: "auto" });
+  }, [cursor, view, days.length, days]);
+
   return (
     <div className="flex flex-col flex-1 overflow-hidden">
       {/* Header */}
@@ -2703,7 +2719,18 @@ function TimeGrid({
       )}
 
       {/* Body */}
-      <div className="relative flex-1 overflow-y-auto">
+      <div
+        ref={bodyRef}
+        // `min-h-0` is the classic flex+overflow scroll-fix: without
+        // it, this child refuses to shrink below the natural height
+        // of its inner grid (HOURS.length * HOUR_PX), and the
+        // browser's scroll never engages on viewports where the
+        // calendar should normally scroll.
+        // `overscroll-contain` keeps inner scroll from chaining out
+        // to the page when the user reaches the top/bottom — common
+        // gripe on trackpads when scroll bleeds into the URL bar.
+        className="relative flex-1 min-h-0 overflow-y-auto overscroll-contain"
+      >
         <div
           className="relative grid"
           style={{

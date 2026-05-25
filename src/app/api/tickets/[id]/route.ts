@@ -411,7 +411,7 @@ export async function DELETE(_req: Request, { params }: { params: Promise<{ id: 
     await deleteTaskDueEvent(id, session.user.id).catch((err) =>
       console.error("deleteTaskDueEvent failed", err),
     );
-    await deleteSubtaskDueEvents(id).catch((err) =>
+    await deleteSubtaskDueEvents(id, session.user.id).catch((err) =>
       console.error("deleteSubtaskDueEvents failed", err),
     );
   }

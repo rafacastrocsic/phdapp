@@ -180,12 +180,16 @@ function allDayAnchors(dayIso: string): { startsAt: Date; endsAt: Date } | null 
 }
 
 /**
- * Mirror each sub-task that has a deadline as an in-app all-day calendar
+ * Mirror each sub-task that has a deadline as an all-day calendar
  * Event titled "[Sub-task] <text> · <task title>". Sub-tasks without a
- * deadline get no event. Events for removed/cleared sub-tasks are pruned.
+ * deadline get no event. Events for removed/cleared sub-tasks are
+ * pruned.
  *
- * In-app only — these are NOT pushed to Google Calendar (deliberate scope:
- * the requirement is the in-app calendar; keeps the Google surface small).
+ * Sub-task events are pushed to Google Calendar just like top-level
+ * task due-events: they land on the assigned student's shared
+ * calendar (falling back to the General calendar, then the user's
+ * primary). Pushes are best-effort — a Google failure never blocks
+ * the in-app row from being kept in sync.
  */
 export async function syncSubtaskDueEvents(
   taskId: string,
@@ -199,7 +203,15 @@ export async function syncSubtaskDueEvents(
       studentId: true,
       archivedAt: true,
       subtasks: true,
-      subtaskDueEvents: { select: { id: true, subtaskKey: true } },
+      student: { select: { calendarId: true } },
+      subtaskDueEvents: {
+        select: {
+          id: true,
+          subtaskKey: true,
+          googleEventId: true,
+          googleCalendarId: true,
+        },
+      },
     },
   });
   if (!task) return;
@@ -209,21 +221,92 @@ export async function syncSubtaskDueEvents(
   const withDue = subs.filter((s) => !!s.due);
   const keep = new Set(withDue.map((s) => s.id));
 
-  // Prune events whose subtask is gone or lost its deadline.
+  // Where new sub-task pushes go. Student calendar takes priority,
+  // then the admin-configured General calendar, then primary.
+  const cal = await calendarForUser(ownerUserId);
+  const targetCalendarId =
+    normalizeCalendarId(task.student?.calendarId) ??
+    (await getGeneralCalendarId()) ??
+    "primary";
+
+  // Prune events whose subtask is gone or lost its deadline — also
+  // delete their Google copy if they had one.
   const stale = task.subtaskDueEvents.filter(
     (e) => !e.subtaskKey || !keep.has(e.subtaskKey),
   );
+  for (const s of stale) {
+    if (cal && s.googleEventId && s.googleCalendarId) {
+      try {
+        await cal.events.delete({
+          calendarId: s.googleCalendarId,
+          eventId: s.googleEventId,
+          sendUpdates: "none",
+        });
+      } catch (err) {
+        console.error("subtask→Google event delete failed", err);
+      }
+    }
+  }
   if (stale.length > 0) {
     await prisma.event.deleteMany({
       where: { id: { in: stale.map((e) => e.id) } },
     });
   }
 
+  // Quick index of existing rows so we can decide insert-vs-patch.
+  const existing = new Map(
+    task.subtaskDueEvents.map((e) => [e.subtaskKey, e]),
+  );
+
   // Upsert one event per sub-task-with-deadline.
   for (const s of withDue) {
     const anchors = allDayAnchors(s.due!.slice(0, 10));
     if (!anchors) continue;
     const title = `${SUBTASK_PREFIX}${s.text || "untitled"} · ${task.title}`;
+    const dueDate = new Date(`${s.due!.slice(0, 10)}T00:00:00.000Z`);
+    const requestBody = googleAllDayBody(
+      `${s.text || "untitled"} · ${task.title}`,
+      null,
+      dueDate,
+    );
+    // Override the [Task] prefix from googleAllDayBody with the
+    // [Sub-task] prefix — the helper was written for task-level
+    // events.
+    requestBody.summary = title;
+
+    // Decide what to push to Google.
+    const prev = existing.get(s.id);
+    let nextGoogleEventId: string | null | undefined = undefined;
+    let nextGoogleCalendarId: string | null | undefined = undefined;
+    if (cal) {
+      if (prev?.googleEventId && prev.googleCalendarId) {
+        // patch existing Google event
+        try {
+          await cal.events.patch({
+            calendarId: prev.googleCalendarId,
+            eventId: prev.googleEventId,
+            requestBody,
+            sendUpdates: "none",
+          });
+        } catch (err) {
+          console.error("subtask→Google event patch failed", err);
+        }
+      } else {
+        // No Google copy yet (first time OR late-insert) — insert.
+        try {
+          const r = await cal.events.insert({
+            calendarId: targetCalendarId,
+            requestBody,
+            sendUpdates: "none",
+          });
+          nextGoogleEventId = r.data.id ?? null;
+          nextGoogleCalendarId = targetCalendarId;
+        } catch (err) {
+          console.error("subtask→Google event insert failed", err);
+        }
+      }
+    }
+
     await prisma.event.upsert({
       where: {
         subtaskParentId_subtaskKey: {
@@ -240,19 +323,59 @@ export async function syncSubtaskDueEvents(
         studentId: task.studentId,
         subtaskParentId: taskId,
         subtaskKey: s.id,
+        googleEventId: nextGoogleEventId ?? null,
+        googleCalendarId: nextGoogleCalendarId ?? null,
       },
       update: {
         title,
         startsAt: anchors.startsAt,
         endsAt: anchors.endsAt,
         studentId: task.studentId,
+        // Persist new Google ids only when we successfully created
+        // a fresh Google copy; never overwrite an existing
+        // googleEventId.
+        ...(nextGoogleEventId
+          ? {
+              googleEventId: nextGoogleEventId,
+              googleCalendarId: nextGoogleCalendarId,
+            }
+          : {}),
       },
     });
   }
 }
 
-/** Remove all sub-task deadline events for a task (used on soft-delete). */
-export async function deleteSubtaskDueEvents(taskId: string): Promise<void> {
+/**
+ * Remove all sub-task deadline events for a task (used on soft-delete).
+ * Also deletes the Google Calendar copies, best-effort.
+ */
+export async function deleteSubtaskDueEvents(
+  taskId: string,
+  ownerUserId?: string,
+): Promise<void> {
+  const rows = await prisma.event
+    .findMany({
+      where: { subtaskParentId: taskId },
+      select: { id: true, googleEventId: true, googleCalendarId: true },
+    })
+    .catch(() => [] as Array<{ id: string; googleEventId: string | null; googleCalendarId: string | null }>);
+  if (ownerUserId && rows.some((r) => r.googleEventId)) {
+    const cal = await calendarForUser(ownerUserId);
+    if (cal) {
+      for (const r of rows) {
+        if (!r.googleEventId || !r.googleCalendarId) continue;
+        try {
+          await cal.events.delete({
+            calendarId: r.googleCalendarId,
+            eventId: r.googleEventId,
+            sendUpdates: "none",
+          });
+        } catch (err) {
+          console.error("subtask→Google event bulk delete failed", err);
+        }
+      }
+    }
+  }
   await prisma.event
     .deleteMany({ where: { subtaskParentId: taskId } })
     .catch(() => {});
