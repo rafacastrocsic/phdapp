@@ -741,21 +741,31 @@ export function CalendarView({
                           const kind = effectiveKind(e.id);
                           const isTask = !!e.ticketId;
                           // Sub-task mirror events have a parent task
-                          // but no ticketId of their own. Render them
-                          // with the same task-chip style (no time
-                          // prefix) and route clicks to the parent
-                          // task so the user lands in context.
+                          // but no ticketId of their own. By default we
+                          // route their click to the parent task so
+                          // the user lands in context — UNLESS the
+                          // sub-task event has been converted into a
+                          // 1:1 meeting (isMeeting=true), in which
+                          // case open the event dialog instead so the
+                          // meeting's agenda / notes / action items
+                          // are reachable. Otherwise the meeting notes
+                          // appear lost (they're on the event row,
+                          // not the task).
                           const isSubtask = !!e.subtaskParentId;
                           if (isSubtask) {
                             const cleanTitle = e.title;
+                            const goesToMeeting = !!e.isMeeting;
                             return (
                               <button
                                 key={e.id}
                                 onClick={(ev) => {
                                   ev.stopPropagation();
                                   dismissEvent(e.id);
-                                  if (e.subtaskParentId)
+                                  if (goesToMeeting) {
+                                    setOpenEventId(e.id);
+                                  } else if (e.subtaskParentId) {
                                     setPeekTicketId(e.subtaskParentId);
+                                  }
                                 }}
                                 className={cn(
                                   "group flex w-full items-center gap-1 text-left text-[11px] truncate rounded border border-dashed bg-white pl-1.5 pr-1.5 py-0.5 font-medium hover:bg-slate-50",
@@ -919,7 +929,20 @@ export function CalendarView({
               availabilityByDay={availabilityByDay}
               effectiveKind={effectiveKind}
               onEventClick={(id) => {
-                setOpenEventId(id);
+                // Mirror the month-grid routing: sub-task events
+                // jump to the parent task by default, but a sub-task
+                // that's been converted to a 1:1 meeting opens its
+                // event dialog so the agenda / notes / action items
+                // are reachable. Top-level task events also route
+                // to the task peek.
+                const ev = events.find((e) => e.id === id);
+                if (ev?.ticketId) {
+                  setPeekTicketId(ev.ticketId);
+                } else if (ev?.subtaskParentId && !ev.isMeeting) {
+                  setPeekTicketId(ev.subtaskParentId);
+                } else {
+                  setOpenEventId(id);
+                }
                 dismissEvent(id);
               }}
               onSlotClick={(day) => {
@@ -1276,6 +1299,24 @@ function EventDetailDialog({
                 title="Open the related task"
               >
                 Related task: {event.linkedTaskTitle ?? "View task"}
+              </button>
+            </div>
+          )}
+
+          {/* Sub-task events keep a back-pointer to the parent task so
+              the user can navigate to context even when the event has
+              been converted into a 1:1 meeting (whose click in the
+              grid now lands here on the event dialog, not the task). */}
+          {event.subtaskParentId && !event.linkedTaskId && (
+            <div className="flex items-center gap-2 text-slate-700">
+              <KanbanSquare className="h-4 w-4 text-slate-400" />
+              <button
+                type="button"
+                onClick={() => onPeekTask(event.subtaskParentId!)}
+                className="text-[var(--c-teal)] hover:underline text-left"
+                title="Open the parent task"
+              >
+                Parent task
               </button>
             </div>
           )}
