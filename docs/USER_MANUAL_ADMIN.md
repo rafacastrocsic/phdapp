@@ -130,6 +130,8 @@ What you can do there:
 - **Edit any user** — change name, color, role, photo (the admin can edit any user, not just themselves).
 - **Maintenance**:
   - **Run chat cleanup now** — manually trigger the 7-day chat-attachment cleanup (otherwise it runs piggybacked on chat uploads, throttled to once per hour).
+  - **Backfill missing team channels** — idempotent; creates a team channel for any student that doesn't have one yet.
+  - **Calendar cleanup — dry run / apply** — three-pass repair for legacy disparities between PhDapp and Google Calendar: (a) deletes DB **duplicates** where the same task title+day exists with both a real task mirror AND a sync-orphan twin; (b) deletes **dangling** `[Task]_` / `[Sub-task]_` rows whose task/sub-task no longer exists (or never did); (c) scans the General + per-student Google calendars for **ghost** `[Task]_*` events that no PhDapp row references and removes them. Then re-pushes to Google any task whose due-event failed to sync originally (e.g. during the invalid_grant period). Run the dry-run first to see what would change before applying. Safe to re-run; idempotent.
 
 ## Architecture at a glance
 
