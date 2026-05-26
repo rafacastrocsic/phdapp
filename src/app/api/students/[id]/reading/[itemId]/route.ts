@@ -9,9 +9,13 @@ const Patch = z.object({
   authors: z.string().nullable().optional(),
   url: z.string().nullable().optional(),
   // Status transitions: proposed → approved|rejected (supervisor only),
-  // approved → reading → done (student or supervisor).
+  // approved → reading → done (student-only; supervisors don't read
+  // on the students behalf).
   status: z.enum(["proposed", "approved", "reading", "done", "rejected"]).optional(),
   decisionNote: z.string().nullable().optional(),
+  // The "Why I'm proposing this" note set by the proposer at creation
+  // time. Editable AFTER creation by the original proposer only.
+  proposalNote: z.string().nullable().optional(),
 });
 
 const authorSel = { select: { id: true, name: true, image: true, color: true } };
@@ -44,6 +48,7 @@ export async function PATCH(
 
   if (d.status !== undefined) {
     const decisionStatuses = new Set(["approved", "rejected"]);
+    const readingProgressStatuses = new Set(["reading", "done"]);
     // Approving / rejecting a proposal is a supervisor-only action.
     if (
       existing.status === "proposed" &&
@@ -54,6 +59,15 @@ export async function PATCH(
         { error: "Only a supervisor can approve or reject a proposal" },
         { status: 403 },
       );
+    // Marking an item as "reading" or "done" is the student's
+    // self-report. Supervisors shouldn't move items on behalf of
+    // the student (supervisors don't actually read in the student's
+    // place — they confirm / accompany).
+    if (readingProgressStatuses.has(d.status) && level !== "self")
+      return NextResponse.json(
+        { error: "Only the student can mark a reading as in-progress or done" },
+        { status: 403 },
+      );
     data.status = d.status;
     if (decisionStatuses.has(d.status)) {
       data.decisionById = session.user.id;
@@ -61,6 +75,18 @@ export async function PATCH(
     }
   } else if (d.decisionNote !== undefined) {
     data.decisionNote = d.decisionNote;
+  }
+
+  // proposalNote is editable AFTER creation by the original proposer
+  // only (and admin). Supervisors moderating someone else's
+  // proposal must use the decisionNote field instead.
+  if (d.proposalNote !== undefined) {
+    if (existing.addedById !== session.user.id && !isAdmin(session.user.role))
+      return NextResponse.json(
+        { error: "Only the original proposer can edit the proposal note" },
+        { status: 403 },
+      );
+    data.proposalNote = d.proposalNote;
   }
 
   const item = await prisma.readingItem.update({

@@ -54,6 +54,7 @@ export default async function ReadingPage({
   return (
     <ReadingView
       viewerRole={role}
+      viewerUserId={session.user.id}
       students={students}
       levelByStudent={levelByStudent}
       initialStudent={sp.student ?? null}

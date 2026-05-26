@@ -51,12 +51,14 @@ function studentName(s: StudentLite) {
 
 export function ReadingView({
   viewerRole,
+  viewerUserId,
   students,
   levelByStudent,
   initialStudent,
   initialItems,
 }: {
   viewerRole: string;
+  viewerUserId: string;
   students: StudentLite[];
   levelByStudent: Record<string, string>;
   initialStudent: string | null;
@@ -156,6 +158,14 @@ export function ReadingView({
   function canDecide(i: ReadingItem) {
     return levelByStudent[i.studentId] === "supervisor";
   }
+  // "Start reading" / "Mark read" are self-reports — only the student
+  // themselves should see those buttons. Supervisors don't read on
+  // the student's behalf.
+  function canSelfProgress(i: ReadingItem) {
+    return levelByStudent[i.studentId] === "self";
+  }
+  // Generic "can edit/delete this row" — student OR supervisor (admin
+  // counts as supervisor via teamLevelForStudent).
   function canProgress(i: ReadingItem) {
     const lvl = levelByStudent[i.studentId];
     return lvl === "supervisor" || lvl === "self";
@@ -337,13 +347,21 @@ export function ReadingView({
                   i={i}
                   studentFilter={studentFilter}
                   canDecide={canDecide(i)}
+                  canSelfProgress={canSelfProgress(i)}
                   canProgress={canProgress(i)}
+                  canEditProposalNote={
+                    i.addedBy.id === viewerUserId ||
+                    viewerRole === "admin"
+                  }
                   decisionDraft={decisionDrafts[i.id] ?? ""}
                   onDecisionDraftChange={(v) =>
                     setDecisionDrafts((p) => ({ ...p, [i.id]: v }))
                   }
                   onDecide={(status) => decide(i, status)}
                   onProgress={(next) => patch(i, { status: next })}
+                  onEditProposalNote={(text) =>
+                    patch(i, { proposalNote: text || null })
+                  }
                   onDelete={() => del(i)}
                 />
               ))}
@@ -367,13 +385,21 @@ export function ReadingView({
                   i={i}
                   studentFilter={studentFilter}
                   canDecide={canDecide(i)}
+                  canSelfProgress={canSelfProgress(i)}
                   canProgress={canProgress(i)}
+                  canEditProposalNote={
+                    i.addedBy.id === viewerUserId ||
+                    viewerRole === "admin"
+                  }
                   decisionDraft={decisionDrafts[i.id] ?? ""}
                   onDecisionDraftChange={(v) =>
                     setDecisionDrafts((p) => ({ ...p, [i.id]: v }))
                   }
                   onDecide={(status) => decide(i, status)}
                   onProgress={(next) => patch(i, { status: next })}
+                  onEditProposalNote={(text) =>
+                    patch(i, { proposalNote: text || null })
+                  }
                   onDelete={() => del(i)}
                 />
               ))}
@@ -393,24 +419,46 @@ function Row({
   i,
   studentFilter,
   canDecide,
+  canSelfProgress,
   canProgress,
+  canEditProposalNote,
   decisionDraft,
   onDecisionDraftChange,
   onDecide,
   onProgress,
+  onEditProposalNote,
   onDelete,
 }: {
   i: ReadingItem;
   studentFilter: string;
   canDecide: boolean;
+  // True only when the viewer IS the student themselves. Drives
+  // visibility of the self-report buttons (Start reading / Mark
+  // read) — supervisors don't read on the student's behalf.
+  canSelfProgress: boolean;
+  // True when the viewer is the student or a supervisor — controls
+  // visibility of the delete (X) icon.
   canProgress: boolean;
+  // True only when the viewer is the proposer of THIS item (or
+  // admin). Controls the small Edit affordance on the "Why" panel.
+  canEditProposalNote: boolean;
   decisionDraft: string;
   onDecisionDraftChange: (v: string) => void;
   onDecide: (status: "approved" | "rejected") => void;
   onProgress: (next: "reading" | "done") => void;
+  onEditProposalNote: (text: string) => void;
   onDelete: () => void;
 }) {
   const st = STATUS[i.status] ?? STATUS.approved!;
+  // Local editing state for the proposalNote (Why) so we can switch
+  // between a read-only display and an inline textarea. Saving
+  // commits via onEditProposalNote (PATCH proposalNote) and exits
+  // edit mode.
+  const [editingWhy, setEditingWhy] = useState(false);
+  const [whyDraft, setWhyDraft] = useState(i.proposalNote ?? "");
+  useEffect(() => {
+    setWhyDraft(i.proposalNote ?? "");
+  }, [i.proposalNote]);
   return (
     <li className="rounded-lg border bg-white p-3 space-y-3">
     <div className="flex items-start gap-3">
@@ -453,11 +501,68 @@ function Row({
           {i.proposedByStudent ? "Proposed by student" : "Added"} by{" "}
           {i.addedBy.name ?? "someone"}
         </div>
-        {i.proposalNote && (
-          <p className="text-xs text-slate-600 mt-1 border-l-2 border-amber-200 pl-2 whitespace-pre-wrap">
-            <span className="text-slate-400">Why: </span>
-            {i.proposalNote}
-          </p>
+        {/* Proposal-note ("Why") block — read view + inline editor.
+            Visible whenever there's a note OR the viewer is the
+            proposer (so they can add one after the fact). The Edit
+            chip only renders for the proposer (and admin). */}
+        {(i.proposalNote || canEditProposalNote) && !editingWhy && (
+          <div className="mt-1 group/why flex items-start gap-2 border-l-2 border-amber-200 pl-2">
+            <p className="text-xs text-slate-600 whitespace-pre-wrap flex-1 min-w-0">
+              <span className="text-slate-400">Why: </span>
+              {i.proposalNote || (
+                <span className="italic text-slate-400">no reason yet</span>
+              )}
+            </p>
+            {canEditProposalNote && (
+              <button
+                type="button"
+                onClick={() => {
+                  setWhyDraft(i.proposalNote ?? "");
+                  setEditingWhy(true);
+                }}
+                className="shrink-0 rounded px-1 text-[10px] font-medium text-slate-400 hover:bg-slate-100 hover:text-slate-700 opacity-0 group-hover/why:opacity-100 transition-opacity"
+                title="Edit the proposal note"
+              >
+                Edit
+              </button>
+            )}
+          </div>
+        )}
+        {editingWhy && (
+          <div className="mt-1 border-l-2 border-amber-200 pl-2 space-y-1">
+            <Textarea
+              autoFocus
+              value={whyDraft}
+              onChange={(e) => setWhyDraft(e.target.value)}
+              placeholder="Why is this paper relevant? (optional)"
+              rows={3}
+              className="text-xs"
+            />
+            <div className="flex gap-1 justify-end">
+              <Button
+                type="button"
+                size="sm"
+                variant="outline"
+                onClick={() => {
+                  setWhyDraft(i.proposalNote ?? "");
+                  setEditingWhy(false);
+                }}
+              >
+                Cancel
+              </Button>
+              <Button
+                type="button"
+                size="sm"
+                variant="brand"
+                onClick={() => {
+                  onEditProposalNote(whyDraft.trim());
+                  setEditingWhy(false);
+                }}
+              >
+                Save
+              </Button>
+            </div>
+          </div>
         )}
         {i.decisionNote && (
           <p className="text-xs text-slate-600 mt-1 border-l-2 border-slate-200 pl-2 whitespace-pre-wrap">
@@ -499,7 +604,10 @@ function Row({
             </Button>
           </div>
         )}
-        {i.status === "approved" && canProgress && (
+        {/* Start reading / Mark read are SELF-REPORT actions —
+            only the student themselves should see and use these.
+            Supervisors viewing the row just see status badges. */}
+        {i.status === "approved" && canSelfProgress && (
           <Button
             type="button"
             size="sm"
@@ -509,7 +617,7 @@ function Row({
             Start reading
           </Button>
         )}
-        {i.status === "reading" && canProgress && (
+        {i.status === "reading" && canSelfProgress && (
           <Button
             type="button"
             size="sm"
