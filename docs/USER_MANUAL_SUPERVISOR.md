@@ -282,6 +282,8 @@ The **Files** module shows the Google Drive folder shared with each student. Cli
 
 If a student doesn't have a shared Drive folder yet, you (as primary supervisor) can create one from their profile page → **Share Drive**.
 
+**Who is auto-shared on the folder (and on the student's shared Calendar):** the student, the primary supervisor, additional supervisors / co-supervisors, and **team advisors**. **External advisors and committee members are deliberately not auto-shared** — they have a lighter relationship and shouldn't see every file or 1:1 meeting. If you specifically need to give them access, share the folder or calendar with them directly from Google Drive / Google Calendar.
+
 ## Thesis & publications
 
 Each student profile has a **Thesis & publications** card:
@@ -392,6 +394,7 @@ _"Team advisor" is per-student — the ticks below apply only to the students th
 | Create calendar events for the student | ✓ | ✓ | ✓ | ✓ | – | ✓ |
 | Chat in the student's channels | ✓ | ✓ | ✓ | ✓ | – | ✓ |
 | Share / provision the student's Google Calendar | ✓ | – | – | – | – | ✓ |
+| **Auto-included** on the student's shared Drive folder & Calendar | ✓ | ✓ | – | – | ✓ | n/a |
 | See the student's activity (profile / modules) | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
 | Send suggestions to the supervisors | – | – | – | – | ✓ | ✓ |
 

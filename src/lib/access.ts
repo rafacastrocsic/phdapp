@@ -8,6 +8,24 @@ export function isAdmin(role: string | undefined | null): boolean {
 }
 
 /**
+ * CoSupervisor.role values that warrant sharing the student's Google
+ * resources (Drive folder, supervision calendar) with them. Mirrors
+ * the "people who work closely with the student day-to-day" group:
+ * the supervising team (supervisor / co_supervisor) plus team
+ * advisors (who are read-only inside PhDapp but still need to follow
+ * the student's files and schedule).
+ *
+ * External advisors and committee members are deliberately excluded
+ * — they have a lighter relationship and shouldn't see every file or
+ * 1:1 meeting on the student's calendar.
+ */
+export const SHARED_RESOURCE_COSUP_ROLES = new Set<string>([
+  "supervisor",
+  "co_supervisor",
+  "team_advisor",
+]);
+
+/**
  * Team Advisor is a PER-STUDENT relationship (a `CoSupervisor.role` value,
  * like external_advisor / committee), NOT a global User.role — so one person
  * can be a supervisor of student A and a team advisor of student B. A team

@@ -192,6 +192,8 @@ The **Files** module (blue icon) shows the Google Drive folder your supervisor s
 
 Star a file with the star icon to bookmark it. Starred files appear at the top.
 
+**Who else can see this folder:** you, your primary supervisor, any additional supervisors / co-supervisors, and any **team advisor** assigned to you. External advisors and committee members are *not* in this folder by default. The same group is also shared on your **supervision Google Calendar**.
+
 ## Thesis & publications
 
 On your profile page there's a **Thesis & publications** card. You and your supervisors can both edit it:

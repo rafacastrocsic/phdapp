@@ -1,5 +1,6 @@
 import { prisma } from "./prisma";
 import { calendarForUser } from "./google";
+import { SHARED_RESOURCE_COSUP_ROLES } from "./access";
 
 interface ProvisionResult {
   ok: boolean;
@@ -17,8 +18,9 @@ interface ProvisionResult {
 /**
  * Build the list of emails that should have writer access to a student's
  * supervision calendar: the student themselves (if they have a User row with
- * an email) plus all co-supervisors. The owner (the user creating it) is
- * implicitly the calendar owner and doesn't need an ACL entry.
+ * an email), the primary supervisor, and additional supervisors / team
+ * advisors. External advisors and committee members are intentionally
+ * excluded — they shouldn't see every 1:1 meeting on the student's calendar.
  *
  * Returns both the email (for ACL grants) and — when the share target is a
  * PhDapp user — their user id, so we can use their own Google client to
@@ -43,6 +45,9 @@ async function getShareTargets(
       supervisorId: true,
       supervisor: { select: { id: true, email: true } },
       coSupervisors: {
+        // Only close-working roles get calendar access — see
+        // SHARED_RESOURCE_COSUP_ROLES for the rationale.
+        where: { role: { in: Array.from(SHARED_RESOURCE_COSUP_ROLES) } },
         include: { user: { select: { id: true, email: true } } },
       },
     },
@@ -64,7 +69,8 @@ async function getShareTargets(
       userId: student.supervisor.id,
     });
   }
-  // Additional supervisors / external advisors / committee members
+  // Additional supervisors and team advisors (external advisors and
+  // committee members are filtered out above at the Prisma layer).
   for (const cs of student.coSupervisors) {
     if (cs.user?.email) {
       byEmail.set(cs.user.email.toLowerCase(), {

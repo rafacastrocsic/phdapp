@@ -1,5 +1,6 @@
 import { prisma } from "./prisma";
 import { driveForUser } from "./google";
+import { SHARED_RESOURCE_COSUP_ROLES } from "./access";
 
 interface ProvisionResult {
   ok: boolean;
@@ -21,6 +22,11 @@ async function getShareTargetEmails(
       email: true,
       supervisor: { select: { email: true } },
       coSupervisors: {
+        // Only the close-working roles get Drive access. External
+        // advisors and committee members are intentionally excluded —
+        // they have a lighter relationship and shouldn't see every
+        // file in the student's shared folder.
+        where: { role: { in: Array.from(SHARED_RESOURCE_COSUP_ROLES) } },
         include: { user: { select: { email: true } } },
       },
     },
