@@ -6,6 +6,10 @@ import { normalizeLinkedIn, normalizeOrcid, normalizeScholar } from "@/lib/url-u
 
 const Patch = z.object({
   name: z.string().min(1).optional(),
+  // Admin-only. Changing the email re-keys the user's Google
+  // sign-in (NextAuth matches on email) and cascades to the linked
+  // Student row's email field. Must be unique across all users.
+  email: z.string().email().optional(),
   color: z.string().optional(),
   image: z.string().nullable().optional(),
   role: z.enum(["admin", "supervisor", "student"]).optional(),
@@ -71,7 +75,52 @@ export async function PATCH(
     data.role = d.role;
   }
 
+  // Email changes — admin-only. The new email replaces the User row's
+  // primary email and cascades to the linked Student row (if any) so
+  // notifications and the displayed contact email stay in sync. The
+  // user's existing Google Account record stays linked: NextAuth keys
+  // off email, so the next time they sign in with the NEW Gmail
+  // address, events.signIn will match the existing User row and
+  // refresh tokens normally. (The OLD account record stays in the DB
+  // until manually unlinked — see the admin Unlink stale Google
+  // account action.)
+  if (d.email !== undefined) {
+    if (!isAdmin)
+      return NextResponse.json(
+        { error: "Only the admin can change a user's email." },
+        { status: 403 },
+      );
+    const newEmail = d.email.trim().toLowerCase();
+    if (newEmail.length === 0)
+      return NextResponse.json(
+        { error: "Email can't be empty." },
+        { status: 400 },
+      );
+    const conflict = await prisma.user.findFirst({
+      where: { email: newEmail, NOT: { id } },
+      select: { id: true },
+    });
+    if (conflict)
+      return NextResponse.json(
+        {
+          error:
+            "Another user already uses that email. Merge or delete them first.",
+        },
+        { status: 409 },
+      );
+    data.email = newEmail;
+  }
+
   await prisma.user.update({ where: { id }, data });
+  // Keep the linked Student row's email in sync. There can be at
+  // most one Student per User (User.id ↔ Student.userId is unique
+  // logically), so updateMany is just defensive.
+  if (typeof data.email === "string") {
+    await prisma.student.updateMany({
+      where: { userId: id },
+      data: { email: data.email as string },
+    });
+  }
   if (d.image !== undefined) {
     await prisma.student.updateMany({
       where: { userId: id },

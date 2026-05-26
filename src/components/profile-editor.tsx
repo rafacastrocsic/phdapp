@@ -53,6 +53,7 @@ export function ProfileEditor({
   isSelf: boolean;
 }) {
   const [name, setName] = useState(user.name ?? "");
+  const [email, setEmail] = useState(user.email);
   const [color, setColor] = useState(user.color);
   const [role, setRole] = useState(user.role);
   const [image, setImage] = useState<string | null>(user.image);
@@ -83,6 +84,11 @@ export function ProfileEditor({
       alternateEmails,
     };
     if (canEditRole) payload.role = role;
+    // Admin-only: send email only when it actually changed, so non-admins
+    // (who don't see this field) never accidentally try to PATCH it and
+    // so admins editing other fields don't trigger the uniqueness check.
+    if (canEditRole && email.trim().toLowerCase() !== user.email.toLowerCase())
+      payload.email = email.trim();
     const r = await fetch(`/api/users/${user.id}`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
@@ -159,9 +165,26 @@ export function ProfileEditor({
             />
           </Field>
           <div className="grid grid-cols-2 gap-3">
-            <Field label="Email (read-only)">
-              <Input value={user.email} disabled />
-            </Field>
+            {canEditRole ? (
+              <Field label="Email (Google sign-in)">
+                <Input
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  type="email"
+                  placeholder="user@example.com"
+                />
+                {email.trim().toLowerCase() !== user.email.toLowerCase() && (
+                  <p className="text-[11px] text-amber-700 bg-amber-50 rounded p-2 mt-1">
+                    Changing this re-keys their Google sign-in. Next time they
+                    sign in, they must use the new Gmail address.
+                  </p>
+                )}
+              </Field>
+            ) : (
+              <Field label="Email (read-only)">
+                <Input value={user.email} disabled />
+              </Field>
+            )}
             <Field label="Accent color">
               <div className="flex items-center gap-2">
                 <input
