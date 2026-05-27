@@ -41,6 +41,7 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog";
 import { cn, relativeTime, displayName } from "@/lib/utils";
+import { linkify } from "@/lib/linkify";
 import {
   useSectionVersion,
   useUnread,
@@ -849,7 +850,7 @@ export function ChatView({
                                   : "bg-white text-slate-800 rounded-tl-sm border",
                               )}
                             >
-                              {m.body}
+                              {linkify(m.body)}
                               {m.editedAt && sameAuthor && (
                                 <span
                                   className={cn(

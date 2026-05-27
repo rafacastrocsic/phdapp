@@ -4,6 +4,7 @@ import { Avatar } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { Input, Textarea } from "@/components/ui/input";
 import { cn, relativeTime } from "@/lib/utils";
+import { linkify } from "@/lib/linkify";
 import { CornerDownRight } from "lucide-react";
 
 /**
@@ -245,7 +246,7 @@ export function CommentsThread({
             </div>
           ) : (
             <div className="text-slate-800 whitespace-pre-wrap [overflow-wrap:anywhere]">
-              {c.body}
+              {linkify(c.body)}
             </div>
           )}
         </div>

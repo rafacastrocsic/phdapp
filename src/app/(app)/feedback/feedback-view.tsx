@@ -17,6 +17,7 @@ import { Button } from "@/components/ui/button";
 import { Input, Select, Textarea } from "@/components/ui/input";
 import { Card, CardContent } from "@/components/ui/card";
 import { cn, relativeTime } from "@/lib/utils";
+import { linkify } from "@/lib/linkify";
 
 type Kind = "bug" | "idea" | "other";
 
@@ -432,7 +433,7 @@ export function FeedbackView({
                   <>
 
                 <p className="whitespace-pre-wrap [overflow-wrap:anywhere] text-sm text-slate-700">
-                  {f.body}
+                  {linkify(f.body)}
                 </p>
 
                 {f.imageUrl && (
@@ -495,7 +496,7 @@ export function FeedbackView({
                       {f.repliedAt ? ` · ${relativeTime(f.repliedAt)}` : ""}
                     </div>
                     <p className="mt-1 whitespace-pre-wrap [overflow-wrap:anywhere] text-sm text-slate-700">
-                      {f.adminReply}
+                      {linkify(f.adminReply)}
                     </p>
                   </div>
                 )}
@@ -660,7 +661,7 @@ function MessageBubble({
           </span>
         </div>
         <p className="mt-1 whitespace-pre-wrap [overflow-wrap:anywhere] text-sm text-slate-700">
-          {m.body}
+          {linkify(m.body)}
         </p>
       </div>
     </div>
