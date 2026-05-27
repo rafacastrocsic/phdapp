@@ -431,7 +431,7 @@ export function FeedbackView({
                 {!isCollapsed && (
                   <>
 
-                <p className="whitespace-pre-wrap text-sm text-slate-700">
+                <p className="whitespace-pre-wrap [overflow-wrap:anywhere] text-sm text-slate-700">
                   {f.body}
                 </p>
 
@@ -494,7 +494,7 @@ export function FeedbackView({
                       Admin reply
                       {f.repliedAt ? ` · ${relativeTime(f.repliedAt)}` : ""}
                     </div>
-                    <p className="mt-1 whitespace-pre-wrap text-sm text-slate-700">
+                    <p className="mt-1 whitespace-pre-wrap [overflow-wrap:anywhere] text-sm text-slate-700">
                       {f.adminReply}
                     </p>
                   </div>
@@ -659,7 +659,7 @@ function MessageBubble({
             )}
           </span>
         </div>
-        <p className="mt-1 whitespace-pre-wrap text-sm text-slate-700">
+        <p className="mt-1 whitespace-pre-wrap [overflow-wrap:anywhere] text-sm text-slate-700">
           {m.body}
         </p>
       </div>

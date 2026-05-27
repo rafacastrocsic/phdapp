@@ -244,7 +244,7 @@ export function CommentsThread({
               </div>
             </div>
           ) : (
-            <div className="text-slate-800 whitespace-pre-wrap">
+            <div className="text-slate-800 whitespace-pre-wrap [overflow-wrap:anywhere]">
               {c.body}
             </div>
           )}

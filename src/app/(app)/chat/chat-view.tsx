@@ -735,7 +735,14 @@ export function ChatView({
                           width of whatever it was quoting. */}
                       <div
                         className={cn(
-                          "flex max-w-[70%] flex-col gap-1",
+                          // min-w-0 lets the flex item shrink below its
+                          // intrinsic min-content width — required for
+                          // max-w-[70%] to actually constrain a bubble
+                          // containing a very long unbreakable word
+                          // (URL, hash, base64). Without it, the column
+                          // grows to fit the word and forces the chat
+                          // container into horizontal scroll.
+                          "flex max-w-[70%] min-w-0 flex-col gap-1",
                           mine ? "items-end" : "items-start",
                         )}
                       >
@@ -830,7 +837,13 @@ export function ChatView({
                           m.body && (
                             <div
                               className={cn(
-                                "max-w-full rounded-2xl px-3 py-2 text-sm shadow-sm whitespace-pre-wrap break-words",
+                                // [overflow-wrap:anywhere] (rather than
+                                // break-words) is what reliably wraps a
+                                // very long URL or hash that's the only
+                                // content on a line. break-words only
+                                // kicks in mid-line and can leave a
+                                // long word untouched on its own line.
+                                "max-w-full rounded-2xl px-3 py-2 text-sm shadow-sm whitespace-pre-wrap [overflow-wrap:anywhere]",
                                 mine
                                   ? "bg-[var(--c-violet)] text-white rounded-tr-sm"
                                   : "bg-white text-slate-800 rounded-tl-sm border",
