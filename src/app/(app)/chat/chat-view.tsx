@@ -40,7 +40,7 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
-import { cn, relativeTime, displayName } from "@/lib/utils";
+import { cn, relativeTime, displayName, chatTimestamp } from "@/lib/utils";
 import { linkify } from "@/lib/linkify";
 import {
   useSectionVersion,
@@ -742,7 +742,18 @@ export function ChatView({
               ) : (
                 messages.map((m, i) => {
                   const prev = messages[i - 1];
-                  const sameAuthor = prev?.author.id === m.author.id;
+                  // "Burst" — same author AND within 5 minutes of the
+                  // previous message — share one header. A longer gap
+                  // breaks the burst so a fresh header (with its own
+                  // timestamp) appears, even from the same author.
+                  // Without this, Pablo could post at 09:00 and again
+                  // at 18:00 and the 18:00 message would inherit the
+                  // 09:00 header with no visible timestamp of its own.
+                  const sameAuthor =
+                    prev?.author.id === m.author.id &&
+                    new Date(m.createdAt).getTime() -
+                      new Date(prev!.createdAt).getTime() <
+                      5 * 60 * 1000;
                   const mine = m.author.id === meId;
                   return (
                     <div key={m.id}>
@@ -787,7 +798,7 @@ export function ChatView({
                             <span className="font-semibold text-slate-700">
                               {mine ? "You" : m.author.name}
                             </span>{" "}
-                            · {format(new Date(m.createdAt), "HH:mm")}
+                            · {chatTimestamp(m.createdAt)}
                             {m.editedAt && (
                               <span
                                 className="ml-1 italic text-slate-400"

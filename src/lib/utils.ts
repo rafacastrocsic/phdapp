@@ -42,6 +42,39 @@ export function colorFor(seed: string): string {
   return PALETTE[h % PALETTE.length]!;
 }
 
+/**
+ * Format a timestamp for chat-message-style display: always shows the
+ * time of day plus a date hint that's as concise as possible.
+ *
+ *   today              → "Today · 14:30"
+ *   yesterday          → "Yesterday · 14:30"
+ *   within this year   → "May 26 · 14:30"
+ *   prior years        → "May 26, 2024 · 14:30"
+ *
+ * Keeps every message anchored to a date without the noise of always
+ * spelling out today's date.
+ */
+export function chatTimestamp(date: Date | string): string {
+  const d = typeof date === "string" ? new Date(date) : date;
+  const now = new Date();
+  const hhmm = `${String(d.getHours()).padStart(2, "0")}:${String(
+    d.getMinutes(),
+  ).padStart(2, "0")}`;
+  const sameDay = (a: Date, b: Date) =>
+    a.getFullYear() === b.getFullYear() &&
+    a.getMonth() === b.getMonth() &&
+    a.getDate() === b.getDate();
+  if (sameDay(d, now)) return `Today · ${hhmm}`;
+  const yesterday = new Date(now);
+  yesterday.setDate(now.getDate() - 1);
+  if (sameDay(d, yesterday)) return `Yesterday · ${hhmm}`;
+  const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+  const month = MONTHS[d.getMonth()];
+  if (d.getFullYear() === now.getFullYear())
+    return `${month} ${d.getDate()} · ${hhmm}`;
+  return `${month} ${d.getDate()}, ${d.getFullYear()} · ${hhmm}`;
+}
+
 export function relativeTime(date: Date | string | null | undefined): string {
   if (!date) return "";
   const d = typeof date === "string" ? new Date(date) : date;
