@@ -127,6 +127,15 @@ export function ChatView({
     null;
   const [activeId, setActiveId] = useState<string | null>(initialId);
   const [messages, setMessages] = useState<Message[]>([]);
+  // Tracks which channel the `messages` state currently belongs to.
+  // Updated together with setMessages(...) on a server fetch — but NOT
+  // on optimistic within-channel updates (send / edit / delete). Used
+  // by the scroll layout effect to ignore the brief window where
+  // activeId already changed but the new channel's messages haven't
+  // arrived yet (otherwise the effect fires once on stale content and
+  // claims the new channel prematurely, then fires again on real
+  // content with the ref already matching → visible smooth-scroll).
+  const [loadedChannelId, setLoadedChannelId] = useState<string | null>(null);
   const [reads, setReads] = useState<Read[]>([]);
   const [body, setBody] = useState("");
   const [search, setSearch] = useState("");
@@ -233,6 +242,7 @@ export function ChatView({
       if (r.ok) {
         const j = await r.json();
         setMessages(j.messages);
+        setLoadedChannelId(channelId);
         setReads(j.reads ?? []);
       }
     } finally {
@@ -246,6 +256,11 @@ export function ChatView({
   useEffect(() => {
     if (!activeId) return;
     lastSeenChatVersionRef.current = chatVersion;
+    // Invalidate the loaded-channel tag immediately so the scroll
+    // layout-effect doesn't act on the PREVIOUS channel's messages
+    // (which are still in `messages` state until the new fetch
+    // returns and replaces them).
+    setLoadedChannelId(null);
     markRead(activeId);
     fetchActiveChannelMessages(activeId);
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -306,20 +321,26 @@ export function ChatView({
   //
   // useLayoutEffect runs BEFORE the browser paints, so the user never
   // sees the top of the list — only the final scrolled state.
-  // lastScrolledChannelRef tracks which channel we last scrolled for;
-  // if it differs from activeId, this paint is the channel's first
-  // load → use "instant" instead of "smooth".
+  //
+  // Gate on `loadedChannelId === activeId` to skip the brief window
+  // after a channel switch where activeId already changed but the new
+  // channel's messages haven't been fetched yet. Without that gate,
+  // the effect would fire once with the previous channel's messages
+  // still in state, claim the new channel in the ref, then fire again
+  // when the real messages arrive — with the ref matching, it would
+  // use behavior:"smooth" and you'd see the animated scroll.
   const lastScrolledChannelRef = useRef<string | null>(null);
   useLayoutEffect(() => {
     const el = scrollRef.current;
     if (!el || !activeId) return;
+    if (loadedChannelId !== activeId) return;
     const isFirstPaintForChannel = lastScrolledChannelRef.current !== activeId;
     el.scrollTo({
       top: el.scrollHeight,
       behavior: isFirstPaintForChannel ? "instant" : "smooth",
     });
     lastScrolledChannelRef.current = activeId;
-  }, [activeId, messages.length]);
+  }, [activeId, loadedChannelId, messages.length]);
 
   const filteredChannels = useMemo(
     () =>
