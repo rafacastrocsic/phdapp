@@ -8,6 +8,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import { linkify } from "@/lib/linkify";
 
 // Non-students get a one-click read-only digest of where the student is
 // at (tasks, events, thesis, publications, latest check-in).
@@ -77,9 +78,9 @@ export function StudentCatchupButton({ studentId }: { studentId: string }) {
           )}
           {text && (
             <>
-              <pre className="max-h-[60vh] overflow-auto whitespace-pre-wrap rounded-lg border bg-slate-50 p-4 text-[13px] leading-relaxed text-slate-800 font-sans">
-                {text}
-              </pre>
+              <div className="max-h-[60vh] overflow-auto whitespace-pre-wrap [overflow-wrap:anywhere] rounded-lg border bg-slate-50 p-4 text-[13px] leading-relaxed text-slate-800 font-sans">
+                {linkify(text)}
+              </div>
               <div className="flex justify-end gap-2 pt-2">
                 <Button variant="outline" size="sm" onClick={copy}>
                   {copied ? (

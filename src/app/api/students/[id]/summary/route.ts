@@ -6,7 +6,7 @@ import {
   canSeeSupervisorPrivate,
   type Role,
 } from "@/lib/access";
-import { displayName } from "@/lib/utils";
+import { displayName, relativeTime } from "@/lib/utils";
 import { STATUSES, PRIORITIES } from "@/lib/kanban-constants";
 import { format } from "date-fns";
 
@@ -21,7 +21,7 @@ const dayMs = 86_400_000;
  * publications, latest check-in. Non-students with visibility only.
  */
 export async function GET(
-  _req: Request,
+  req: Request,
   { params }: { params: Promise<{ id: string }> },
 ) {
   const session = await auth();
@@ -41,24 +41,80 @@ export async function GET(
   if (!student)
     return NextResponse.json({ error: "not found" }, { status: 404 });
 
+  // Origin used to build deep-links into the app. Comes from the
+  // request URL so it matches whichever Vercel deploy is serving
+  // (no env var needed).
+  const origin = new URL(req.url).origin;
+
   const now = new Date();
-  const [tickets, events, chapters, pubs, checkin] = await Promise.all([
-    prisma.ticket.findMany({
-      where: { studentId: id, archivedAt: null },
-      select: {
-        title: true,
-        status: true,
-        priority: true,
-        dueDate: true,
-        completedAt: true,
-      },
-      orderBy: [{ dueDate: "asc" }],
-    }),
-    prisma.event.findMany({
-      where: { studentId: id, ticketId: null, subtaskParentId: null },
-      select: { title: true, startsAt: true, isMeeting: true },
-      orderBy: { startsAt: "asc" },
-    }),
+  const [tickets, events, recentTickets, recentEvents, chapters, pubs, checkin] =
+    await Promise.all([
+      prisma.ticket.findMany({
+        where: { studentId: id, archivedAt: null },
+        select: {
+          title: true,
+          status: true,
+          priority: true,
+          dueDate: true,
+          completedAt: true,
+        },
+        orderBy: [{ dueDate: "asc" }],
+      }),
+      prisma.event.findMany({
+        where: { studentId: id, ticketId: null, subtaskParentId: null },
+        select: { title: true, startsAt: true, isMeeting: true },
+        orderBy: { startsAt: "asc" },
+      }),
+      // RECENTLY UPDATED tasks — separate query (different ordering)
+      // so we don't disturb the existing "active / overdue / etc."
+      // groupings above. Includes a small slice of the most recent
+      // comments per task so the digest carries the conversation
+      // context, not just the task title.
+      prisma.ticket.findMany({
+        where: { studentId: id, archivedAt: null },
+        orderBy: [{ updatedAt: "desc" }],
+        take: 6,
+        select: {
+          id: true,
+          title: true,
+          status: true,
+          priority: true,
+          updatedAt: true,
+          _count: { select: { comments: true } },
+          comments: {
+            orderBy: { createdAt: "desc" },
+            take: 2,
+            select: {
+              body: true,
+              createdAt: true,
+              author: { select: { name: true, email: true } },
+            },
+          },
+        },
+      }),
+      // RECENTLY UPDATED events (excluding task-mirror events).
+      prisma.event.findMany({
+        where: { studentId: id, ticketId: null, subtaskParentId: null },
+        orderBy: [{ updatedAt: "desc" }],
+        take: 3,
+        select: {
+          id: true,
+          title: true,
+          startsAt: true,
+          updatedAt: true,
+          isMeeting: true,
+          _count: { select: { comments: true } },
+          comments: {
+            orderBy: { createdAt: "desc" },
+            take: 1,
+            select: {
+              body: true,
+              createdAt: true,
+              author: { select: { name: true, email: true } },
+            },
+          },
+        },
+      }),
     prisma.thesisChapter.findMany({
       where: { studentId: id },
       select: { status: true },
@@ -106,9 +162,76 @@ export async function GET(
     return `  • ${t.title} (${bits.join(", ")})`;
   };
 
+  // ───── Comment-body truncation for inline quotes ─────
+  // Comments can be long; in the digest we just want enough to know
+  // what they're about. Wrap at ~140 chars to keep one comment to ~2
+  // lines in the dialog.
+  const quote = (body: string): string => {
+    const s = body.trim().replace(/\s+/g, " ");
+    return s.length > 140 ? s.slice(0, 137).trimEnd() + "…" : s;
+  };
+  const authorName = (a: { name: string | null; email: string }) =>
+    a.name?.trim() || a.email;
+
   const L: string[] = [];
   L.push(`Catch-up — ${displayName(student)}`);
   L.push(`As of ${format(now, "EEE d MMM yyyy, HH:mm")}`);
+
+  // ───── RECENTLY UPDATED ─────
+  // Top-of-digest "what changed lately" block, so a supervisor sees
+  // the freshest activity (recently moved/commented tasks, rescheduled
+  // events) before diving into the breakdown below. Each task line
+  // includes a kanban deep link that opens the task dialog directly.
+  if (recentTickets.length || recentEvents.length) {
+    L.push("");
+    L.push("RECENTLY UPDATED");
+    if (recentTickets.length) {
+      L.push("");
+      L.push("Tasks (most recent activity first):");
+      for (const t of recentTickets) {
+        const meta: string[] = [sLabel(t.status), pLabel(t.priority)];
+        meta.push(
+          `${t._count.comments} comment${t._count.comments === 1 ? "" : "s"}`,
+        );
+        meta.push(`updated ${relativeTime(t.updatedAt)}`);
+        L.push(`  • ${t.title} — ${meta.join(", ")}`);
+        L.push(`    ${origin}/kanban?student=${id}&ticket=${t.id}`);
+        // Most recent comments (newest first), 2 max — gives the
+        // gist of the conversation without dumping the whole thread.
+        for (const c of t.comments) {
+          L.push(
+            `    ${authorName(c.author)} (${relativeTime(c.createdAt)}): “${quote(c.body)}”`,
+          );
+        }
+      }
+    }
+    if (recentEvents.length) {
+      L.push("");
+      L.push("Events (most recent activity first):");
+      for (const e of recentEvents) {
+        const meta: string[] = [
+          format(e.startsAt, "EEE MMM d, HH:mm"),
+        ];
+        if (e.isMeeting) meta.push("meeting");
+        if (e._count.comments > 0)
+          meta.push(
+            `${e._count.comments} comment${e._count.comments === 1 ? "" : "s"}`,
+          );
+        meta.push(`updated ${relativeTime(e.updatedAt)}`);
+        L.push(`  • ${e.title} — ${meta.join(", ")}`);
+        // No per-event deep link (calendar page doesn't accept an
+        // event id in the query string), so we link to the
+        // calendar filtered to this student instead.
+        L.push(`    ${origin}/calendar?student=${id}`);
+        for (const c of e.comments) {
+          L.push(
+            `    ${authorName(c.author)} (${relativeTime(c.createdAt)}): “${quote(c.body)}”`,
+          );
+        }
+      }
+    }
+  }
+
   L.push("");
   L.push(
     `TASKS: ${active.length} active · ${inProgress.length} in progress · ` +
