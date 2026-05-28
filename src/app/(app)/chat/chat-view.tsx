@@ -1,5 +1,5 @@
 "use client";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import {
   Send,
   Plus,
@@ -300,12 +300,26 @@ export function ChatView({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeId, chatVersion]);
 
-  useEffect(() => {
-    scrollRef.current?.scrollTo({
-      top: scrollRef.current.scrollHeight,
-      behavior: "smooth",
+  // Scroll-to-bottom when:
+  //   • a channel is opened/switched (first paint of its messages) — INSTANT, no flash
+  //   • a new message arrives in the open channel — SMOOTH, so it's noticeable
+  //
+  // useLayoutEffect runs BEFORE the browser paints, so the user never
+  // sees the top of the list — only the final scrolled state.
+  // lastScrolledChannelRef tracks which channel we last scrolled for;
+  // if it differs from activeId, this paint is the channel's first
+  // load → use "instant" instead of "smooth".
+  const lastScrolledChannelRef = useRef<string | null>(null);
+  useLayoutEffect(() => {
+    const el = scrollRef.current;
+    if (!el || !activeId) return;
+    const isFirstPaintForChannel = lastScrolledChannelRef.current !== activeId;
+    el.scrollTo({
+      top: el.scrollHeight,
+      behavior: isFirstPaintForChannel ? "instant" : "smooth",
     });
-  }, [messages.length]);
+    lastScrolledChannelRef.current = activeId;
+  }, [activeId, messages.length]);
 
   const filteredChannels = useMemo(
     () =>
