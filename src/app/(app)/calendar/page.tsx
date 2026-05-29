@@ -230,10 +230,16 @@ export default async function CalendarPage({
       initialStudent={sp.student ?? null}
       initialMonth={sp.month ?? null}
       highlightByEvent={highlightByEvent}
-      // Sevilla public holidays for the visible window (same from/to
-      // as the events query) — rendered as rose chips on day cells
-      // across month/week/day/mini views.
-      holidays={getHolidaysInRange(from, to).map((h) => ({
+      // Sevilla public holidays for the full current year + next year
+      // (~32 rows; tiny payload). The events query is bounded to a
+      // 3-month window for size reasons, but holidays should cover the
+      // whole year so the Year-view mini grid is complete and so that
+      // client-side month navigation doesn't run out of holiday data
+      // a few months past the initial load.
+      holidays={getHolidaysInRange(
+        new Date(monthBase.getFullYear(), 0, 1),
+        new Date(monthBase.getFullYear() + 2, 0, 1),
+      ).map((h) => ({
         date: h.date.toISOString(),
         name: h.name,
       }))}
