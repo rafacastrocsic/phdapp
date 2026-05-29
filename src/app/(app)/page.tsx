@@ -18,6 +18,7 @@ import {
 import { format } from "date-fns";
 import { relativeTime, displayName } from "@/lib/utils";
 import { LocalTime } from "@/components/local-time";
+import { expandOccurrences } from "@/lib/recurrence";
 
 const STATUS_LABEL: Record<string, string> = {
   backlog: "Backlog",
@@ -99,14 +100,36 @@ export default async function DashboardPage() {
         dueDate: { lt: new Date() },
       },
     }),
+    // Real upcoming meetings — mirrors the Calendar's selection:
+    //   • include general events (studentId null + isGeneral true)
+    //     so group/team meetings appear here
+    //   • exclude task-deadline mirror events (ticketId / subtaskParentId
+    //     not null) — those are task chips, not meetings
+    //   • keep recurring series even if their base startsAt is in the
+    //     past; we expand to the next occurrence below.
+    // Cap raw rows at 50; we'll trim to 5 after recurrence expansion.
     prisma.event.findMany({
       where: {
-        studentId: { in: studentIds },
-        startsAt: { gte: new Date() },
+        ticketId: null,
+        subtaskParentId: null,
+        AND: [
+          {
+            OR: [
+              { studentId: { in: studentIds } },
+              { studentId: null, isGeneral: true },
+            ],
+          },
+          {
+            OR: [
+              { startsAt: { gte: new Date() } },
+              { recurrenceRule: { not: null } },
+            ],
+          },
+        ],
       },
       include: { student: true },
       orderBy: { startsAt: "asc" },
-      take: 5,
+      take: 50,
     }),
     prisma.ticket.findMany({
       where: { studentId: { in: studentIds }, archivedAt: null },
@@ -115,6 +138,37 @@ export default async function DashboardPage() {
       take: 6,
     }),
   ]);
+
+  // Resolve each event to the actual NEXT occurrence the viewer should
+  // see — for recurring series this means walking forward from now via
+  // expandOccurrences (mirroring the Calendar). One-offs in the past
+  // are filtered out (we kept them in the query only as a side effect
+  // of the recurringRule OR clause). Sorted globally and trimmed to 5.
+  const now = new Date();
+  const horizon = new Date(now.getTime() + 366 * 86_400_000);
+  type UpcomingEvent = (typeof upcomingEvents)[number] & {
+    nextStartsAt: Date;
+    nextEndsAt: Date;
+  };
+  const upcomingResolved: UpcomingEvent[] = upcomingEvents
+    .map((e): UpcomingEvent | null => {
+      if (e.recurrenceRule) {
+        const occ = expandOccurrences(
+          e.startsAt,
+          e.endsAt,
+          e.recurrenceRule,
+          now,
+          horizon,
+        ).find((o) => o.start >= now);
+        if (!occ) return null;
+        return { ...e, nextStartsAt: occ.start, nextEndsAt: occ.end };
+      }
+      if (e.startsAt < now) return null;
+      return { ...e, nextStartsAt: e.startsAt, nextEndsAt: e.endsAt };
+    })
+    .filter((x): x is UpcomingEvent => x !== null)
+    .sort((a, b) => a.nextStartsAt.getTime() - b.nextStartsAt.getTime())
+    .slice(0, 5);
 
   return (
     <div className="p-6 lg:p-8 space-y-6">
@@ -179,7 +233,7 @@ export default async function DashboardPage() {
         />
         <StatCard
           label="Upcoming events"
-          value={upcomingEvents.length}
+          value={upcomingResolved.length}
           icon={CalendarDays}
           color="var(--c-teal)"
           hint="next 5 in calendar"
@@ -265,26 +319,28 @@ export default async function DashboardPage() {
               </Link>
             </CardHeader>
             <CardContent className="p-0">
-              {upcomingEvents.length === 0 ? (
+              {upcomingResolved.length === 0 ? (
                 <EmptyState
                   title="Nothing scheduled"
                   hint="Use the Calendar tab to add a meeting."
                 />
               ) : (
                 <ul className="divide-y">
-                  {upcomingEvents.map((e) => (
+                  {upcomingResolved.map((e) => (
                     <li key={e.id} className="p-4 hover:bg-slate-50">
                       <div className="flex items-start gap-3">
                         <div className="text-center shrink-0 w-12">
                           {/* Render in the viewer's TZ — date-fns format()
                               on the server renders in UTC, which made
                               late-evening events show next day's MMM/d
-                              and made HH:mm off by hours-vs-UTC. */}
+                              and made HH:mm off by hours-vs-UTC.
+                              nextStartsAt/nextEndsAt are the resolved
+                              next occurrence for recurring series. */}
                           <div className="text-[10px] font-bold uppercase text-[var(--c-teal)]">
-                            <LocalTime iso={e.startsAt.toISOString()} fmt="MMM" />
+                            <LocalTime iso={e.nextStartsAt.toISOString()} fmt="MMM" />
                           </div>
                           <div className="text-2xl font-bold text-slate-900 leading-none">
-                            <LocalTime iso={e.startsAt.toISOString()} fmt="d" />
+                            <LocalTime iso={e.nextStartsAt.toISOString()} fmt="d" />
                           </div>
                         </div>
                         <div className="flex-1 min-w-0">
@@ -293,8 +349,8 @@ export default async function DashboardPage() {
                           </div>
                           <div className="flex items-center gap-1 text-xs text-slate-500 mt-0.5">
                             <Clock className="h-3 w-3" />
-                            <LocalTime iso={e.startsAt.toISOString()} fmt="HH:mm" /> –{" "}
-                            <LocalTime iso={e.endsAt.toISOString()} fmt="HH:mm" />
+                            <LocalTime iso={e.nextStartsAt.toISOString()} fmt="HH:mm" /> –{" "}
+                            <LocalTime iso={e.nextEndsAt.toISOString()} fmt="HH:mm" />
                             {e.student && <> · with {displayName(e.student)}</>}
                           </div>
                         </div>
