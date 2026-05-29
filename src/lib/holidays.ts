@@ -40,15 +40,82 @@ function getEngine(): Holidays {
   return _hd;
 }
 
+// ─── Sevilla city local holidays (not in date-holidays) ───
+// The Ayuntamiento de Sevilla publishes 2 local holidays per year in
+// the Boletín Oficial de la Provincia (BOP). Corpus Christi is
+// always one of them; the second varies and has to be added here
+// once the BOP for that year is published.
+
+/**
+ * Easter Sunday for a given Gregorian year (Anonymous Gregorian
+ * algorithm — sometimes called the "Gauss" algorithm). Returns a UTC
+ * midnight Date so downstream arithmetic doesn't drift across DST.
+ */
+function easterSunday(year: number): Date {
+  const a = year % 19;
+  const b = Math.floor(year / 100);
+  const c = year % 100;
+  const d = Math.floor(b / 4);
+  const e = b % 4;
+  const f = Math.floor((b + 8) / 25);
+  const g = Math.floor((b - f + 1) / 3);
+  const h = (19 * a + b - d - g + 15) % 30;
+  const i = Math.floor(c / 4);
+  const k = c % 4;
+  const L = (32 + 2 * e + 2 * i - h - k) % 7;
+  const m = Math.floor((a + 11 * h + 22 * L) / 451);
+  const month = Math.floor((h + L - 7 * m + 114) / 31);
+  const day = ((h + L - 7 * m + 114) % 31) + 1;
+  return new Date(Date.UTC(year, month - 1, day));
+}
+
+/** Corpus Christi = Thursday 60 days after Easter Sunday. */
+function corpusChristi(year: number): Date {
+  return new Date(easterSunday(year).getTime() + 60 * 86_400_000);
+}
+
+/**
+ * Per-year overrides for the SECOND Sevilla local holiday (the one
+ * that's not Corpus Christi). The Ayuntamiento publishes this in
+ * the BOP each autumn for the following year. Add a new entry as
+ * each year's calendar is announced.
+ *
+ * Keys are calendar years; values are arrays so a year with no
+ * second local (rare) can stay empty.
+ *
+ *   Example: 2024 — Feria's Wednesday was the second local.
+ *
+ * If left empty for a given year, Corpus Christi alone is shown
+ * (still better than missing it entirely).
+ */
+const SEVILLA_EXTRAS_BY_YEAR: Record<number, Holiday[]> = {
+  // 2026: second local TBD — add once published in the BOP.
+};
+
+function sevillaLocalHolidays(year: number): Holiday[] {
+  return [
+    {
+      date: corpusChristi(year),
+      name: "Corpus Christi",
+      type: "public",
+    },
+    ...(SEVILLA_EXTRAS_BY_YEAR[year] ?? []),
+  ];
+}
+
 /**
  * Every public holiday for a given calendar year, sorted by date.
+ * Merges date-holidays output with Sevilla city locals (Corpus
+ * Christi + any year-specific extras).
  */
 export function getHolidaysForYear(year: number): Holiday[] {
-  const all = getEngine().getHolidays(year);
-  return all
+  const fromLib = getEngine()
+    .getHolidays(year)
     .filter((h) => h.type === "public")
-    .map((h) => ({ date: new Date(h.date), name: h.name, type: h.type }))
-    .sort((a, b) => a.date.getTime() - b.date.getTime());
+    .map((h) => ({ date: new Date(h.date), name: h.name, type: h.type }));
+  return [...fromLib, ...sevillaLocalHolidays(year)].sort(
+    (a, b) => a.date.getTime() - b.date.getTime(),
+  );
 }
 
 /**

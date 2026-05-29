@@ -608,3 +608,24 @@ Each ships as its own commit + deploy, verified before moving on.
   - **Realistic hit rate:** good at simple bugs, CSS/wrap issues, typos, missing validation, doc updates, adding obvious fields (cf. the wave of fixes shipped manually 2026-05-26 — most of those would've been one-shot for an agent). Bad at product judgment, cross-cutting refactors, tickets that are really questions, anything needing live debugging or specific user data context.
 
   - **Recommendation when picked up:** start with **A**, graduate to **B** once the diagnoses prove useful, then to **C** if the PRs start landing cleanly. Skip straight to C only if there's a clear backlog of fixable tickets and zero patience to triage them manually.
+
+- **Dark mode (phased rollout).** Significant cross-cutting refactor — most components hard-code Tailwind slate classes (`text-slate-800`, `bg-white`, `border-slate-200`), each of which needs either a `dark:` sibling or a migration to CSS-variable theming.
+
+  - **Strategy choice (decide at build time):**
+    - **A. Tailwind `dark:` variants everywhere.** Add `dark:text-slate-100`, `dark:bg-slate-900` next to every color class. Pro: incremental, ship module-by-module. Con: mechanical work, easy to miss one and end up with an unreadable white-on-white spot; every future component author has to remember to do both.
+    - **B. CSS-variable theming (recommended).** Move semantic colors (`--bg`, `--fg`, `--surface`, `--border`, `--muted`, …) into variables defined in `:root` (light) and `:root.dark` (dark). Components use `bg-[var(--bg)]`. Pro: one source of truth, future components get dark mode for free, easier to add a third theme later. Con: larger upfront refactor, every hardcoded class needs migrating.
+
+  - **Phased rollout:**
+    - **Phase 1 (~4h).** Tailwind dark config + manual toggle in topbar + persistence (localStorage). Apply dark mode to **app shell + dashboard only**; rest of the app stays light. Cheap way to surface the worst design decisions before committing to the full sweep.
+    - **Phase 2 (~10h).** Calendar (biggest beast — month/week/day, dialogs, chips) + Kanban (board + list + Gantt) + Chat + Reading + shared dialogs.
+    - **Phase 3 (~6h).** Student profile + Annual review + admin panels + remaining cards + polish + visual QA sweep.
+    - **Optional Phase 4.** "Follow system" via `prefers-color-scheme` media query.
+
+  - **Design landmines to decide up front:**
+    - **Brand gradient** (violet → pink → orange) — neon on dark; needs a desaturated dark-friendly variant.
+    - **User avatar auto-colors** — assigned palette may clash on dark; either constrain the generator or fade the chip background separately.
+    - **Annual review export** — should stay light (it prints to PDF). Force light at the print stylesheet.
+    - **Email digests** — stay light. They render outside the app.
+    - **Wellbeing / kanban priority chip colors** — need a parallel dark palette (don't just darken — saturated reds/oranges look harsh on dark).
+
+  - **Total effort:** ~22–25 hours full sweep. **No schema change.** Start with Phase 1, react to it, then commit to the rest.
