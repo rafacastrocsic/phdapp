@@ -17,6 +17,7 @@ import {
 } from "lucide-react";
 import { format } from "date-fns";
 import { relativeTime, displayName } from "@/lib/utils";
+import { LocalTime } from "@/components/local-time";
 
 const STATUS_LABEL: Record<string, string> = {
   backlog: "Backlog",
@@ -275,11 +276,15 @@ export default async function DashboardPage() {
                     <li key={e.id} className="p-4 hover:bg-slate-50">
                       <div className="flex items-start gap-3">
                         <div className="text-center shrink-0 w-12">
+                          {/* Render in the viewer's TZ — date-fns format()
+                              on the server renders in UTC, which made
+                              late-evening events show next day's MMM/d
+                              and made HH:mm off by hours-vs-UTC. */}
                           <div className="text-[10px] font-bold uppercase text-[var(--c-teal)]">
-                            {format(e.startsAt, "MMM")}
+                            <LocalTime iso={e.startsAt.toISOString()} fmt="MMM" />
                           </div>
                           <div className="text-2xl font-bold text-slate-900 leading-none">
-                            {format(e.startsAt, "d")}
+                            <LocalTime iso={e.startsAt.toISOString()} fmt="d" />
                           </div>
                         </div>
                         <div className="flex-1 min-w-0">
@@ -288,7 +293,8 @@ export default async function DashboardPage() {
                           </div>
                           <div className="flex items-center gap-1 text-xs text-slate-500 mt-0.5">
                             <Clock className="h-3 w-3" />
-                            {format(e.startsAt, "HH:mm")} – {format(e.endsAt, "HH:mm")}
+                            <LocalTime iso={e.startsAt.toISOString()} fmt="HH:mm" /> –{" "}
+                            <LocalTime iso={e.endsAt.toISOString()} fmt="HH:mm" />
                             {e.student && <> · with {displayName(e.student)}</>}
                           </div>
                         </div>
