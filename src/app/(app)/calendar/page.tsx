@@ -8,6 +8,7 @@ import {
 import { clearDismissedEventIds } from "@/lib/calendar-dismissed";
 import { displayName } from "@/lib/utils";
 import { getTeamDriveFolder } from "@/lib/team-drive";
+import { getHolidaysInRange } from "@/lib/holidays";
 import { CalendarView } from "./calendar-view";
 import { startOfMonth, endOfMonth, subMonths, addMonths } from "date-fns";
 
@@ -229,6 +230,13 @@ export default async function CalendarPage({
       initialStudent={sp.student ?? null}
       initialMonth={sp.month ?? null}
       highlightByEvent={highlightByEvent}
+      // Sevilla public holidays for the visible window (same from/to
+      // as the events query) — rendered as rose chips on day cells
+      // across month/week/day/mini views.
+      holidays={getHolidaysInRange(from, to).map((h) => ({
+        date: h.date.toISOString(),
+        name: h.name,
+      }))}
     />
   );
 }

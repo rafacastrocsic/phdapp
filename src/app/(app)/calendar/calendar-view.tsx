@@ -120,6 +120,7 @@ export function CalendarView({
   myAvailability,
   initialStudent,
   highlightByEvent: initialHighlights,
+  holidays = [],
 }: {
   viewerRole: string;
   viewerStudentId: string | null;
@@ -145,7 +146,20 @@ export function CalendarView({
   initialStudent: string | null;
   initialMonth: string | null;
   highlightByEvent?: Record<string, "new" | "updated">;
+  /** Sevilla public holidays in the visible window (ISO date + name). */
+  holidays?: { date: string; name: string }[];
 }) {
+  // Lookup: dateKey "yyyy-MM-dd" → holiday name (first wins if a date
+  // somehow has two entries). Used by month/week/day/mini views to
+  // tint cells and label the day.
+  const holidaysByDay = useMemo(() => {
+    const map = new Map<string, string>();
+    for (const h of holidays) {
+      const key = format(new Date(h.date), "yyyy-MM-dd");
+      if (!map.has(key)) map.set(key, h.name);
+    }
+    return map;
+  }, [holidays]);
   const hideStudentFilter = viewerRole === "student";
   const isStudent = viewerRole === "student";
   const [highlightByEvent, setHighlightByEvent] = useState<Record<string, "new" | "updated">>(
@@ -640,6 +654,7 @@ export function CalendarView({
               year={cursor.getFullYear()}
               events={filtered}
               availabilityByDay={availabilityByDay}
+              holidaysByDay={holidaysByDay}
               onPickDay={(day) => {
                 setCursor(day);
                 setView("month");
@@ -675,6 +690,7 @@ export function CalendarView({
                   const ghosts = deletedByDay[key] ?? [];
                   const inMonth = isSameMonth(day, cursor);
                   const today = isSameDay(day, new Date());
+                  const holidayName = holidaysByDay.get(key);
                   return (
                     <div
                       key={key}
@@ -694,6 +710,10 @@ export function CalendarView({
                       className={cn(
                         "flex flex-col cursor-pointer text-left border-b border-r p-2 min-h-[110px] hover:bg-slate-50 transition-colors group",
                         !inMonth && "bg-slate-50/50",
+                        // Public-holiday tint — applied AFTER !inMonth so
+                        // a leading/trailing day that's also a holiday
+                        // still reads as a holiday cell.
+                        holidayName && "bg-rose-50/60 hover:bg-rose-50",
                       )}
                     >
                       {/* Explicit flex row keeps the day badge anchored at
@@ -702,7 +722,7 @@ export function CalendarView({
                           on some browsers visually pulled the events block
                           downward, making events appear to belong to the
                           next week's cell. */}
-                      <div className="flex items-center">
+                      <div className="flex items-center gap-1">
                         <span
                           className={cn(
                             "inline-flex h-6 w-6 items-center justify-center rounded-full text-xs font-semibold",
@@ -715,6 +735,14 @@ export function CalendarView({
                         >
                           {format(day, "d")}
                         </span>
+                        {holidayName && (
+                          <span
+                            className="truncate rounded-full bg-rose-100 px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-wide text-rose-700"
+                            title={`Public holiday — ${holidayName} · Sevilla`}
+                          >
+                            🎉 {holidayName}
+                          </span>
+                        )}
                       </div>
                       <div className="mt-1 flex-1 space-y-1">
                         {(() => {
@@ -928,6 +956,7 @@ export function CalendarView({
               view={view}
               events={filtered}
               availabilityByDay={availabilityByDay}
+              holidaysByDay={holidaysByDay}
               effectiveKind={effectiveKind}
               onEventClick={(id) => {
                 // Mirror the month-grid routing: sub-task events
@@ -2623,6 +2652,7 @@ function TimeGrid({
   view,
   events,
   availabilityByDay,
+  holidaysByDay,
   effectiveKind,
   onEventClick,
   onSlotClick,
@@ -2632,6 +2662,7 @@ function TimeGrid({
   view: "week" | "day";
   events: Event[];
   availabilityByDay: Record<string, { who: string; label: string | null }[]>;
+  holidaysByDay: Map<string, string>;
   effectiveKind: (id: string) => "new" | "updated" | null;
   onEventClick: (id: string) => void;
   onSlotClick: (day: Date) => void;
@@ -2700,11 +2731,16 @@ function TimeGrid({
         <div className="border-r" />
         {days.map((d) => {
           const today = isSameDay(d, new Date());
-          const unavail = availabilityByDay[format(d, "yyyy-MM-dd")] ?? [];
+          const dKey = format(d, "yyyy-MM-dd");
+          const unavail = availabilityByDay[dKey] ?? [];
+          const holidayName = holidaysByDay.get(dKey);
           return (
             <div
               key={d.toISOString()}
-              className="px-2 py-2 text-center border-r"
+              className={cn(
+                "px-2 py-2 text-center border-r",
+                holidayName && "bg-rose-50/60",
+              )}
             >
               <div className="text-[10px] uppercase font-semibold text-slate-500">
                 {format(d, "EEE")}
@@ -2717,6 +2753,14 @@ function TimeGrid({
               >
                 {format(d, "d")}
               </div>
+              {holidayName && (
+                <div
+                  className="mt-1 truncate rounded-full bg-rose-100 px-1.5 py-0.5 text-[10px] font-semibold uppercase text-rose-700"
+                  title={`Public holiday — ${holidayName} · Sevilla`}
+                >
+                  🎉 {holidayName}
+                </div>
+              )}
               {unavail.length > 0 && (
                 <button
                   type="button"
@@ -3021,11 +3065,13 @@ function YearGrid({
   year,
   events,
   availabilityByDay,
+  holidaysByDay,
   onPickDay,
 }: {
   year: number;
   events: Event[];
   availabilityByDay: Record<string, { who: string; label: string | null }[]>;
+  holidaysByDay: Map<string, string>;
   onPickDay: (day: Date) => void;
 }) {
   // Bucket events by yyyy-MM-dd for fast lookup.
@@ -3073,6 +3119,7 @@ function YearGrid({
                   const inMonth = isSameMonth(day, monthDate);
                   const isToday = isSameDay(day, today);
                   const hasTask = evs.some((e) => e.ticketId);
+                  const holidayName = holidaysByDay.get(key);
                   return (
                     <button
                       key={key}
@@ -3084,15 +3131,21 @@ function YearGrid({
                         inMonth && !isToday && "text-slate-700",
                         isToday && "bg-[var(--c-violet)] text-white font-bold hover:bg-[var(--c-violet)]",
                         unavailable && !isToday && "bg-slate-200/70",
+                        // Mini-cal: subtle rose tint on holiday days
+                        // so they're spottable at a glance without a
+                        // text label (no room for one in 7px wide).
+                        holidayName && !isToday && "bg-rose-100/70 text-rose-700",
                       )}
                       title={
-                        unavailable
-                          ? `${format(day, "MMM d")} · ${(availabilityByDay[key] ?? [])
-                              .map((a) => a.who)
-                              .join(", ")} away`
-                          : evs.length > 0
-                            ? `${format(day, "MMM d")} · ${evs.length} item${evs.length === 1 ? "" : "s"}`
-                            : format(day, "MMM d")
+                        holidayName
+                          ? `${format(day, "MMM d")} · 🎉 ${holidayName} · Sevilla`
+                          : unavailable
+                            ? `${format(day, "MMM d")} · ${(availabilityByDay[key] ?? [])
+                                .map((a) => a.who)
+                                .join(", ")} away`
+                            : evs.length > 0
+                              ? `${format(day, "MMM d")} · ${evs.length} item${evs.length === 1 ? "" : "s"}`
+                              : format(day, "MMM d")
                       }
                     >
                       <span className="leading-none mt-0.5">{format(day, "d")}</span>
