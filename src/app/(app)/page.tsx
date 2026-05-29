@@ -19,6 +19,7 @@ import { format } from "date-fns";
 import { relativeTime, displayName } from "@/lib/utils";
 import { LocalTime } from "@/components/local-time";
 import { expandOccurrences } from "@/lib/recurrence";
+import { getHolidaysInRange } from "@/lib/holidays";
 
 const STATUS_LABEL: Record<string, string> = {
   backlog: "Backlog",
@@ -139,36 +140,69 @@ export default async function DashboardPage() {
     }),
   ]);
 
-  // Resolve each event to the actual NEXT occurrence the viewer should
-  // see — for recurring series this means walking forward from now via
-  // expandOccurrences (mirroring the Calendar). One-offs in the past
-  // are filtered out (we kept them in the query only as a side effect
-  // of the recurringRule OR clause). Sorted globally and trimmed to 5.
+  // Expand each event into ALL occurrences within the next 14 days
+  // — a recurring weekly meeting now contributes both this week's
+  // and next week's instances, not just the soonest. One-offs in
+  // the past or beyond the horizon are dropped. Then merge in
+  // Sevilla public holidays so they appear interleaved by date.
+  // Capped at 20 rows for sanity.
   const now = new Date();
-  const horizon = new Date(now.getTime() + 366 * 86_400_000);
-  type UpcomingEvent = (typeof upcomingEvents)[number] & {
+  const horizon = new Date(now.getTime() + 14 * 86_400_000);
+  type EventRow = (typeof upcomingEvents)[number] & {
+    kind: "event";
     nextStartsAt: Date;
     nextEndsAt: Date;
   };
-  const upcomingResolved: UpcomingEvent[] = upcomingEvents
-    .map((e): UpcomingEvent | null => {
-      if (e.recurrenceRule) {
-        const occ = expandOccurrences(
-          e.startsAt,
-          e.endsAt,
-          e.recurrenceRule,
-          now,
-          horizon,
-        ).find((o) => o.start >= now);
-        if (!occ) return null;
-        return { ...e, nextStartsAt: occ.start, nextEndsAt: occ.end };
-      }
-      if (e.startsAt < now) return null;
-      return { ...e, nextStartsAt: e.startsAt, nextEndsAt: e.endsAt };
-    })
-    .filter((x): x is UpcomingEvent => x !== null)
+  type HolidayRow = {
+    kind: "holiday";
+    id: string;
+    nextStartsAt: Date;
+    nextEndsAt: Date;
+    name: string;
+  };
+  type UpcomingItem = EventRow | HolidayRow;
+  const eventRows: EventRow[] = upcomingEvents.flatMap((e): EventRow[] => {
+    if (e.recurrenceRule) {
+      return expandOccurrences(
+        e.startsAt,
+        e.endsAt,
+        e.recurrenceRule,
+        now,
+        horizon,
+      )
+        .filter((o) => o.start >= now && o.start <= horizon)
+        .map((o) => ({
+          ...e,
+          kind: "event" as const,
+          nextStartsAt: o.start,
+          nextEndsAt: o.end,
+        }));
+    }
+    if (e.startsAt < now || e.startsAt > horizon) return [];
+    return [
+      {
+        ...e,
+        kind: "event" as const,
+        nextStartsAt: e.startsAt,
+        nextEndsAt: e.endsAt,
+      },
+    ];
+  });
+  const holidayRows: HolidayRow[] = getHolidaysInRange(now, horizon).map(
+    (h, i) => ({
+      kind: "holiday" as const,
+      id: `holiday-${h.date.toISOString()}-${i}`,
+      // All-day chip: noon → end-of-day so the row sorts naturally
+      // by date and the renderer doesn't have to special-case
+      // start/end times (we just hide them).
+      nextStartsAt: h.date,
+      nextEndsAt: new Date(h.date.getTime() + 86_400_000 - 1),
+      name: h.name,
+    }),
+  );
+  const upcomingResolved: UpcomingItem[] = [...eventRows, ...holidayRows]
     .sort((a, b) => a.nextStartsAt.getTime() - b.nextStartsAt.getTime())
-    .slice(0, 5);
+    .slice(0, 20);
 
   return (
     <div className="p-6 lg:p-8 space-y-6">
@@ -233,10 +267,10 @@ export default async function DashboardPage() {
         />
         <StatCard
           label="Upcoming events"
-          value={upcomingResolved.length}
+          value={eventRows.length}
           icon={CalendarDays}
           color="var(--c-teal)"
-          hint="next 5 in calendar"
+          hint="in next 14 days"
         />
       </div>
 
@@ -327,7 +361,16 @@ export default async function DashboardPage() {
               ) : (
                 <ul className="divide-y">
                   {upcomingResolved.map((e) => (
-                    <li key={e.id} className="p-4 hover:bg-slate-50">
+                    // Composite key — a recurring event contributes
+                    // multiple occurrences (same id, different start).
+                    <li
+                      key={`${e.id}-${e.nextStartsAt.toISOString()}`}
+                      className={
+                        e.kind === "holiday"
+                          ? "p-4 bg-rose-50/40"
+                          : "p-4 hover:bg-slate-50"
+                      }
+                    >
                       <div className="flex items-start gap-3">
                         <div className="text-center shrink-0 w-12">
                           {/* Render in the viewer's TZ — date-fns format()
@@ -335,8 +378,15 @@ export default async function DashboardPage() {
                               late-evening events show next day's MMM/d
                               and made HH:mm off by hours-vs-UTC.
                               nextStartsAt/nextEndsAt are the resolved
-                              next occurrence for recurring series. */}
-                          <div className="text-[10px] font-bold uppercase text-[var(--c-teal)]">
+                              next occurrence for recurring series.
+                              Holiday rows tint the MMM strip rose. */}
+                          <div
+                            className={
+                              e.kind === "holiday"
+                                ? "text-[10px] font-bold uppercase text-rose-600"
+                                : "text-[10px] font-bold uppercase text-[var(--c-teal)]"
+                            }
+                          >
                             <LocalTime iso={e.nextStartsAt.toISOString()} fmt="MMM" />
                           </div>
                           <div className="text-2xl font-bold text-slate-900 leading-none">
@@ -345,13 +395,28 @@ export default async function DashboardPage() {
                         </div>
                         <div className="flex-1 min-w-0">
                           <div className="text-sm font-semibold text-slate-900 truncate">
-                            {e.title}
+                            {e.kind === "holiday" ? `🎉 ${e.name}` : e.title}
                           </div>
                           <div className="flex items-center gap-1 text-xs text-slate-500 mt-0.5">
-                            <Clock className="h-3 w-3" />
-                            <LocalTime iso={e.nextStartsAt.toISOString()} fmt="HH:mm" /> –{" "}
-                            <LocalTime iso={e.nextEndsAt.toISOString()} fmt="HH:mm" />
-                            {e.student && <> · with {displayName(e.student)}</>}
+                            {e.kind === "holiday" ? (
+                              <span className="text-rose-700">
+                                Public holiday · Sevilla
+                              </span>
+                            ) : (
+                              <>
+                                <Clock className="h-3 w-3" />
+                                <LocalTime
+                                  iso={e.nextStartsAt.toISOString()}
+                                  fmt="HH:mm"
+                                />{" "}
+                                –{" "}
+                                <LocalTime
+                                  iso={e.nextEndsAt.toISOString()}
+                                  fmt="HH:mm"
+                                />
+                                {e.student && <> · with {displayName(e.student)}</>}
+                              </>
+                            )}
                           </div>
                         </div>
                       </div>
