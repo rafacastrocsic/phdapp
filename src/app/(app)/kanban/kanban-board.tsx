@@ -184,6 +184,14 @@ export function KanbanBoard({
   const [draggingId, setDraggingId] = useState<string | null>(null);
   const [hoverStatus, setHoverStatus] = useState<string | null>(null);
   const [view, setView] = useState<"board" | "list" | "gantt">("board");
+  // On mobile (< md) default to List view — the horizontal-scroll
+  // Board with fixed w-80 columns is unusable at phone width, and
+  // List is grouped/legible. Runs once on mount; users can still
+  // switch via the toggle and that wins from then on.
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    if (window.matchMedia("(max-width: 767px)").matches) setView("list");
+  }, []);
   const [recentlyDeleted, setRecentlyDeleted] =
     useState<Ticket[]>(initialDeleted);
   const [undo, setUndo] = useState<Ticket | null>(null);

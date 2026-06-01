@@ -629,3 +629,25 @@ Each ships as its own commit + deploy, verified before moving on.
     - **Wellbeing / kanban priority chip colors** — need a parallel dark palette (don't just darken — saturated reds/oranges look harsh on dark).
 
   - **Total effort:** ~22–25 hours full sweep. **No schema change.** Start with Phase 1, react to it, then commit to the rest.
+
+- **Web Push notifications (true mobile push).** Today's notifications all require the user to have PhDapp open in a browser tab — the 🔔 bell + sidebar badges + tab title alerts + favicon badge + chat-message sounds all depend on it. On desktop that's tolerable; on mobile it's the single biggest UX gap (nobody keeps a browser tab open on their phone). Closing it means actual native-style push notifications that fire even when PhDapp isn't open.
+
+  - **Architecture** (when picked up):
+    1. **Web App Manifest** (`/manifest.webmanifest`) + a 192/512px icon set so the app is installable to the home screen. Standalone display mode. Hooks the topbar with a small "Add to home screen" hint on first iOS Safari / Chrome visit. (This is also Tier 3.5 in `MOBILE_SUPPORT_PLAN.md` — a precondition for push on iOS specifically, where Web Push only works for installed PWAs.)
+    2. **Service Worker** (`/sw.js` or `next-pwa`-style auto-gen) — handles the `push` event and shows a notification via `self.registration.showNotification(...)`. Click → focuses or opens PhDapp at the relevant deep link. Keep the SW minimal — no offline caching this round.
+    3. **VAPID keys** generated once (`npx web-push generate-vapid-keys`), stored as `VAPID_PUBLIC_KEY` + `VAPID_PRIVATE_KEY` on Vercel. Public key shipped to the client to subscribe.
+    4. **New `PushSubscription` table** (one row per device, FK to User): `endpoint`, `p256dh`, `auth`, `userAgent`, `createdAt`. Multiple per user (laptop + phone). Garbage-collected on `410 Gone` from the push service.
+    5. **API**: `POST /api/push/subscribe` (upsert), `DELETE /api/push/subscribe` (unsubscribe per endpoint).
+    6. **Server-side sender**: wrap the existing notification fan-out so anything that already writes a `Notification` row also fires a push to that user's subscriptions. Use the `web-push` npm package. Coalesce noisy events (e.g. burst of chat messages from one user → one push, not ten).
+    7. **Per-user permission UX**: a quiet first-visit-on-mobile prompt ("Get a buzz when there's something new?") rather than the browser-native popup straight away — better acceptance rates. Settings page gets a per-channel toggle (Chat / Tasks / Calendar / Reading / Feedback) so users opt out of categories they don't want pinging them.
+
+  - **Caveats / landmines:**
+    - **iOS quirk**: Web Push only works on iOS 16.4+ AND only when the user has "Add to Home Screen"'d the app. Worth a copy line that nudges iPhone users through that step the first time.
+    - **Safari macOS** works without install but uses APNS under the hood — same VAPID config works.
+    - **Quiet hours / DND**: respect a per-user "Do not disturb" window (e.g. 22:00–08:00) so push doesn't wake people at night. Store on User; admin defaults can ship.
+    - **Don't push every Notification row**: chat-comment storms, bulk task moves, etc. need a 1-minute debounce per (user, category) so we don't get punished by browsers for noisy senders.
+    - **Privacy**: notification payloads end up in the OS notification center for a while; **do not include** student-private text (wellbeing scores, supervisor-private notes). Title + generic body ("Pablo replied in chat · open to read") only.
+
+  - **Effort:** ~1–2 days. The manifest + SW + VAPID + subscription endpoint is half a day; the existing-fan-out wiring + per-channel toggles + quiet hours is the other half. Schema change is a single additive `PushSubscription` table.
+
+  - **Recommended sequencing:** after **Mobile Tier 2** (single-pane chat, list-default kanban, calendar agenda) and before going wide on user onboarding. The PWA install bit alone — without push — already makes the mobile experience noticeably more "app-like" (no browser chrome, looks native in the app switcher) and is the gateway to push on iOS. So even shipping just the manifest + SW first is a useful intermediate step.

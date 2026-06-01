@@ -200,6 +200,16 @@ export function CalendarView({
   // Task opened from a calendar task-event: shown in place (stays in Calendar).
   const [peekTicketId, setPeekTicketId] = useState<string | null>(null);
   const [view, setView] = useState<"year" | "month" | "week" | "day">("month");
+  // On mobile (< md) default to Day view — the hour timetable is the
+  // only view that stays legible at phone width. Year is a 12-month
+  // grid of tiny months, Month's 7-column grid loses any per-day
+  // detail under 768px, Week needs ≥ 7 wide columns. Users can still
+  // switch via the toggle. Runs once on mount.
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    if (window.matchMedia("(max-width: 767px)").matches) setView("day");
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
   const [recentlyDeleted, setRecentlyDeleted] = useState<Event[]>([]);
   // Identifies the current poll's window+filter. We only treat an event as
   // "deleted" when it vanishes between two polls of the SAME window/filter
@@ -493,12 +503,15 @@ export function CalendarView({
 
   return (
     <div className="flex flex-col h-[calc(100vh-4rem)]">
-      <div className="flex items-center justify-between gap-4 flex-wrap px-6 lg:px-8 py-4 border-b bg-white">
-        <div className="flex items-center gap-3">
+      {/* Toolbar: wraps to two rows on mobile so the prev/next/today/
+          view-toggle don't overflow. Smaller padding + smaller header
+          text at narrow widths. */}
+      <div className="flex items-center justify-between gap-3 flex-wrap px-4 md:px-6 lg:px-8 py-3 md:py-4 border-b bg-white">
+        <div className="flex items-center gap-1 md:gap-3 flex-wrap">
           <Button size="icon" variant="ghost" onClick={goPrev}>
             <ChevronLeft className="h-4 w-4" />
           </Button>
-          <h1 className="text-xl lg:text-2xl font-bold text-slate-900 min-w-[200px] text-center">
+          <h1 className="text-base md:text-xl lg:text-2xl font-bold text-slate-900 md:min-w-[200px] text-center">
             {headerLabel}
           </h1>
           <Button size="icon" variant="ghost" onClick={goNext}>
@@ -507,14 +520,16 @@ export function CalendarView({
           <Button size="sm" variant="outline" onClick={() => setCursor(new Date())}>
             Today
           </Button>
-          <div className="flex rounded-lg border bg-slate-50 p-0.5 ml-2">
+          {/* View toggle horizontally scrolls on the smallest screens
+              instead of wrapping — keeps it on one line. */}
+          <div className="flex rounded-lg border bg-slate-50 p-0.5 ml-0 md:ml-2 overflow-x-auto max-w-full">
             {(["year", "month", "week", "day"] as const).map((v) => (
               <button
                 key={v}
                 type="button"
                 onClick={() => setView(v)}
                 className={cn(
-                  "px-3 py-1 text-xs font-semibold rounded-md transition-colors",
+                  "px-2.5 md:px-3 py-1 text-xs font-semibold rounded-md transition-colors whitespace-nowrap",
                   view === v
                     ? "bg-white text-slate-900 shadow-sm"
                     : "text-slate-500 hover:text-slate-900",

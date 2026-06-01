@@ -560,12 +560,26 @@ export function ChatView({
     setPendingAttachments((prev) => prev.filter((_, i) => i !== idx));
   }
 
+  // On mobile we go single-pane: either the channels column OR the
+  // conversation is visible at a time, not both. Tapping a channel
+  // sets `mobileConversationOpen` → shows the conversation full-width
+  // with a back arrow in its header to return to the list. Desktop
+  // (md+) keeps both panes visible side-by-side regardless.
+  const [mobileConversationOpen, setMobileConversationOpen] = useState(false);
+  function openChannelMobile(id: string) {
+    setActiveId(id);
+    setMobileConversationOpen(true);
+  }
+
   return (
     <div className="flex h-[calc(100vh-4rem)] overflow-hidden">
       <aside
         className={cn(
-          "shrink-0 border-r bg-white flex flex-col transition-[width] duration-200",
-          channelsCollapsed ? "w-[72px]" : "w-72",
+          "shrink-0 border-r bg-white flex-col transition-[width] duration-200",
+          channelsCollapsed ? "md:w-[72px]" : "md:w-72",
+          // Mobile: full-width when no conversation is open, hidden
+          // when one is. Desktop: always visible at the chosen width.
+          mobileConversationOpen ? "hidden md:flex" : "flex w-full md:w-72",
         )}
       >
         <div className="p-3 border-b space-y-2">
@@ -624,7 +638,7 @@ export function ChatView({
               return (
                 <button
                   key={c.id}
-                  onClick={() => setActiveId(c.id)}
+                  onClick={() => openChannelMobile(c.id)}
                   title={
                     channelsCollapsed
                       ? `${c.name}${hasUnread ? ` · ${unread} unread` : ""}`
@@ -680,14 +694,31 @@ export function ChatView({
         </div>
       </aside>
 
-      <main className="flex-1 flex flex-col bg-slate-50">
+      <main
+        className={cn(
+          "flex-1 flex-col bg-slate-50",
+          // Mobile: shown only when a conversation is open. Desktop:
+          // always visible as the right pane.
+          mobileConversationOpen ? "flex" : "hidden md:flex",
+        )}
+      >
         {!active ? (
           <div className="flex-1 flex items-center justify-center text-slate-500">
             Pick a channel.
           </div>
         ) : (
           <>
-            <div className="px-6 py-3 border-b bg-white flex items-center gap-3">
+            <div className="px-4 md:px-6 py-3 border-b bg-white flex items-center gap-3">
+              {/* Back arrow returns to the channel list on mobile. */}
+              <button
+                type="button"
+                onClick={() => setMobileConversationOpen(false)}
+                className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-lg text-slate-600 hover:bg-slate-100 hover:text-slate-900 md:hidden"
+                title="Back to channels"
+                aria-label="Back to channels"
+              >
+                <ChevronLeft className="h-5 w-5" />
+              </button>
               <span
                 className="flex h-9 w-9 items-center justify-center rounded-xl"
                 style={{ background: `${active.color}1f`, color: active.color }}
