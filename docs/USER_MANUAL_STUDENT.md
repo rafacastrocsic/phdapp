@@ -55,7 +55,7 @@ The landing page (the house icon, top-left of the sidebar) shows:
 
 - **Open tasks** — how many tasks you have that are not yet done.
 - **Overdue** — tasks whose due date has passed.
-- **Upcoming events** — the next five things on your calendar.
+- **Upcoming events** — everything on your calendar over the next 2 weeks (capped at 20). Public holidays in Sevilla (Año Nuevo, Reyes, Día de Andalucía, Jueves/Viernes Santo, Corpus Christi, Día del Trabajador, Asunción, Fiesta Nacional, Todos los Santos, Constitución, Inmaculada, Navidad) are interleaved with rose-colored chips so you can plan around them.
 - **Recent activity** — what changed lately on your tasks.
 
 Click any card to drill in.
@@ -146,6 +146,10 @@ Top-right toggle: **Year / Month / Week / Day**.
 - **Month** — the standard month grid. A day shows the first few items; click **"+N more"** to jump into that day's **Day view** and see everything.
 - **Week / Day** — hour-by-hour timetable with current-time line, covering all 24 hours. On open it auto-scrolls to the **current hour** (today) or **8 AM** (other days); scroll up to midnight or down to 23:00. **All-day items** (task / sub-task deadlines, anything created as all-day) appear in a dedicated strip above the hour grid. Events that overlap in time are placed **side by side** in columns instead of stacking on top of each other, so a busy day stays readable.
 
+### Public holidays (Sevilla)
+
+Spanish national + Andalusia regional + Sevilla city public holidays are marked on the calendar with a **🎉 rose-tinted chip** in every view — Month, Week, Day, and Year (the mini-calendar tints the day cell). Hover for the full name (e.g. *"Corpus Christi · Sevilla"*). Movable feasts (Jueves Santo, Viernes Santo, Corpus Christi) are computed each year automatically. Holidays are informational — they don't block creating events on that day.
+
 ### 1:1 meetings
 
 If a calendar event is marked as a 1:1 meeting, opening it shows an **agenda** (you can add points before the meeting too), **notes**, and **action items**. Action items your supervisor creates become Tasks for you — each can carry a deadline, priority and category set during the meeting, and you can flesh it out further in the Task panel.
@@ -180,6 +184,8 @@ The **Chat** module (green icon) is for direct messages with your supervisor and
 - **Reply to a message** — hover a message and click **↩ Reply**; your message shows a quote of the one you replied to.
 - **Edit your own messages** — hover one of your messages and click **✎ Edit** (next to Reply). The bubble swaps for an inline editor: **Enter** to save, **Esc** (or Cancel) to discard. Edited messages show a small italic **(edited)** marker next to the timestamp so your supervisors can see something changed.
 - **Attach files fast** — besides the paperclip, you can **drag-and-drop** files onto the message area, or **paste an image** (Ctrl/Cmd+V) straight into the box.
+- **Polls** — click the **📊** button next to the paperclip to post a quick decision poll. Type a question, add 2–10 options, optionally allow **multiple votes per person** and set a **closing date**. Everyone in the channel votes by clicking an option (radio-style for single-choice, checkbox-style for multi). Tallies and voter avatars are visible to everyone — non-anonymous on purpose so decisions can be referenced ("we picked the slot Pablo and Javier voted for"). The poll author can **Edit**, **Close / Re-open**, or **Delete** via the kebab menu on the poll card; once any vote is cast the question + option text + multi-vote setting are locked (you can still add new options, change the close date, or remove options that have zero votes).
+- **Links and URLs** — any `https://`, `http://`, or `www....` URL pasted in a message automatically becomes a clickable link that opens in a new tab. Same goes for task / event / reading comments.
 - **Start a new channel** with the **+** at the top of the channels column. You can only create one with **your own supervisor(s)** — not with team/external advisors, committee members, or other students.
 
 You can collapse the channels column to icons-only with the small chevron at the top of that column. Same trick on the main left sidebar.

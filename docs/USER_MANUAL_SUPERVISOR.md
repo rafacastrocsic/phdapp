@@ -50,7 +50,7 @@ The home screen (top-left house icon) shows aggregate stats:
 - **Students** — how many you're connected to.
 - **Open tasks** — across all your students.
 - **Overdue** — needs attention.
-- **Upcoming events** — your next five calendar items.
+- **Upcoming events** — everything scheduled across all your students in the next **2 weeks** (capped at 20 rows). Sevilla public holidays (national + Andalusia regional + Corpus Christi as the city local) appear interleaved with rose-colored chips so you can plan around them. Recurring meetings contribute every occurrence inside the window — not just the soonest — so a weekly 1:1 shows up twice.
 - **Recent activity** — chronological feed of things teammates did.
 
 ## Students
@@ -73,7 +73,7 @@ Only **primary supervisors** and the **admin** can edit a student's profile (Edi
 
 ### Catch-up summary
 
-On a student's profile, the **Catch-up** button (✨, top action row) opens a pop-up with a plain-text digest to get you up to speed fast — without clicking through Tasks, Calendar, etc. It covers: task counts (active / in progress / overdue / recently done), the in-progress / overdue / blocked / due-soon / not-started lists, upcoming and recent calendar events, thesis chapter and publication status breakdowns, and the latest weekly check-in. There's a **Copy** button to drop it into notes or an email. It's **read-only** and available to every non-student with access to that profile — supervisors, co-supervisors, **team advisors**, external advisors, committee, and admin (students don't see it). Wellbeing score is only included for viewers allowed to see supervisor-private material (supervisors/admin/team advisors).
+On a student's profile, the **Catch-up** button (✨, top action row) opens a pop-up with a plain-text digest to get you up to speed fast — without clicking through Tasks, Calendar, etc. It opens with a **Recently updated** block listing the 6 most-recently-touched tasks (with status, priority, comment count, "updated 2h ago", and a clickable deep link straight into that task on the kanban) and the 3 most-recently-touched events — each with the last few comment quotes inline (author + time + body), so you see the actual conversation context, not just titles. Below that: task counts (active / in progress / overdue / recently done), the in-progress / overdue / blocked / due-soon / not-started lists, upcoming and recent calendar events, thesis chapter and publication status breakdowns, and the latest weekly check-in. Every URL in the digest is clickable in the dialog; the **Copy** button drops the whole thing into the clipboard as plain text with the links intact so they work in an email or note. It's **read-only** and available to every non-student with access to that profile — supervisors, co-supervisors, **team advisors**, external advisors, committee, and admin (students don't see it). Wellbeing score is only included for viewers allowed to see supervisor-private material (supervisors/admin/team advisors).
 
 ## Supervision teams
 
@@ -219,6 +219,10 @@ Top-right toggle: **Year / Month / Week / Day**.
 - **Year** — the whole calendar year as 12 mini-month grids with colored dots per day. Click a day to drop into Month view.
 - **Month / Week / Day** — standard calendar views. In Month view a day shows the first few items and a **"+N more"** link that opens that day's **Day view**. In Week/Day, the time grid covers **all 24 hours** and **auto-scrolls** to the current hour (today) or 8 AM (other days) on open — you can scroll up to midnight or down to 23:00. Overlapping events are laid out **side by side in columns** rather than stacked, so concurrent meetings stay readable. **All-day events** (incl. task / sub-task deadlines) appear in a dedicated strip just above the hour grid, not at noon-UTC.
 
+#### Public holidays (Sevilla)
+
+Spanish national + Andalusia regional + Sevilla city public holidays are marked across every view: a **🎉 rose chip** next to the date in Month / Week / Day, and a rose-tinted cell in the Year mini-grid (hover shows the holiday name). Movable feasts (**Jueves Santo**, **Viernes Santo**, **Corpus Christi**) are computed each year. Holidays are informational — they don't block scheduling — and the **Upcoming meetings** card on the dashboard interleaves them with events so you avoid double-booking.
+
 ### Creating an event
 
 **New event** top-right:
@@ -272,6 +276,8 @@ The **Chat** module is for ongoing conversation with each student and their team
 - **Browser-tab alerts**: with unread messages the tab title becomes **"(N) … messaged you"** and the favicon shows a red count badge, plus a short sound on each new message — so you don't miss one while working in another tab.
 - **Notification sound**: channel **⋮ → Notification sound…** to choose the sound (Chime/Ding/Pop/None) and volume (per device, with a Test button).
 - **Reply** to a specific message with the **↩ Reply** action (shows a quoted snippet); **drag-and-drop** files or **paste images** (Ctrl/Cmd+V) directly into the composer.
+- **Polls** — click the **📊** button next to the paperclip to post a decision poll inside any channel. Question + 2–10 options, optional **multi-vote** and **closes-at** cutoff. Anyone in the channel votes (radio for single-choice, checkbox for multi); tallies and voter avatars are visible to everyone (non-anonymous on purpose). Author + admin can **Edit / Close / Re-open / Delete** via the poll's kebab menu. Anti-manipulation rule: once any vote is cast, the **question + option text + multi-vote setting** lock — you can still add new options, change the close date, or remove options that have zero votes; admin override does NOT bypass this lock. Deleting a poll deletes the parent message and all votes.
+- **Auto-linking**: any `https://`, `http://`, or `www....` URL pasted in a message becomes a clickable link (opens in a new tab). Same in task / event / reading comments, and in feedback messages.
 - **Edit channel**: **⋮ → Edit channel** lets you change the **name, description, colour, and members**. Changing membership asks for confirmation (removed people lose access and history; added people see all past messages). Available to any member of the channel.
 
 You can collapse the channels column with the chevron at the top of that column. Same with the main left sidebar.
