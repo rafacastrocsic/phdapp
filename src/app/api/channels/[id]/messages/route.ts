@@ -47,6 +47,22 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
           author: { select: { name: true } },
         },
       },
+      poll: {
+        include: {
+          options: {
+            orderBy: { order: "asc" },
+            include: {
+              votes: {
+                include: {
+                  user: {
+                    select: { id: true, name: true, image: true, color: true },
+                  },
+                },
+              },
+            },
+          },
+        },
+      },
     },
     orderBy: { createdAt: "asc" },
     take: 200,
@@ -77,6 +93,7 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
             authorName: m.replyTo.author?.name ?? null,
           }
         : null,
+      poll: serializePoll(m.poll),
     })),
     reads: reads.map((r) => ({
       userId: r.userId,
@@ -86,6 +103,70 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
       lastRead: r.lastRead.toISOString(),
     })),
   });
+}
+
+// Shape used by both GET (list) and POST (create). The vote-shape on
+// each option carries the FULL voter list — non-anonymous polls, so
+// the client renders avatars under each option.
+interface SerializedPoll {
+  id: string;
+  question: string;
+  multiVote: boolean;
+  closesAt: string | null;
+  closedAt: string | null;
+  createdById: string;
+  options: {
+    id: string;
+    text: string;
+    order: number;
+    votes: {
+      userId: string;
+      name: string | null;
+      image: string | null;
+      color: string;
+    }[];
+  }[];
+}
+function serializePoll(
+  poll:
+    | (NonNullable<unknown> & {
+        id: string;
+        question: string;
+        multiVote: boolean;
+        closesAt: Date | null;
+        closedAt: Date | null;
+        createdById: string;
+        options: {
+          id: string;
+          text: string;
+          order: number;
+          votes: {
+            user: { id: string; name: string | null; image: string | null; color: string };
+          }[];
+        }[];
+      })
+    | null,
+): SerializedPoll | null {
+  if (!poll) return null;
+  return {
+    id: poll.id,
+    question: poll.question,
+    multiVote: poll.multiVote,
+    closesAt: poll.closesAt?.toISOString() ?? null,
+    closedAt: poll.closedAt?.toISOString() ?? null,
+    createdById: poll.createdById,
+    options: poll.options.map((o) => ({
+      id: o.id,
+      text: o.text,
+      order: o.order,
+      votes: o.votes.map((v) => ({
+        userId: v.user.id,
+        name: v.user.name,
+        image: v.user.image,
+        color: v.user.color,
+      })),
+    })),
+  };
 }
 
 interface Attachment {
@@ -105,6 +186,16 @@ function parseAttachments(raw: string | null): Attachment[] {
   }
 }
 
+const PollIn = z.object({
+  question: z.string().min(1).max(300),
+  options: z
+    .array(z.string().min(1).max(120))
+    .min(2, "A poll needs at least 2 options")
+    .max(10, "A poll caps at 10 options"),
+  multiVote: z.boolean().default(false),
+  closesAt: z.string().datetime().optional().nullable(),
+});
+
 const Body = z
   .object({
     body: z.string().default(""),
@@ -119,10 +210,17 @@ const Body = z
       )
       .optional(),
     replyToId: z.string().optional().nullable(),
+    poll: PollIn.optional(),
   })
-  .refine((d) => (d.body && d.body.trim().length > 0) || (d.attachments && d.attachments.length > 0), {
-    message: "Need a message body or at least one attachment",
-  });
+  .refine(
+    (d) =>
+      (d.body && d.body.trim().length > 0) ||
+      (d.attachments && d.attachments.length > 0) ||
+      !!d.poll,
+    {
+      message: "Need a message body, attachment, or poll",
+    },
+  );
 
 export async function POST(req: Request, { params }: { params: Promise<{ id: string }> }) {
   const session = await auth();
@@ -156,6 +254,32 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
       body: parsed.data.body ?? "",
       attachments: attachments.length > 0 ? JSON.stringify(attachments) : null,
       replyToId,
+      // Polls are created atomically with the message so the
+      // attachment can never end up orphaned (message exists but no
+      // poll, or vice versa). Dedupe identical option strings to
+      // prevent two "Tuesday" rows showing as separate options.
+      poll: parsed.data.poll
+        ? {
+            create: {
+              question: parsed.data.poll.question.trim(),
+              multiVote: parsed.data.poll.multiVote,
+              closesAt: parsed.data.poll.closesAt
+                ? new Date(parsed.data.poll.closesAt)
+                : null,
+              createdById: session.user.id,
+              options: {
+                create: Array.from(
+                  new Map(
+                    parsed.data.poll.options
+                      .map((t) => t.trim())
+                      .filter((t) => t.length > 0)
+                      .map((t, i) => [t.toLowerCase(), { text: t, order: i }]),
+                  ).values(),
+                ),
+              },
+            },
+          }
+        : undefined,
     },
     include: {
       author: { select: { id: true, name: true, image: true, color: true } },
@@ -164,6 +288,22 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
           id: true,
           body: true,
           author: { select: { name: true } },
+        },
+      },
+      poll: {
+        include: {
+          options: {
+            orderBy: { order: "asc" },
+            include: {
+              votes: {
+                include: {
+                  user: {
+                    select: { id: true, name: true, image: true, color: true },
+                  },
+                },
+              },
+            },
+          },
         },
       },
     },
@@ -202,6 +342,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
             authorName: m.replyTo.author?.name ?? null,
           }
         : null,
+      poll: serializePoll(m.poll),
     },
   });
 }

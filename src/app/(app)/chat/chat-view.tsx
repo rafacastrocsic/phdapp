@@ -24,6 +24,7 @@ import {
   Bell,
   Reply,
   Volume2,
+  BarChart3,
 } from "lucide-react";
 
 const CHANNELS_COLLAPSE_KEY = "phdapp.chat-channels-collapsed";
@@ -42,6 +43,8 @@ import {
 } from "@/components/ui/dialog";
 import { cn, relativeTime, displayName, chatTimestamp } from "@/lib/utils";
 import { linkify } from "@/lib/linkify";
+import { PollCard } from "@/components/poll-card";
+import { NewPollDialog, type NewPoll } from "@/components/new-poll-dialog";
 import {
   useSectionVersion,
   useUnread,
@@ -82,6 +85,10 @@ interface Message {
   author: { id: string; name: string | null; image: string | null; color: string };
   attachments?: Attachment[];
   replyTo?: { id: string; body: string; authorName: string | null } | null;
+  // Optional attached poll. Updates land here via the dedicated
+  // /api/polls/:id and /api/polls/:id/vote endpoints — the rest
+  // of the message keeps its existing lifecycle.
+  poll?: import("@/components/poll-card").Poll | null;
 }
 interface Read {
   userId: string;
@@ -158,6 +165,10 @@ export function ChatView({
   const [pendingAttachments, setPendingAttachments] = useState<Attachment[]>([]);
   const [uploading, setUploading] = useState(false);
   const [replyTarget, setReplyTarget] = useState<Message | null>(null);
+  // Poll composer dialog — opened from the 📊 button next to the
+  // attachment paperclip. Submit posts a chat message that carries
+  // the poll as an attachment in a single request.
+  const [pollDialogOpen, setPollDialogOpen] = useState(false);
   // Inline edit-in-place state: id of the message currently being
   // edited (own messages only) and the working draft body. null = not
   // editing. Submitting calls PATCH and merges the response into
@@ -423,6 +434,44 @@ export function ChatView({
         prev.map((m) => (m.id === tempId ? message : m)),
       );
     }
+  }
+
+  // Post a poll as a chat message. The server creates the Message +
+  // Poll + Options atomically, so we just slot the response into the
+  // messages list. We skip optimistic UI here — until the server
+  // returns we don't have option ids, and the dialog is fast enough
+  // (~200 ms) that the user won't notice the extra round-trip.
+  async function createPoll(p: NewPoll) {
+    if (!activeId) throw new Error("No channel selected.");
+    const r = await fetch(`/api/channels/${activeId}/messages`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ body: "", poll: p }),
+    });
+    if (!r.ok) {
+      const j = await r.json().catch(() => ({}));
+      throw new Error(j.error ?? "Couldn't post the poll.");
+    }
+    const { message } = await r.json();
+    setMessages((prev) => [...prev, message]);
+  }
+
+  // Replace the poll inside a message after vote/close/reopen so
+  // the bubble re-renders with the fresh tallies.
+  function applyPollUpdate(
+    messageId: string,
+    nextPoll: import("@/components/poll-card").Poll,
+  ) {
+    setMessages((prev) =>
+      prev.map((m) => (m.id === messageId ? { ...m, poll: nextPoll } : m)),
+    );
+  }
+
+  // Drop a poll's parent message from the list after a successful
+  // poll-delete. The server has already cascaded message → poll →
+  // options → votes; we just splice the row out client-side.
+  function applyPollDelete(messageId: string) {
+    setMessages((prev) => prev.filter((m) => m.id !== messageId));
   }
 
   function startEdit(m: Message) {
@@ -926,6 +975,23 @@ export function ChatView({
                             ))}
                           </div>
                         )}
+                        {m.poll && (
+                          <div
+                            className={cn(
+                              "mt-1 w-full",
+                              mine ? "items-end" : "items-start",
+                            )}
+                          >
+                            <PollCard
+                              poll={m.poll}
+                              viewerId={meId}
+                              viewerIsAdmin={meRole === "admin"}
+                              mine={mine}
+                              onPollChange={(p) => applyPollUpdate(m.id, p)}
+                              onPollDelete={() => applyPollDelete(m.id)}
+                            />
+                          </div>
+                        )}
                         {mine &&
                           (() => {
                             const st = tickState(m.createdAt);
@@ -1044,6 +1110,15 @@ export function ChatView({
                 >
                   <Paperclip className="h-4 w-4" />
                 </button>
+                <button
+                  type="button"
+                  onClick={() => setPollDialogOpen(true)}
+                  disabled={uploading}
+                  className="flex h-10 w-10 items-center justify-center rounded-lg text-slate-500 hover:bg-slate-100 hover:text-slate-900 disabled:opacity-50"
+                  title="Create a poll"
+                >
+                  <BarChart3 className="h-4 w-4" />
+                </button>
                 <Input
                   value={body}
                   onChange={(e) => setBody(e.target.value)}
@@ -1090,6 +1165,11 @@ export function ChatView({
         />
       )}
       <SoundSettingsDialog open={soundOpen} onOpenChange={setSoundOpen} />
+      <NewPollDialog
+        open={pollDialogOpen}
+        onOpenChange={setPollDialogOpen}
+        onSubmit={createPoll}
+      />
     </div>
   );
 }

@@ -76,6 +76,8 @@ model User {
   feedbackSubmitted     Feedback[]       @relation("FeedbackAuthor")
   feedbackHandled       Feedback[]       @relation("FeedbackRepliedBy")
   feedbackMessages      FeedbackMessage[] @relation("FeedbackMessageAuthor")
+  pollsCreated          Poll[]            @relation("PollAuthor")
+  pollVotes             PollVote[]        @relation("PollVoter")
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -602,6 +604,9 @@ model Message {
   replyToId   String?
   replyTo     Message?  @relation("MessageReplies", fields: [replyToId], references: [id], onDelete: SetNull)
   replies     Message[] @relation("MessageReplies")
+  // Optional attached poll. One-to-one — deleting the message
+  // cascades to the poll (and its options/votes).
+  poll        Poll?
   createdAt   DateTime @default(now())
   // Set when the author edits the body after sending. UI shows a small
   // "(edited)" suffix whenever this is non-null. Stays null on the
@@ -609,6 +614,60 @@ model Message {
   editedAt    DateTime?
 
   @@index([replyToId])
+}
+
+// ───────── Polls (chat attachment) ─────────
+// A poll is attached to exactly one Message (1:1 via unique
+// messageId). Permission matrix:
+//   - question/options/multiVote editable by author OR admin
+//     ONLY while the poll has zero votes (anti-manipulation rule —
+//     admin override does NOT bypass this).
+//   - adding a new option, reordering, changing closesAt: anytime.
+//   - removing an option: only if it has zero votes.
+//   - close / re-open / delete: author + admin, anytime.
+//   - delete cascades through Message → Poll → PollOption → PollVote.
+// Votes are non-anonymous (UI surfaces voter avatars).
+model Poll {
+  id          String       @id @default(cuid())
+  messageId   String       @unique
+  message     Message      @relation(fields: [messageId], references: [id], onDelete: Cascade)
+  question    String
+  multiVote   Boolean      @default(false)
+  closesAt    DateTime?
+  closedAt    DateTime?
+  createdById String
+  createdBy   User         @relation("PollAuthor", fields: [createdById], references: [id])
+  options     PollOption[]
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
+}
+
+model PollOption {
+  id        String     @id @default(cuid())
+  pollId    String
+  poll      Poll       @relation(fields: [pollId], references: [id], onDelete: Cascade)
+  text      String
+  order     Int        @default(0)
+  votes     PollVote[]
+  createdAt DateTime   @default(now())
+
+  @@index([pollId, order])
+}
+
+model PollVote {
+  id        String     @id @default(cuid())
+  optionId  String
+  option    PollOption @relation(fields: [optionId], references: [id], onDelete: Cascade)
+  userId    String
+  user      User       @relation("PollVoter", fields: [userId], references: [id], onDelete: Cascade)
+  createdAt DateTime   @default(now())
+
+  // One vote per option per user. Toggling a vote = create or delete
+  // this row; the unique constraint prevents accidental dupes from
+  // double-clicks. (Multi-vote polls just allow rows under multiple
+  // option ids for the same user.)
+  @@unique([optionId, userId])
+  @@index([userId])
 }
 
 // ───────── Log book ─────────
