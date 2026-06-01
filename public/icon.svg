@@ -1,0 +1,16 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-label="PhDapp">
+  <defs>
+    <!-- Brand gradient: violet → pink → orange, matching .brand-bg in globals.css -->
+    <linearGradient id="g" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#6f4cff"/>
+      <stop offset="55%" stop-color="#ff3d8b"/>
+      <stop offset="100%" stop-color="#ff7a45"/>
+    </linearGradient>
+  </defs>
+  <rect width="512" height="512" rx="112" fill="url(#g)"/>
+  <!-- 4-point sparkle, white — mirrors the lucide Sparkles icon used in the topbar/sidebar brand mark. -->
+  <path d="M256 120 L288 224 L392 256 L288 288 L256 392 L224 288 L120 256 L224 224 Z" fill="#ffffff"/>
+  <!-- Small accent dots -->
+  <circle cx="400" cy="160" r="14" fill="#ffffff" opacity="0.85"/>
+  <circle cx="140" cy="360" r="10" fill="#ffffff" opacity="0.75"/>
+</svg>

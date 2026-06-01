@@ -35,7 +35,15 @@ export function Topbar({ user, studentId = null }: TopbarProps) {
     // px-4 on mobile, px-6 at md+. Lower z-index than the mobile
     // nav drawer (z-50) and its backdrop (z-40) so the drawer sits
     // on top when open.
-    <header className="sticky top-0 z-30 flex h-16 items-center gap-2 border-b bg-white/80 backdrop-blur px-4 sm:gap-3 md:gap-4 md:px-6 print:hidden">
+    //
+    // Padding-top respects env(safe-area-inset-top) so the topbar
+    // doesn't disappear under the notch when the app is installed
+    // as a PWA on a notched iPhone (the viewportFit: "cover" set on
+    // the root layout opens the rendering area into that zone).
+    <header
+      className="sticky top-0 z-30 flex h-16 items-center gap-2 border-b bg-white/80 backdrop-blur px-4 sm:gap-3 md:gap-4 md:px-6 print:hidden"
+      style={{ paddingTop: "env(safe-area-inset-top)" }}
+    >
       {/* Hamburger — toggles the mobile nav drawer. Hidden on
           desktop; the sidebar is always visible there. */}
       <TopbarMenuButton />

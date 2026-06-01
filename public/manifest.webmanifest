@@ -1,0 +1,19 @@
+{
+  "name": "PhDapp · Supervision Hub",
+  "short_name": "PhDapp",
+  "description": "Chat, files, tasks, and calendar — one single workspace for PhD student supervision.",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#ffffff",
+  "theme_color": "#6f4cff",
+  "icons": [
+    {
+      "src": "/icon.svg",
+      "type": "image/svg+xml",
+      "sizes": "any",
+      "purpose": "any maskable"
+    }
+  ]
+}

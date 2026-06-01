@@ -161,7 +161,7 @@ export function PollCard({
             <DropdownMenu.Trigger asChild>
               <button
                 type="button"
-                className="-mr-1 -mt-1 inline-flex h-7 w-7 items-center justify-center rounded-full text-slate-400 hover:bg-slate-100 hover:text-slate-700"
+                className="-mr-1 -mt-1 inline-flex h-10 w-10 items-center justify-center rounded-full text-slate-400 hover:bg-slate-100 hover:text-slate-700 md:h-7 md:w-7"
                 title="Poll actions"
               >
                 <MoreHorizontal className="h-4 w-4" />

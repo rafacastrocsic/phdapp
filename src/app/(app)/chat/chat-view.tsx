@@ -1064,26 +1064,29 @@ export function ChatView({
                         {m.id.startsWith("temp-") || editingId === m.id ? null : (
                           <div
                             className={cn(
-                              "mt-0.5 flex items-center gap-2 text-[10px]",
+                              // text-[11px] on mobile (a touch larger
+                              // than [10px]) + py-1 to grow the tap
+                              // area. Stays compact on desktop.
+                              "mt-0.5 flex items-center gap-3 text-[11px] md:text-[10px] md:gap-2",
                               mine && "flex-row-reverse",
                             )}
                           >
                             <button
                               type="button"
                               onClick={() => setReplyTarget(m)}
-                              className="inline-flex items-center gap-1 text-slate-400 hover:text-slate-700"
+                              className="inline-flex items-center gap-1 py-1 text-slate-500 hover:text-slate-700 md:text-slate-400"
                               title="Reply to this message"
                             >
-                              <Reply className="h-3 w-3" /> Reply
+                              <Reply className="h-3.5 w-3.5 md:h-3 md:w-3" /> Reply
                             </button>
                             {mine && (
                               <button
                                 type="button"
                                 onClick={() => startEdit(m)}
-                                className="inline-flex items-center gap-1 text-slate-400 hover:text-slate-700"
+                                className="inline-flex items-center gap-1 py-1 text-slate-500 hover:text-slate-700 md:text-slate-400"
                                 title="Edit this message"
                               >
-                                <Pencil className="h-3 w-3" /> Edit
+                                <Pencil className="h-3.5 w-3.5 md:h-3 md:w-3" /> Edit
                               </button>
                             )}
                           </div>
