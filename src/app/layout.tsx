@@ -1,4 +1,4 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 
@@ -16,6 +16,16 @@ export const metadata: Metadata = {
   title: "PhDapp · Supervision Hub",
   description:
     "Chat, files, tasks, and calendar — one single workspace for PhD student supervision.",
+};
+
+// Explicit viewport so phones get the right zoom and so notched
+// devices (iPhone 14, etc.) can use env(safe-area-inset-*) padding
+// via the "cover" fit. Without this Next 16 still injects a default
+// but it's clearer to declare intent.
+export const viewport: Viewport = {
+  width: "device-width",
+  initialScale: 1,
+  viewportFit: "cover",
 };
 
 export default function RootLayout({

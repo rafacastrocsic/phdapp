@@ -3,6 +3,7 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useUnread } from "@/components/app-shell/unread-provider";
+import { useMobileNav } from "@/components/app-shell/mobile-nav-context";
 import {
   LayoutDashboard,
   Users,
@@ -19,6 +20,7 @@ import {
   Megaphone,
   ChevronLeft,
   ChevronRight,
+  X as XIcon,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -87,25 +89,62 @@ export function Sidebar({
       return next;
     });
   }
+  // Mobile drawer state (no-op on desktop — the md:flex container
+  // always renders inline regardless of `open`).
+  const { open: mobileOpen, close: closeMobile } = useMobileNav();
+  // When the mobile drawer is open we force the "expanded labels"
+  // layout regardless of the user's desktop `collapsed` preference.
+  // Without this, a user who collapsed the desktop sidebar would
+  // see an icon-only drawer on their phone — confusing because
+  // the drawer is wide enough for full labels.
+  const showLabels = !collapsed || mobileOpen;
+
   return (
-    <aside
-      className={cn(
-        "hidden md:flex shrink-0 flex-col gap-1 border-r bg-white p-4 transition-[width] duration-200 print:!hidden",
-        collapsed ? "w-[72px]" : "w-60",
+    <>
+      {/* Mobile backdrop — tap to dismiss. Only mounted while open
+          so it doesn't intercept clicks on desktop or when closed. */}
+      {mobileOpen && (
+        <div
+          aria-hidden
+          onClick={closeMobile}
+          className="fixed inset-0 z-40 bg-slate-900/50 backdrop-blur-sm md:hidden print:hidden"
+        />
       )}
-    >
+      <aside
+        className={cn(
+          // Desktop: inline flex column at md+. Mobile: a fixed
+          // slide-in drawer that animates the transform, with a
+          // shadow when open and a translate-x out-of-view by
+          // default.
+          "shrink-0 flex-col gap-1 border-r bg-white p-4 print:!hidden",
+          "fixed inset-y-0 left-0 z-50 flex w-64 transform shadow-2xl transition-transform duration-200 md:relative md:z-auto md:shadow-none md:transition-[width]",
+          mobileOpen ? "translate-x-0" : "-translate-x-full",
+          "md:!translate-x-0",
+          collapsed ? "md:w-[72px]" : "md:w-60",
+        )}
+      >
+        {/* Mobile-only close button — desktop has the collapse
+            toggle at the bottom instead. */}
+        <button
+          type="button"
+          onClick={closeMobile}
+          className="absolute right-2 top-2 inline-flex h-8 w-8 items-center justify-center rounded-full text-slate-400 hover:bg-slate-100 hover:text-slate-700 md:hidden"
+          title="Close menu"
+        >
+          <XIcon className="h-4 w-4" />
+        </button>
       <Link
         href="/"
         className={cn(
           "flex items-center gap-2 py-2 mb-4",
-          collapsed ? "justify-center px-0" : "px-2",
+          !showLabels ? "justify-center px-0" : "px-2",
         )}
-        title={collapsed ? "PhDapp · Supervision Hub" : undefined}
+        title={!showLabels ? "PhDapp · Supervision Hub" : undefined}
       >
         <div className="h-9 w-9 rounded-xl brand-bg flex items-center justify-center shadow-md shadow-violet-500/30 shrink-0">
           <Sparkles className="h-5 w-5 text-white" />
         </div>
-        {!collapsed && (
+        {showLabels && (
           <div>
             <div className="text-base font-bold leading-tight brand-gradient">
               PhDapp
@@ -171,10 +210,10 @@ export function Sidebar({
             <Link
               key={item.href}
               href={item.href}
-              title={collapsed ? (unread > 0 ? `${item.label} · ${unreadLabel}` : item.label) : undefined}
+              title={!showLabels ? (unread > 0 ? `${item.label} · ${unreadLabel}` : item.label) : undefined}
               className={cn(
                 "group relative flex items-center rounded-lg text-sm font-medium transition-colors",
-                collapsed ? "justify-center px-2 py-2" : "gap-3 px-3 py-2",
+                !showLabels ? "justify-center px-2 py-2" : "gap-3 px-3 py-2",
                 active
                   ? "bg-slate-100 text-slate-900"
                   : "text-slate-600 hover:bg-slate-50 hover:text-slate-900",
@@ -193,14 +232,14 @@ export function Sidebar({
                   className="h-4 w-4"
                   style={!active ? { color: item.color } : undefined}
                 />
-                {collapsed && unread > 0 && (
+                {!showLabels && unread > 0 && (
                   <span
                     className="absolute -top-1 -right-1 h-2.5 w-2.5 rounded-full border-2 border-white"
                     style={{ background: unreadColor }}
                   />
                 )}
               </span>
-              {!collapsed && (
+              {showLabels && (
                 <>
                   {item.label}
                   {unread > 0 && (
@@ -229,37 +268,40 @@ export function Sidebar({
         {isAdmin && (
           <Link
             href="/admin"
-            title={collapsed ? "Admin" : undefined}
+            title={!showLabels ? "Admin" : undefined}
             className={cn(
               "flex items-center rounded-lg text-sm font-medium hover:bg-slate-50",
-              collapsed ? "justify-center px-2 py-2" : "gap-3 px-3 py-2",
+              !showLabels ? "justify-center px-2 py-2" : "gap-3 px-3 py-2",
               pathname.startsWith("/admin")
                 ? "bg-red-50 text-[var(--c-red)]"
                 : "text-[var(--c-red)]",
             )}
           >
-            <Shield className="h-4 w-4" /> {!collapsed && "Admin"}
+            <Shield className="h-4 w-4" /> {showLabels && "Admin"}
           </Link>
         )}
         {role !== "student" && (
         <Link
           href="/settings"
-          title={collapsed ? "Settings" : undefined}
+          title={!showLabels ? "Settings" : undefined}
           className={cn(
             "flex items-center rounded-lg text-sm font-medium text-slate-600 hover:bg-slate-50",
-            collapsed ? "justify-center px-2 py-2" : "gap-3 px-3 py-2",
+            !showLabels ? "justify-center px-2 py-2" : "gap-3 px-3 py-2",
             pathname.startsWith("/settings") && "bg-slate-100 text-slate-900",
           )}
         >
-          <Settings className="h-4 w-4" /> {!collapsed && "Settings"}
+          <Settings className="h-4 w-4" /> {showLabels && "Settings"}
         </Link>
         )}
+        {/* Desktop-only collapse toggle. On mobile the drawer is
+            full-width with an X close button at the top — there's no
+            "collapsed" state to toggle here. */}
         <button
           type="button"
           onClick={toggleCollapsed}
           title={collapsed ? "Expand sidebar" : "Collapse sidebar"}
           className={cn(
-            "mt-2 flex w-full items-center rounded-lg text-xs text-slate-400 hover:bg-slate-50 hover:text-slate-600",
+            "mt-2 hidden w-full items-center rounded-lg text-xs text-slate-400 hover:bg-slate-50 hover:text-slate-600 md:flex",
             collapsed ? "justify-center px-2 py-2" : "gap-2 px-3 py-2",
           )}
         >
@@ -272,6 +314,7 @@ export function Sidebar({
           )}
         </button>
       </div>
-    </aside>
+      </aside>
+    </>
   );
 }
