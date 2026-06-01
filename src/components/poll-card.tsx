@@ -1,6 +1,6 @@
 "use client";
 import { useState } from "react";
-import { Lock, Check, MoreHorizontal, X, RotateCcw } from "lucide-react";
+import { Lock, Check, MoreHorizontal, X, RotateCcw, Pencil } from "lucide-react";
 import * as DropdownMenu from "@radix-ui/react-dropdown-menu";
 import { Avatar } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
@@ -45,6 +45,7 @@ export function PollCard({
   mine,
   onPollChange,
   onPollDelete,
+  onEditRequest,
 }: {
   poll: Poll;
   viewerId: string;
@@ -57,6 +58,9 @@ export function PollCard({
   /** Called after a successful delete so the parent can splice it
    *  + its message out of the list. */
   onPollDelete: () => void;
+  /** Author/admin clicked the "Edit poll" menu item — the parent
+   *  is expected to mount EditPollDialog with this poll. */
+  onEditRequest: () => void;
 }) {
   const [busy, setBusy] = useState(false);
 
@@ -168,6 +172,19 @@ export function PollCard({
                 align="end"
                 className="z-50 min-w-[10rem] rounded-lg border bg-white p-1 shadow-md"
               >
+                {/* Edit is available while the poll is open. If
+                    closed, the user can Re-open first. Per the
+                    server rule, structural fields (question/option
+                    text / multi-vote) still lock once anyone has
+                    voted — the dialog surfaces that. */}
+                {!isClosed && (
+                  <DropdownMenu.Item
+                    onSelect={onEditRequest}
+                    className="flex cursor-pointer items-center gap-2 rounded px-2 py-1.5 text-sm hover:bg-slate-100"
+                  >
+                    <Pencil className="h-3.5 w-3.5" /> Edit poll
+                  </DropdownMenu.Item>
+                )}
                 {isClosed ? (
                   <DropdownMenu.Item
                     onSelect={() => setClosed(false)}

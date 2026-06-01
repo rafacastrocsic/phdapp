@@ -43,8 +43,9 @@ import {
 } from "@/components/ui/dialog";
 import { cn, relativeTime, displayName, chatTimestamp } from "@/lib/utils";
 import { linkify } from "@/lib/linkify";
-import { PollCard } from "@/components/poll-card";
+import { PollCard, type Poll } from "@/components/poll-card";
 import { NewPollDialog, type NewPoll } from "@/components/new-poll-dialog";
+import { EditPollDialog } from "@/components/edit-poll-dialog";
 import {
   useSectionVersion,
   useUnread,
@@ -169,6 +170,13 @@ export function ChatView({
   // attachment paperclip. Submit posts a chat message that carries
   // the poll as an attachment in a single request.
   const [pollDialogOpen, setPollDialogOpen] = useState(false);
+  // Currently-editing poll — opens EditPollDialog. Carry the
+  // parent message id alongside so we can splice the result back
+  // into the right `messages` entry on save.
+  const [editingPoll, setEditingPoll] = useState<{
+    messageId: string;
+    poll: Poll;
+  } | null>(null);
   // Inline edit-in-place state: id of the message currently being
   // edited (own messages only) and the working draft body. null = not
   // editing. Submitting calls PATCH and merges the response into
@@ -989,6 +997,9 @@ export function ChatView({
                               mine={mine}
                               onPollChange={(p) => applyPollUpdate(m.id, p)}
                               onPollDelete={() => applyPollDelete(m.id)}
+                              onEditRequest={() =>
+                                setEditingPoll({ messageId: m.id, poll: m.poll! })
+                              }
                             />
                           </div>
                         )}
@@ -1170,6 +1181,19 @@ export function ChatView({
         onOpenChange={setPollDialogOpen}
         onSubmit={createPoll}
       />
+      {editingPoll && (
+        <EditPollDialog
+          open
+          onOpenChange={(v) => {
+            if (!v) setEditingPoll(null);
+          }}
+          poll={editingPoll.poll}
+          onUpdated={(next) => {
+            applyPollUpdate(editingPoll.messageId, next);
+            setEditingPoll(null);
+          }}
+        />
+      )}
     </div>
   );
 }
