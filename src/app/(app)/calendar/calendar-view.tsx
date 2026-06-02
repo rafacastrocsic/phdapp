@@ -987,6 +987,7 @@ export function CalendarView({
               cursor={cursor}
               view={view}
               events={filtered}
+              availability={availability}
               availabilityByDay={availabilityByDay}
               holidaysByDay={holidaysByDay}
               effectiveKind={effectiveKind}
@@ -2780,6 +2781,7 @@ function TimeGrid({
   cursor,
   view,
   events,
+  availability,
   availabilityByDay,
   holidaysByDay,
   effectiveKind,
@@ -2790,6 +2792,18 @@ function TimeGrid({
   cursor: Date;
   view: "week" | "day";
   events: Event[];
+  // Raw availability rows. Used here (in addition to the bucketed
+  // availabilityByDay) so we can compute per-day TIME bands for
+  // entries that carry specific hours (10:00–12:00 etc).
+  availability: {
+    id: string;
+    startsAt: string;
+    endsAt: string;
+    who: string;
+    reason: string | null;
+    label: string | null;
+    kind: string;
+  }[];
   availabilityByDay: Record<string, { who: string; reason: string | null; label: string | null }[]>;
   holidaysByDay: Map<string, string>;
   effectiveKind: (id: string) => "new" | "updated" | null;
@@ -3006,6 +3020,66 @@ function TimeGrid({
           {days.map((d) => {
             const key = format(d, "yyyy-MM-dd");
             const dayEvs = eventsByDay[key] ?? [];
+            // Time-band availability — for entries with specific
+            // hours (e.g. "10:00–12:00 doctor's appointment"), draw
+            // a slate-tinted band behind events in the matching
+            // rows. All-day entries are excluded here (they already
+            // show as a chip in the day header above); rendering a
+            // full-column tint for them on top of the events would
+            // be visual noise.
+            const dayStart = new Date(
+              d.getFullYear(),
+              d.getMonth(),
+              d.getDate(),
+            );
+            const dayEnd = new Date(
+              d.getFullYear(),
+              d.getMonth(),
+              d.getDate(),
+              23,
+              59,
+              59,
+            );
+            const timedBands = availability.flatMap((a) => {
+              const s = new Date(a.startsAt);
+              const e = new Date(a.endsAt);
+              if (e < dayStart || s > dayEnd) return [];
+              // Heuristic for "this entry was added as all-day":
+              // start is at 00:00:00 AND end is at 23:59:59. Anything
+              // else carries explicit hours.
+              const isAllDay =
+                s.getHours() === 0 &&
+                s.getMinutes() === 0 &&
+                s.getSeconds() === 0 &&
+                e.getHours() === 23 &&
+                e.getMinutes() === 59;
+              if (isAllDay) return [];
+              // Clamp to the visible day so a 9 PM → next-day 2 AM
+              // block draws as 21:00 → 23:59 today (the rest shows
+              // tomorrow). FIRST_HOUR is 0 so no further offset.
+              const blockStart = s < dayStart ? dayStart : s;
+              const blockEnd = e > dayEnd ? dayEnd : e;
+              const startMin =
+                blockStart.getHours() * 60 + blockStart.getMinutes();
+              const endMin =
+                blockEnd.getHours() * 60 + blockEnd.getMinutes();
+              const top = (startMin / 60) * HOUR_PX;
+              const height = Math.max(
+                14,
+                ((endMin - startMin) / 60) * HOUR_PX,
+              );
+              return [
+                {
+                  id: a.id,
+                  top,
+                  height,
+                  who: a.who,
+                  reason: a.reason,
+                  startMin,
+                  endMin,
+                },
+              ];
+            });
             return (
               <div
                 key={d.toISOString()}
@@ -3014,6 +3088,39 @@ function TimeGrid({
                   if (e.target === e.currentTarget) onSlotClick(d);
                 }}
               >
+                {/* Timed-availability bands. Sit behind events
+                    (z-0) so an event landing in the same window
+                    still reads as an event. Striped slate
+                    background communicates "blocked-out time"
+                    without competing with event colors. */}
+                {timedBands.map((b) => {
+                  const fmtMin = (m: number) =>
+                    `${String(Math.floor(m / 60)).padStart(2, "0")}:${String(
+                      m % 60,
+                    ).padStart(2, "0")}`;
+                  return (
+                    <button
+                      key={b.id}
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        onAvailClick(d);
+                      }}
+                      title={`⊘ ${b.who} — ${b.reason || "away"} · ${fmtMin(b.startMin)}–${fmtMin(b.endMin)}`}
+                      style={{
+                        top: b.top,
+                        height: b.height,
+                        backgroundImage:
+                          "repeating-linear-gradient(135deg, rgba(148,163,184,0.18) 0 6px, rgba(148,163,184,0.32) 6px 12px)",
+                      }}
+                      className="absolute inset-x-1 z-0 overflow-hidden rounded-md border border-slate-300/70 px-1.5 py-0.5 text-left text-[10px] font-medium text-slate-700 hover:brightness-95"
+                    >
+                      <span className="truncate block">
+                        ⊘ {b.who} — {b.reason || "away"}
+                      </span>
+                    </button>
+                  );
+                })}
                 {/* hour grid lines */}
                 {HOURS.map((_, i) => (
                   <div
