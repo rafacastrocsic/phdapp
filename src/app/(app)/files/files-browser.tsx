@@ -16,6 +16,7 @@ import {
   List as ListIcon,
   PanelLeftClose,
   PanelLeftOpen,
+  Users as UsersIcon,
 } from "lucide-react";
 import Link from "next/link";
 import { Avatar } from "@/components/ui/avatar";
@@ -64,16 +65,32 @@ export function FilesBrowser({
   students,
   initialStudentId,
   viewerStudentId,
+  teamDrive = null,
 }: {
   students: Student[];
   initialStudentId: string | null;
   initialFolderId: string | null;
   viewerStudentId?: string | null;
+  /** Admin-configured supervising-team Drive folder. Null when no
+   *  setting has been saved or when the viewer is a student. */
+  teamDrive?: { id: string; url: string } | null;
 }) {
   const studentsWithDrive = students.filter((s) => s.driveFolderId);
+  // Two mutually-exclusive "what's selected" states. Setting one
+  // clears the other. Defaults to the URL-specified student → the
+  // first student with a folder → null (which then surfaces the
+  // team drive if available, see effect below).
   const [selectedStudent, setSelectedStudent] = useState<Student | null>(
     students.find((s) => s.id === initialStudentId) ?? studentsWithDrive[0] ?? null,
   );
+  const [teamSelected, setTeamSelected] = useState<boolean>(false);
+  // If the page loads without a student in scope and a team drive is
+  // configured, default to showing the team drive so the pane isn't
+  // empty. Doesn't override an explicit student selection.
+  useEffect(() => {
+    if (!selectedStudent && teamDrive) setTeamSelected(true);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
   const [path, setPath] = useState<{ id: string; name: string }[]>([]);
   const [files, setFiles] = useState<DriveFile[]>([]);
   const [loading, setLoading] = useState(false);
@@ -98,17 +115,22 @@ export function FilesBrowser({
     );
   }, [sidebarCollapsed]);
 
+  // Root of the active view: path tip → team drive root (if team view
+  // selected) → selected student's folder. Path tip wins because the
+  // user has navigated deeper in.
   const currentFolderId =
-    path[path.length - 1]?.id ?? selectedStudent?.driveFolderId ?? null;
+    path[path.length - 1]?.id ??
+    (teamSelected ? teamDrive?.id ?? null : selectedStudent?.driveFolderId ?? null);
 
   useEffect(() => {
+    setPath([]);
     if (!selectedStudent?.driveFolderId) {
-      setFiles([]);
       setFavorites(new Set());
       return;
     }
-    setPath([]);
-    // Load favorites for this student
+    // Favorites are student-scoped. Load them when a student is
+    // active; on the team-drive view they're empty (the favorites
+    // feature lives on the per-student Student row).
     (async () => {
       const r = await fetch(`/api/students/${selectedStudent.id}/favorites`);
       if (!r.ok) {
@@ -120,6 +142,14 @@ export function FilesBrowser({
       setFavorites(new Set(j.favorites.map((f: FavRow) => f.driveFileId)));
     })();
   }, [selectedStudent]);
+  // Also clear path when toggling INTO the team view so the user
+  // lands at its root.
+  useEffect(() => {
+    if (teamSelected) {
+      setPath([]);
+      setFavorites(new Set());
+    }
+  }, [teamSelected]);
 
   async function toggleFavorite(file: DriveFile) {
     if (!selectedStudent) return;
@@ -235,8 +265,59 @@ export function FilesBrowser({
               )}
             </button>
           </div>
+          {/* Senior-team-only shortcut to the shared team Drive
+              folder (admin sets the URL on the Team page). Sits at
+              the top of the sidebar, visually distinct from students
+              via the yellow team-color treatment so it doesn't
+              read as "another student". */}
+          {teamDrive && (
+            <ul className={cn("mb-2", sidebarCollapsed ? "space-y-1" : "space-y-0.5")}>
+              <li>
+                <button
+                  onClick={() => {
+                    setTeamSelected(true);
+                    setSelectedStudent(null);
+                  }}
+                  title={
+                    sidebarCollapsed
+                      ? "Supervising team Drive"
+                      : undefined
+                  }
+                  className={cn(
+                    "w-full rounded-lg hover:bg-slate-50",
+                    teamSelected && "bg-yellow-50",
+                    sidebarCollapsed
+                      ? "flex justify-center p-1.5"
+                      : "flex items-center gap-2 px-2 py-2 text-sm text-left",
+                  )}
+                >
+                  <span
+                    className="flex h-7 w-7 items-center justify-center rounded-md shrink-0"
+                    style={{ background: "#f59e0b1f", color: "#f59e0b" }}
+                  >
+                    <UsersIcon className="h-4 w-4" />
+                  </span>
+                  {!sidebarCollapsed && (
+                    <div className="flex-1 min-w-0">
+                      <div className="font-medium text-slate-900 truncate">
+                        Team Drive
+                      </div>
+                      <div className="text-[10px] text-slate-500 truncate">
+                        supervising team folder
+                      </div>
+                    </div>
+                  )}
+                </button>
+              </li>
+            </ul>
+          )}
+          {teamDrive && !sidebarCollapsed && students.length > 0 && (
+            <div className="px-2 mb-1 text-[10px] uppercase tracking-wide text-slate-400 font-semibold">
+              Students
+            </div>
+          )}
           {students.length === 0 ? (
-            !sidebarCollapsed && (
+            !sidebarCollapsed && !teamDrive && (
               <p className="text-xs text-slate-500 p-2">No students.</p>
             )
           ) : (
@@ -244,7 +325,10 @@ export function FilesBrowser({
               {students.map((s) => (
                 <li key={s.id}>
                   <button
-                    onClick={() => setSelectedStudent(s)}
+                    onClick={() => {
+                      setSelectedStudent(s);
+                      setTeamSelected(false);
+                    }}
                     title={sidebarCollapsed ? displayName(s) : undefined}
                     className={cn(
                       "w-full rounded-lg hover:bg-slate-50",
@@ -276,7 +360,28 @@ export function FilesBrowser({
       <main className="flex-1 overflow-y-auto bg-slate-50">
         <div className="px-6 lg:px-8 py-4 border-b bg-white flex items-center justify-between gap-4 flex-wrap">
           <div className="flex items-center gap-1 text-sm flex-wrap">
-            {selectedStudent ? (
+            {teamSelected ? (
+              <>
+                <button
+                  onClick={() => setPath([])}
+                  className="flex items-center gap-2 font-semibold text-slate-700 hover:text-[var(--c-blue)]"
+                >
+                  <UsersIcon className="h-4 w-4 text-[#f59e0b]" />
+                  Supervising team Drive
+                </button>
+                {path.map((p, i) => (
+                  <span key={p.id} className="flex items-center gap-1">
+                    <ChevronRight className="h-3 w-3 text-slate-400" />
+                    <button
+                      onClick={() => jumpTo(i)}
+                      className="text-slate-700 hover:text-[var(--c-blue)] truncate max-w-[180px]"
+                    >
+                      {p.name}
+                    </button>
+                  </span>
+                ))}
+              </>
+            ) : selectedStudent ? (
               <>
                 <button
                   onClick={() => setPath([])}
@@ -338,9 +443,15 @@ export function FilesBrowser({
                 List
               </button>
             </div>
-            {selectedStudent?.driveFolderId && (
+            {(teamSelected && teamDrive) ||
+            selectedStudent?.driveFolderId ? (
               <a
-                href={`https://drive.google.com/drive/folders/${currentFolderId ?? selectedStudent.driveFolderId}`}
+                href={`https://drive.google.com/drive/folders/${
+                  currentFolderId ??
+                  (teamSelected
+                    ? teamDrive?.id
+                    : selectedStudent?.driveFolderId)
+                }`}
                 target="_blank"
                 rel="noopener"
               >
@@ -348,7 +459,7 @@ export function FilesBrowser({
                   <ExternalLink className="h-4 w-4" /> Open in Drive
                 </Button>
               </a>
-            )}
+            ) : null}
             <Button
               variant="ghost"
               size="sm"
@@ -361,13 +472,13 @@ export function FilesBrowser({
         </div>
 
         <div className="p-6">
-          {!selectedStudent ? (
+          {!selectedStudent && !teamSelected ? (
             <EmptyHint
               title="Pick a student"
               text="Use the list on the left to start browsing."
             />
-          ) : !selectedStudent.driveFolderId ? (
-            selectedStudent.id === viewerStudentId ? (
+          ) : teamSelected ? null : !selectedStudent?.driveFolderId ? (
+            selectedStudent && selectedStudent.id === viewerStudentId ? (
               <div className="rounded-2xl border border-dashed bg-white p-12 text-center">
                 <div className="text-base font-semibold text-slate-700">
                   No Drive folder linked yet
@@ -383,7 +494,7 @@ export function FilesBrowser({
                   />
                 </div>
               </div>
-            ) : (
+            ) : selectedStudent ? (
               <EmptyHint
                 title="No Drive folder linked"
                 text={
@@ -399,7 +510,7 @@ export function FilesBrowser({
                   </>
                 }
               />
-            )
+            ) : null
           ) : error ? (
             <div className="rounded-2xl border border-amber-200 bg-amber-50 p-6 text-sm text-amber-900">
               <strong>{error}</strong>

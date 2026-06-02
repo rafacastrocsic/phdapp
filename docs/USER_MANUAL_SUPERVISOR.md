@@ -219,6 +219,17 @@ Top-right toggle: **Year / Month / Week / Day**.
 - **Year** — the whole calendar year as 12 mini-month grids with colored dots per day. Click a day to drop into Month view.
 - **Month / Week / Day** — standard calendar views. In Month view a day shows the first few items and a **"+N more"** link that opens that day's **Day view**. In Week/Day, the time grid covers **all 24 hours** and **auto-scrolls** to the current hour (today) or 8 AM (other days) on open — you can scroll up to midnight or down to 23:00. Overlapping events are laid out **side by side in columns** rather than stacked, so concurrent meetings stay readable. **All-day events** (incl. task / sub-task deadlines) appear in a dedicated strip just above the hour grid, not at noon-UTC.
 
+#### Availability — anyone marks "not at IMSE"
+
+The **⊘ My availability** button in the calendar toolbar is open to **every role** now (was supervisor-only). Use it for travel, leave, conferences, away-from-IMSE days — and your **students** use it for vacations, doctor's appointments, remote-work days, etc., so the whole team knows when each person is on-site vs not.
+
+- **From / To** dates required.
+- **All day** by default. Uncheck to set **From (time)** / **To (time)** (e.g. a 10:00–12:00 doctor's slot).
+- **Reason** (optional) is **public** — everyone in the team sees it on the calendar (*"⊘ Pablo — doctor's appointment"*). Leave blank and it shows as plain *"Unavailable"*.
+- **Private memo** (optional) is author-only — your own note that nobody else sees.
+- Activity log fans out asymmetrically: a **student** posting notifies their supervisors (🔔 + Calendar sidebar bubble); a **supervisor** posting notifies their students.
+- **Timed blocks** appear as a diagonally-striped slate band right in the day/week-view hour grid at the actual slot — events on top of them still win visually, but the conflict is unmistakable.
+
 #### Public holidays (Sevilla)
 
 Spanish national + Andalusia regional + Sevilla city public holidays are marked across every view: a **🎉 rose chip** next to the date in Month / Week / Day, and a rose-tinted cell in the Year mini-grid (hover shows the holiday name). Movable feasts (**Jueves Santo**, **Viernes Santo**, **Corpus Christi**) are computed each year. Holidays are informational — they don't block scheduling — and the **Upcoming meetings** card on the dashboard interleaves them with events so you avoid double-booking.
@@ -287,6 +298,8 @@ You can collapse the channels column with the chevron at the top of that column.
 The **Files** module shows the Google Drive folder shared with each student. Click any file/folder to open in Drive. Star favorites for quick access.
 
 If a student doesn't have a shared Drive folder yet, you (as primary supervisor) can create one from their profile page → **Share Drive**.
+
+**Team Drive shortcut.** The sidebar in /files now also carries a **Team Drive** entry at the top (yellow team-icon, above the students list) — it opens the supervising-team Drive folder the admin configured on the Team page. Click in and browse it like any student folder; the breadcrumb shows *"Supervising team Drive"* and **Open in Drive** opens the folder directly in Google Drive. Students don't see this entry.
 
 **Who is auto-shared on the folder (and on the student's shared Calendar):** the student, the primary supervisor, additional supervisors / co-supervisors, and **team advisors**. **External advisors and committee members are deliberately not auto-shared** — they have a lighter relationship and shouldn't see every file or 1:1 meeting. If you specifically need to give them access, share the folder or calendar with them directly from Google Drive / Google Calendar.
 

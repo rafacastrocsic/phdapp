@@ -1,6 +1,7 @@
 import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
 import { studentVisibilityWhere, type Role } from "@/lib/access";
+import { getTeamDriveFolder } from "@/lib/team-drive";
 import { FilesBrowser } from "./files-browser";
 
 export default async function FilesPage({
@@ -28,12 +29,21 @@ export default async function FilesPage({
         })
       : null;
 
+  // Supervising team's shared Drive folder (admin-configured Setting).
+  // Surfaced as a "Team Drive" entry in the sidebar — visible to the
+  // senior team (admin / supervisors / co-supervisors / team advisors),
+  // hidden from students. Same shape as a student folder so the
+  // browser navigation logic doesn't fork.
+  const teamDrive =
+    role === "student" ? null : await getTeamDriveFolder();
+
   return (
     <FilesBrowser
       students={students}
       initialStudentId={sp.student ?? null}
       initialFolderId={sp.folder ?? null}
       viewerStudentId={viewerStudent?.id ?? null}
+      teamDrive={teamDrive}
     />
   );
 }

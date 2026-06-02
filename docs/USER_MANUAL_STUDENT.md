@@ -146,6 +146,17 @@ Top-right toggle: **Year / Month / Week / Day**.
 - **Month** — the standard month grid. A day shows the first few items; click **"+N more"** to jump into that day's **Day view** and see everything.
 - **Week / Day** — hour-by-hour timetable with current-time line, covering all 24 hours. On open it auto-scrolls to the **current hour** (today) or **8 AM** (other days); scroll up to midnight or down to 23:00. **All-day items** (task / sub-task deadlines, anything created as all-day) appear in a dedicated strip above the hour grid. Events that overlap in time are placed **side by side** in columns instead of stacking on top of each other, so a busy day stays readable.
 
+### Availability — "I'm not at IMSE"
+
+Open the Calendar and click **⊘ My availability** (top of the page) to mark periods you're not coming in — vacation, doctor's appointment, conference, remote-work day, etc.
+
+- **From / To** dates are required.
+- **All day** is on by default. Uncheck it to add **From (time)** / **To (time)** for an intra-day block (e.g. 10:00–12:00).
+- **Reason** (optional) — visible to your whole team. Shows up on the calendar as *"⊘ Pablo — doctor's appointment"*. Leave it blank and it just shows *"Unavailable"*.
+- **Private memo** (optional) — author-only note, not shown to anyone else. Useful as a "why did I add this" reminder.
+
+Your supervisors get a 🔔 notification when you add a period. Timed blocks (with hours) draw as a striped slate band right in the day/week-view hour grid so the conflicting slot is obvious at a glance.
+
 ### Public holidays (Sevilla)
 
 Spanish national + Andalusia regional + Sevilla city public holidays are marked on the calendar with a **🎉 rose-tinted chip** in every view — Month, Week, Day, and Year (the mini-calendar tints the day cell). Hover for the full name (e.g. *"Corpus Christi · Sevilla"*). Movable feasts (Jueves Santo, Viernes Santo, Corpus Christi) are computed each year automatically. Holidays are informational — they don't block creating events on that day.
