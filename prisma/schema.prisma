@@ -316,13 +316,26 @@ model Setting {
   updatedAt DateTime @updatedAt
 }
 
+// "I'm not at IMSE during this window" — set by any team member
+// (supervisor, co-supervisor, team advisor, OR student). The whole
+// team sees these so they can plan around someone being away.
+//
+// Two text fields with deliberately different visibility:
+//   - `reason`: PUBLIC — shown on the calendar as the chip label
+//     ("doctor's appointment", "remote", "vacation"). Empty = the
+//     UI falls back to a generic "Unavailable".
+//   - `label`:  PRIVATE memo, visible ONLY to the author. Kept for
+//     backward compat with the old supervisor-only field; useful as
+//     a "remember why I added this" note that isn't fit for public
+//     consumption.
 model Availability {
   id        String   @id @default(cuid())
-  userId    String // the supervisor who is away/busy
+  userId    String // the team member who is unavailable
   user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   startsAt  DateTime
   endsAt    DateTime
-  label     String? // supervisor's own reference (e.g. "Conference") — NEVER shown to students
+  reason    String? // PUBLIC — shown on the calendar
+  label     String? // PRIVATE — author-only memo
   kind      String   @default("away") // away | busy
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt

@@ -6,7 +6,10 @@ import { prisma } from "@/lib/prisma";
 const Body = z.object({
   startsAt: z.string(),
   endsAt: z.string(),
-  label: z.string().nullable().optional(),
+  // Optional PUBLIC label. Empty → UI shows "Unavailable".
+  reason: z.string().max(200).nullable().optional(),
+  // Optional PRIVATE memo. Visible only to the author.
+  label: z.string().max(200).nullable().optional(),
   kind: z.enum(["away", "busy"]).optional(),
 });
 
@@ -21,12 +24,13 @@ export async function GET() {
   return NextResponse.json({ items });
 }
 
+// Any authenticated user can post their own availability. Used by
+// supervisors AND students (vacation / doctor's / remote / etc.).
+// The author is the signed-in user — there's no "post on behalf of"
+// path, so authorization is just "must be signed in".
 export async function POST(req: Request) {
   const session = await auth();
   if (!session?.user) return NextResponse.json({ error: "unauth" }, { status: 401 });
-  // Only supervisors/admins mark availability (students don't).
-  if (session.user.role === "student")
-    return NextResponse.json({ error: "forbidden" }, { status: 403 });
 
   const parsed = Body.safeParse(await req.json().catch(() => null));
   if (!parsed.success)
@@ -37,38 +41,29 @@ export async function POST(req: Request) {
       userId: session.user.id,
       startsAt: new Date(d.startsAt),
       endsAt: new Date(d.endsAt),
-      label: d.label ?? null,
+      reason: d.reason?.trim() || null,
+      label: d.label?.trim() || null,
       kind: d.kind ?? "away",
     },
   });
 
-  // Bump the Calendar "unread" bubble for this supervisor's students:
-  // log an availability.create per affected student so /api/calendar/unread
-  // counts it (label is intentionally not included — students never see it).
-  const myStudents = await prisma.student.findMany({
-    where: {
-      OR: [
-        { supervisorId: session.user.id },
-        {
-          coSupervisors: {
-            some: {
-              userId: session.user.id,
-              role: { in: ["supervisor", "co_supervisor"] },
-            },
-          },
-        },
-      ],
-    },
-    select: { id: true },
-  });
-  if (myStudents.length > 0) {
+  // ── Activity-log fan-out ──
+  // Drives Calendar's "unread" bubble + the 🔔 bell.
+  //  - When the AUTHOR is a student → log on their own student row
+  //    so their supervisors get the notification.
+  //  - When the AUTHOR is a supervisor / admin → log on each of the
+  //    students they supervise (so those students see it). Reason is
+  //    intentionally kept out of the activity summary — the calendar
+  //    chip carries it; the bell just signals "something changed".
+  const targetStudentIds = await getNotificationTargets(session.user.id);
+  if (targetStudentIds.length > 0) {
     const { logActivity } = await import("@/lib/activity-log");
     await Promise.all(
-      myStudents.map((s) =>
+      targetStudentIds.map((sid) =>
         logActivity({
           actorId: session.user.id,
           actorRole: session.user.role,
-          studentId: s.id,
+          studentId: sid,
           action: "availability.create",
           entityType: "availability",
           entityId: item.id,
@@ -81,3 +76,32 @@ export async function POST(req: Request) {
   return NextResponse.json({ item });
 }
 
+/**
+ * For activity-log fan-out, return the set of Student ids that
+ * should "see" the change. Asymmetric on purpose:
+ *  - If the author IS a student → just their own student row
+ *    (supervisors learn about it).
+ *  - Otherwise → the students they primary-supervise or co-supervise
+ *    (the students learn about it).
+ */
+async function getNotificationTargets(userId: string): Promise<string[]> {
+  const ownStudent = await prisma.student.findFirst({
+    where: { userId },
+    select: { id: true },
+  });
+  if (ownStudent) return [ownStudent.id];
+  const supervised = await prisma.student.findMany({
+    where: {
+      OR: [
+        { supervisorId: userId },
+        {
+          coSupervisors: {
+            some: { userId, role: { in: ["supervisor", "co_supervisor"] } },
+          },
+        },
+      ],
+    },
+    select: { id: true },
+  });
+  return supervised.map((s) => s.id);
+}

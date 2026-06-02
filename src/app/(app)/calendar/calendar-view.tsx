@@ -133,6 +133,10 @@ export function CalendarView({
     startsAt: string;
     endsAt: string;
     who: string;
+    // PUBLIC. Falls back to a generic "Unavailable" if null.
+    reason: string | null;
+    // PRIVATE memo — only populated for the signed-in author's own
+    // rows (server scrubs it for everyone else).
     label: string | null;
     kind: string;
   }[];
@@ -140,6 +144,7 @@ export function CalendarView({
     id: string;
     startsAt: string;
     endsAt: string;
+    reason: string | null;
     label: string | null;
     kind: string;
   }[];
@@ -320,9 +325,15 @@ export function CalendarView({
     return map;
   }, [recentlyDeleted]);
 
-  // Supervisor "Unavailable" spans, bucketed onto every day they cover.
+  // "I'm not at IMSE" spans, bucketed onto every day they cover.
+  // Any team member (supervisor or student) can post these; the
+  // PUBLIC `reason` is what gets rendered, falling back to a
+  // generic "Unavailable" when blank.
   const availabilityByDay = useMemo(() => {
-    const map: Record<string, { who: string; label: string | null }[]> = {};
+    const map: Record<
+      string,
+      { who: string; reason: string | null; label: string | null }[]
+    > = {};
     for (const a of availability) {
       const s = new Date(a.startsAt);
       const e = new Date(a.endsAt);
@@ -330,7 +341,11 @@ export function CalendarView({
       let guard = 0;
       while (cur <= e && guard++ < 400) {
         const key = format(cur, "yyyy-MM-dd");
-        (map[key] ??= []).push({ who: a.who, label: a.label });
+        (map[key] ??= []).push({
+          who: a.who,
+          reason: a.reason,
+          label: a.label,
+        });
         cur.setDate(cur.getDate() + 1);
       }
     }
@@ -567,11 +582,12 @@ export function CalendarView({
             <RefreshCw className={cn("h-4 w-4", syncing && "animate-spin")} />
             Sync Google
           </Button>
-          {!isStudent && (
-            <Button variant="outline" onClick={() => setAvailOpen(true)}>
-              ⊘ My availability
-            </Button>
-          )}
+          {/* Open to ALL roles — students post their own
+              vacation / doctor / remote / etc. so the team knows
+              when they're at IMSE. */}
+          <Button variant="outline" onClick={() => setAvailOpen(true)}>
+            ⊘ My availability
+          </Button>
           <Button variant="brand" onClick={() => setNewOpen(true)}>
             <Plus className="h-4 w-4" /> New event
           </Button>
@@ -623,15 +639,15 @@ export function CalendarView({
                     className="rounded-lg border bg-slate-50 p-3 text-sm"
                   >
                     <div className="font-medium text-slate-900">
-                      ⊘ {a.who} — unavailable
+                      ⊘ {a.who} — {a.reason || "Unavailable"}
                     </div>
                     <div className="text-xs text-slate-600 mt-0.5">
-                      {format(new Date(a.startsAt), "MMM d")} –{" "}
-                      {format(new Date(a.endsAt), "MMM d, yyyy")}
+                      {format(new Date(a.startsAt), "MMM d, HH:mm")} –{" "}
+                      {format(new Date(a.endsAt), "MMM d, HH:mm")}
                     </div>
                     {a.label && (
-                      <div className="text-xs text-slate-500 mt-0.5">
-                        {a.label}
+                      <div className="text-xs text-slate-500 mt-0.5 italic">
+                        Note (private to you): {a.label}
                       </div>
                     )}
                   </li>
@@ -763,11 +779,12 @@ export function CalendarView({
                         {(() => {
                           const av = availabilityByDay[key] ?? [];
                           if (av.length === 0) return null;
-                          const names = av.map((a) => a.who);
+                          // Single entry: show the reason if set, else
+                          // a generic "X away". Multiple: count only.
                           const text =
                             av.length === 1
-                              ? `⊘ ${names[0]} away`
-                              : `⊘ ${av.length} supervisors away`;
+                              ? `⊘ ${av[0]!.who} — ${av[0]!.reason || "away"}`
+                              : `⊘ ${av.length} team members away`;
                           return (
                             <button
                               type="button"
@@ -2533,36 +2550,82 @@ function MyAvailabilityDialog({
 }: {
   open: boolean;
   onOpenChange: (b: boolean) => void;
-  initial: { id: string; startsAt: string; endsAt: string; label: string | null; kind: string }[];
+  initial: {
+    id: string;
+    startsAt: string;
+    endsAt: string;
+    reason: string | null;
+    label: string | null;
+    kind: string;
+  }[];
 }) {
   const router = useRouter();
   const [items, setItems] = useState(initial);
-  const [start, setStart] = useState("");
-  const [end, setEnd] = useState("");
+  const [startDate, setStartDate] = useState("");
+  const [endDate, setEndDate] = useState("");
+  // Time-range mode adds HH:MM inputs. Default is all-day.
+  const [allDay, setAllDay] = useState(true);
+  const [startTime, setStartTime] = useState("09:00");
+  const [endTime, setEndTime] = useState("17:00");
+  const [reason, setReason] = useState("");
   const [label, setLabel] = useState("");
   const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  function combine(date: string, time: string): Date {
+    // Local-time interpretation. `date` is yyyy-MM-dd, `time` is HH:mm.
+    // new Date("2026-06-04T09:00") = local. toISOString shifts to UTC
+    // for the API so the row is stored zone-agnostically.
+    return new Date(`${date}T${time}`);
+  }
 
   async function add() {
-    if (!start || !end) return;
+    setError(null);
+    if (!startDate || !endDate) {
+      setError("Pick a start and end date.");
+      return;
+    }
+    let startsAt: Date;
+    let endsAt: Date;
+    if (allDay) {
+      // All-day: 00:00 of start date → 23:59:59 of end date.
+      startsAt = new Date(`${startDate}T00:00`);
+      endsAt = new Date(`${endDate}T23:59:59`);
+    } else {
+      startsAt = combine(startDate, startTime);
+      endsAt = combine(endDate, endTime);
+    }
+    if (endsAt <= startsAt) {
+      setError("End must be after start.");
+      return;
+    }
     setBusy(true);
     const r = await fetch("/api/availability", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
-        startsAt: new Date(start).toISOString(),
-        endsAt: new Date(end).toISOString(),
+        startsAt: startsAt.toISOString(),
+        endsAt: endsAt.toISOString(),
+        reason: reason.trim() || null,
         label: label.trim() || null,
       }),
     });
     setBusy(false);
-    if (r.ok) {
-      const { item } = await r.json();
-      setItems((p) => [...p, item]);
-      setStart("");
-      setEnd("");
-      setLabel("");
-      router.refresh();
+    if (!r.ok) {
+      const j = await r.json().catch(() => ({}));
+      setError(j.error ?? "Could not save.");
+      return;
     }
+    const { item } = await r.json();
+    setItems((p) => [...p, item]);
+    setStartDate("");
+    setEndDate("");
+    setStartTime("09:00");
+    setEndTime("17:00");
+    setReason("");
+    setLabel("");
+    setAllDay(true);
+    router.refresh();
   }
   async function remove(id: string) {
     setItems((p) => p.filter((i) => i.id !== id));
@@ -2577,41 +2640,86 @@ function MyAvailabilityDialog({
           <DialogTitle>My availability</DialogTitle>
         </DialogHeader>
         <p className="text-[11px] text-slate-500 mb-3">
-          Mark periods you&apos;re away (travel, leave, holidays). Your students
-          see an opaque <strong>&ldquo;Unavailable&rdquo;</strong> block on those
-          days — never your label. This isn&apos;t a weekly chore; just add
-          periods as they come up.
+          Mark periods you&apos;re <strong>not at IMSE</strong> — vacation,
+          doctor&apos;s appointment, conference, remote work, etc. Your team
+          sees a blocked-out period on the calendar so they can plan around
+          it. Add a <strong>reason</strong> if you want (everyone sees it),
+          or leave it blank and it shows as a generic &ldquo;Unavailable&rdquo;.
         </p>
         <div className="space-y-2">
           <div className="grid grid-cols-2 gap-2">
             <Field label="From">
               <Input
                 type="date"
-                value={start}
-                onChange={(e) => setStart(e.target.value)}
+                value={startDate}
+                onChange={(e) => setStartDate(e.target.value)}
               />
             </Field>
             <Field label="To">
               <Input
                 type="date"
-                value={end}
-                onChange={(e) => setEnd(e.target.value)}
+                value={endDate}
+                onChange={(e) => setEndDate(e.target.value)}
               />
             </Field>
           </div>
-          <Field label="Label (only you see this)">
+          <label className="flex items-center gap-2 text-xs text-slate-700">
+            <input
+              type="checkbox"
+              checked={allDay}
+              onChange={(e) => setAllDay(e.target.checked)}
+              className="h-4 w-4 rounded border-slate-300"
+            />
+            <span>
+              <strong>All day</strong>
+              <span className="text-slate-500"> (uncheck to pick hours)</span>
+            </span>
+          </label>
+          {!allDay && (
+            <div className="grid grid-cols-2 gap-2">
+              <Field label="From (time)">
+                <Input
+                  type="time"
+                  value={startTime}
+                  onChange={(e) => setStartTime(e.target.value)}
+                />
+              </Field>
+              <Field label="To (time)">
+                <Input
+                  type="time"
+                  value={endTime}
+                  onChange={(e) => setEndTime(e.target.value)}
+                />
+              </Field>
+            </div>
+          )}
+          <Field label="Reason (optional — visible to your team)">
+            <Input
+              value={reason}
+              onChange={(e) => setReason(e.target.value)}
+              placeholder="Doctor's appointment, vacation, remote…"
+              maxLength={200}
+            />
+          </Field>
+          <Field label="Private memo (only you see this)">
             <Input
               value={label}
               onChange={(e) => setLabel(e.target.value)}
-              placeholder="Conference, annual leave…"
+              placeholder="Optional personal note"
+              maxLength={200}
             />
           </Field>
+          {error && (
+            <div className="text-xs text-[var(--c-red)] bg-red-50 rounded p-2">
+              {error}
+            </div>
+          )}
           <div className="flex justify-end">
             <Button
               type="button"
               variant="brand"
               onClick={add}
-              disabled={busy || !start || !end}
+              disabled={busy || !startDate || !endDate}
             >
               <Plus className="h-4 w-4" /> Add period
             </Button>
@@ -2625,10 +2733,16 @@ function MyAvailabilityDialog({
                 className="flex items-center justify-between gap-2 text-sm"
               >
                 <span className="text-slate-700">
-                  {format(new Date(i.startsAt), "MMM d")} –{" "}
-                  {format(new Date(i.endsAt), "MMM d, yyyy")}
+                  {format(new Date(i.startsAt), "MMM d, HH:mm")} –{" "}
+                  {format(new Date(i.endsAt), "MMM d, HH:mm")}
+                  {i.reason ? (
+                    <span className="text-slate-600"> · {i.reason}</span>
+                  ) : null}
                   {i.label ? (
-                    <span className="text-slate-400"> · {i.label}</span>
+                    <span className="text-slate-400 italic">
+                      {" "}
+                      · note: {i.label}
+                    </span>
                   ) : null}
                 </span>
                 <button
@@ -2676,7 +2790,7 @@ function TimeGrid({
   cursor: Date;
   view: "week" | "day";
   events: Event[];
-  availabilityByDay: Record<string, { who: string; label: string | null }[]>;
+  availabilityByDay: Record<string, { who: string; reason: string | null; label: string | null }[]>;
   holidaysByDay: Map<string, string>;
   effectiveKind: (id: string) => "new" | "updated" | null;
   onEventClick: (id: string) => void;
@@ -2784,8 +2898,8 @@ function TimeGrid({
                 >
                   ⊘{" "}
                   {unavail.length === 1
-                    ? `${unavail[0]!.who} away`
-                    : `${unavail.length} supervisors away`}
+                    ? `${unavail[0]!.who} — ${unavail[0]!.reason || "away"}`
+                    : `${unavail.length} team members away`}
                 </button>
               )}
             </div>
@@ -3085,7 +3199,7 @@ function YearGrid({
 }: {
   year: number;
   events: Event[];
-  availabilityByDay: Record<string, { who: string; label: string | null }[]>;
+  availabilityByDay: Record<string, { who: string; reason: string | null; label: string | null }[]>;
   holidaysByDay: Map<string, string>;
   onPickDay: (day: Date) => void;
 }) {
@@ -3156,8 +3270,10 @@ function YearGrid({
                           ? `${format(day, "MMM d")} · 🎉 ${holidayName} · Sevilla`
                           : unavailable
                             ? `${format(day, "MMM d")} · ${(availabilityByDay[key] ?? [])
-                                .map((a) => a.who)
-                                .join(", ")} away`
+                                .map((a) =>
+                                  a.reason ? `${a.who} (${a.reason})` : `${a.who} away`,
+                                )
+                                .join(", ")}`
                             : evs.length > 0
                               ? `${format(day, "MMM d")} · ${evs.length} item${evs.length === 1 ? "" : "s"}`
                               : format(day, "MMM d")

@@ -84,53 +84,65 @@ export default async function CalendarPage({
     orderBy: [{ student: { fullName: "asc" } }, { createdAt: "desc" }],
   });
 
-  // Supervisor availability: the supervisors/team of the visible students.
-  // Students see opaque "Unavailable" (no label); supervisors/admin see labels.
+  // Availability: ANY team member (supervisor / co-sup / team advisor
+  // / the student themselves) can mark unavailable periods. The
+  // calendar shows them to the whole team — supervisors see when
+  // their students are at IMSE vs not, and vice versa.
+  //
+  // Visibility set = every user attached to any visible student's
+  // team: the primary supervisor + all co-supervisors + the
+  // student-user (if they have a User row). The signed-in viewer is
+  // always included so they see their own entries.
   const teamLinks = await prisma.student.findMany({
     where: { id: { in: studentIds } },
     select: {
+      userId: true,
       supervisorId: true,
       coSupervisors: { select: { userId: true } },
     },
   });
-  const supervisorIds = Array.from(
+  const teamUserIds = Array.from(
     new Set(
-      teamLinks.flatMap((s) => [
-        s.supervisorId,
-        ...s.coSupervisors.map((c) => c.userId),
-      ]),
+      [
+        session.user.id,
+        ...teamLinks.flatMap((s) => [
+          s.supervisorId,
+          ...s.coSupervisors.map((c) => c.userId),
+          ...(s.userId ? [s.userId] : []),
+        ]),
+      ].filter((x): x is string => !!x),
     ),
   );
-  const showLabels = role !== "student";
   const availabilityRows = await prisma.availability.findMany({
     where: {
-      userId: { in: supervisorIds },
+      userId: { in: teamUserIds },
       startsAt: { lte: to },
       endsAt: { gte: from },
     },
     include: { user: { select: { id: true, name: true } } },
     orderBy: { startsAt: "asc" },
   });
+  // PUBLIC `reason` always shown. PRIVATE `label` only travels to the
+  // author's own browser — anyone else gets null.
   const availability = availabilityRows.map((a) => ({
     id: a.id,
     startsAt: a.startsAt.toISOString(),
     endsAt: a.endsAt.toISOString(),
-    who: a.user.name ?? "A supervisor",
-    label: showLabels ? a.label : null,
+    who: a.user.name ?? "A team member",
+    reason: a.reason,
+    label: a.userId === session.user.id ? a.label : null,
     kind: a.kind,
   }));
-  const myAvailability =
-    role === "student"
-      ? []
-      : availabilityRows
-          .filter((a) => a.userId === session.user.id)
-          .map((a) => ({
-            id: a.id,
-            startsAt: a.startsAt.toISOString(),
-            endsAt: a.endsAt.toISOString(),
-            label: a.label,
-            kind: a.kind,
-          }));
+  const myAvailability = availabilityRows
+    .filter((a) => a.userId === session.user.id)
+    .map((a) => ({
+      id: a.id,
+      startsAt: a.startsAt.toISOString(),
+      endsAt: a.endsAt.toISOString(),
+      reason: a.reason,
+      label: a.label,
+      kind: a.kind,
+    }));
 
   // For student-role viewers, their own studentId so the new-event dialog can
   // hide the student picker and just attach the event to themselves.
