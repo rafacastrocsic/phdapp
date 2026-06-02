@@ -29,10 +29,13 @@ export function DialogContent({
       <DialogPrimitive.Content
         className={cn(
           "fixed z-50 bg-white shadow-xl border overflow-y-auto",
-          // Mobile bottom-sheet defaults — overridden by md: below.
-          "inset-x-0 bottom-0 w-full max-h-[92vh] rounded-t-2xl p-5 pb-[max(1.25rem,env(safe-area-inset-bottom))]",
+          // Mobile bottom-sheet defaults — separate left/right (no
+          // shorthand) so the md: overrides below can clear `right`
+          // cleanly without an inset-x/left utility conflict that
+          // would otherwise pin the desktop dialog at the left edge.
+          "left-0 right-0 bottom-0 w-full max-h-[92vh] rounded-t-2xl p-5 pb-[max(1.25rem,env(safe-area-inset-bottom))]",
           // Desktop centered modal — mirrors the old behavior.
-          "md:left-1/2 md:top-1/2 md:bottom-auto md:inset-x-auto md:-translate-x-1/2 md:-translate-y-1/2 md:w-[92vw] md:max-w-lg md:max-h-[90vh] md:rounded-2xl md:p-6 md:pb-6",
+          "md:left-1/2 md:right-auto md:top-1/2 md:bottom-auto md:-translate-x-1/2 md:-translate-y-1/2 md:w-[92vw] md:max-w-lg md:max-h-[90vh] md:rounded-2xl md:p-6 md:pb-6",
           className,
         )}
         {...props}
