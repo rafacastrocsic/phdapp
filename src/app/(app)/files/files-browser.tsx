@@ -477,7 +477,12 @@ export function FilesBrowser({
               title="Pick a student"
               text="Use the list on the left to start browsing."
             />
-          ) : teamSelected ? null : !selectedStudent?.driveFolderId ? (
+          ) : !teamSelected && !selectedStudent?.driveFolderId ? (
+            // Branch only relevant in student view — team view always
+            // has a folder id and should fall through to the
+            // error/empty/grid render below. Without `!teamSelected`
+            // gating this, team mode rendered nothing because the
+            // outer ternary short-circuited here.
             selectedStudent && selectedStudent.id === viewerStudentId ? (
               <div className="rounded-2xl border border-dashed bg-white p-12 text-center">
                 <div className="text-base font-semibold text-slate-700">
