@@ -248,7 +248,11 @@ export function FilesBrowser({
           >
             {!sidebarCollapsed && (
               <h2 className="text-xs font-semibold uppercase text-slate-500">
-                Students
+                {/* Becomes "Drives" when the senior team also has
+                    the supervising-team folder shortcut — labels
+                    the whole column (Team + Students) rather than
+                    just the student list under it. */}
+                {teamDrive ? "Drives" : "Students"}
               </h2>
             )}
             <button
