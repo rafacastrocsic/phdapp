@@ -546,7 +546,11 @@ export function FilesBrowser({
                       file={f}
                       starred={favorites.has(f.id)}
                       onOpen={() => openFolder(f)}
-                      onToggleStar={() => toggleFavorite(f)}
+                      // Favorites are student-scoped — hide the
+                      // star action in the Team Drive view.
+                      onToggleStar={
+                        teamSelected ? undefined : () => toggleFavorite(f)
+                      }
                     />
                   ))}
             </div>
@@ -572,7 +576,11 @@ export function FilesBrowser({
                       file={f}
                       starred={favorites.has(f.id)}
                       onOpen={() => openFolder(f)}
-                      onToggleStar={() => toggleFavorite(f)}
+                      // Favorites are student-scoped — hide the
+                      // star action in the Team Drive view.
+                      onToggleStar={
+                        teamSelected ? undefined : () => toggleFavorite(f)
+                      }
                     />
                   ))}
                 </ul>
@@ -594,14 +602,18 @@ function FileCard({
   file: DriveFile;
   starred: boolean;
   onOpen: () => void;
-  onToggleStar: () => void;
+  // Omit (or pass undefined) to hide the star entirely — used for
+  // the Team Drive view where favorites are student-scoped and
+  // shouldn't be reachable. The icon takes real estate on every
+  // row, so we don't render it at all rather than disable it.
+  onToggleStar?: () => void;
 }) {
   const isFolder = isFolderLike(file);
   const effectiveMime = isFolder ? FOLDER_MIME : file.mimeType;
   const Icon = iconFor(effectiveMime);
   const accent = colorFor(effectiveMime);
 
-  const star = (
+  const star = onToggleStar ? (
     <button
       type="button"
       onClick={(e) => {
@@ -623,7 +635,7 @@ function FileCard({
         strokeWidth={2}
       />
     </button>
-  );
+  ) : null;
 
   if (isFolder) {
     return (
@@ -701,7 +713,10 @@ function FileRow({
   file: DriveFile;
   starred: boolean;
   onOpen: () => void;
-  onToggleStar: () => void;
+  // Omit (or pass undefined) to hide the star — used for the
+  // Team Drive view where favorites are student-scoped. See the
+  // FileCard prop for the same rationale.
+  onToggleStar?: () => void;
 }) {
   const isFolder = isFolderLike(file);
   const effectiveMime = isFolder ? FOLDER_MIME : file.mimeType;
@@ -712,7 +727,7 @@ function FileRow({
     ? new Date(file.modifiedTime).toLocaleDateString()
     : "";
 
-  const star = (
+  const star = onToggleStar ? (
     <button
       type="button"
       onClick={(e) => {
@@ -734,7 +749,7 @@ function FileRow({
         strokeWidth={2}
       />
     </button>
-  );
+  ) : null;
 
   const nameCell = (
     <div className="flex items-center gap-3 min-w-0">
