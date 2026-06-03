@@ -109,15 +109,24 @@ export function NotificationBell() {
             <span className="text-sm font-semibold text-slate-900">
               Notifications
             </span>
-            {unread > 0 && (
-              <button
-                type="button"
-                onClick={markAll}
-                className="text-xs text-[var(--c-violet)] hover:underline"
-              >
-                Mark all read
-              </button>
-            )}
+            {/* Always rendered so the affordance is stable — the
+                button no-ops when nothing is unread (the underlying
+                POST is a safe "set all read" idempotent). Dimmer
+                styling when there's nothing to act on so it
+                doesn't draw attention. */}
+            <button
+              type="button"
+              onClick={markAll}
+              disabled={items.length === 0}
+              className={cn(
+                "text-xs hover:underline",
+                unread > 0
+                  ? "text-[var(--c-violet)]"
+                  : "text-slate-400 hover:text-slate-600 disabled:hover:no-underline disabled:opacity-40",
+              )}
+            >
+              Mark all read
+            </button>
           </div>
           <div className="max-h-96 overflow-y-auto">
             {items.length === 0 ? (
