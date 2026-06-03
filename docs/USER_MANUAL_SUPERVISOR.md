@@ -219,16 +219,20 @@ Top-right toggle: **Year / Month / Week / Day**.
 - **Year** — the whole calendar year as 12 mini-month grids with colored dots per day. Click a day to drop into Month view.
 - **Month / Week / Day** — standard calendar views. In Month view a day shows the first few items and a **"+N more"** link that opens that day's **Day view**. In Week/Day, the time grid covers **all 24 hours** and **auto-scrolls** to the current hour (today) or 8 AM (other days) on open — you can scroll up to midnight or down to 23:00. Overlapping events are laid out **side by side in columns** rather than stacked, so concurrent meetings stay readable. **All-day events** (incl. task / sub-task deadlines) appear in a dedicated strip just above the hour grid, not at noon-UTC.
 
-#### Availability — anyone marks "not at IMSE"
+#### Availability — anyone marks "not at IMSE" (or remote)
 
 The **⊘ My availability** button in the calendar toolbar is open to **every role** now (was supervisor-only). Use it for travel, leave, conferences, away-from-IMSE days — and your **students** use it for vacations, doctor's appointments, remote-work days, etc., so the whole team knows when each person is on-site vs not.
 
+- **Type**: pick one —
+  - **⊘ Not available** (chip and band render slate-grey) — you're not reachable.
+  - **🏠 Remote work** (chip and band render **green**) — you're working, just not at IMSE. The team can still ping you, the calendar just tells them you're off-site.
 - **From / To** dates required.
 - **All day** by default. Uncheck to set **From (time)** / **To (time)** (e.g. a 10:00–12:00 doctor's slot).
-- **Reason** (optional) is **public** — everyone in the team sees it on the calendar (*"⊘ Pablo — doctor's appointment"*). Leave blank and it shows as plain *"Unavailable"*.
+- **Reason** (optional) is **public** — everyone in the team sees it on the calendar (*"⊘ Pablo — doctor's appointment"* / *"🏠 Pablo — home office"*). Leave blank and it shows the generic label (*"Unavailable"* / *"Remote"*).
 - **Private memo** (optional) is author-only — your own note that nobody else sees.
-- Activity log fans out asymmetrically: a **student** posting notifies their supervisors (🔔 + Calendar sidebar bubble); a **supervisor** posting notifies their students.
-- **Timed blocks** appear as a diagonally-striped slate band right in the day/week-view hour grid at the actual slot — events on top of them still win visually, but the conflict is unmistakable.
+- Activity log fans out asymmetrically: a **student** posting notifies their supervisors (🔔 + Calendar sidebar bubble); a **supervisor** posting notifies their students. Bell phrasing follows the type — *"marked a period of remote work"* vs *"marked a period unavailable"* — so you can triage at a glance.
+- **Timed blocks** appear as a diagonally-striped band right in the day/week-view hour grid at the actual slot (slate for *Not available*, **green** for *Remote*) — events on top of them still win visually, but the conflict is unmistakable.
+- **Delete inline**: click any availability chip → the day-detail panel opens → your own rows show a 🗑 trash icon on the right. One click + confirm → the period vanishes from every view. Other people's rows have no delete button (the API enforces it server-side too).
 
 #### Public holidays (Sevilla)
 
@@ -385,7 +389,7 @@ Entries are kept **clean and self-explanatory**: only *actual* changes are recor
 
 ## Notifications
 
-The **🔔 bell** in the top bar carries a red **unread count badge** and lists recent activity from your students and co-supervisors — a task or event someone created/updated/deleted, a reading added or a proposal awaiting your decision, a co-supervisor's away period, etc. It only shows changes *others* made (never your own actions) and only for students you can see. Click an item to jump to it, or **"Mark all read"** to clear the badge. This is in addition to the weekly email digest and the sidebar/board highlight badges. (Per-event emails also go out if the admin configured Resend.)
+The **🔔 bell** in the top bar carries a red **unread count badge** and lists recent activity from your students and co-supervisors — a task or event someone created/updated/deleted, a reading added or a proposal awaiting your decision, a co-supervisor's away period or remote-work day, etc. It only shows changes *others* made (never your own actions) and only for students you can see. Click an item to jump to it, or **"Mark all read"** to clear the badge — the button is **always visible** (violet when there's actually something unread, faded when not), so you never have to hunt for it. This is in addition to the weekly email digest and the sidebar/board highlight badges. (Per-event emails also go out if the admin configured Resend.)
 
 When you **comment** on a student's task, or make a **meaningful change** to it (status, priority, assignee, due date, dependencies), the **student is always notified directly** — bell + Tasks badge, plus email if Resend is set up — regardless of whether they're the task's assignee or creator. So a comment or update you make on their work reliably reaches them.
 

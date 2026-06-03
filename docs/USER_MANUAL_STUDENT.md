@@ -150,12 +150,17 @@ Top-right toggle: **Year / Month / Week / Day**.
 
 Open the Calendar and click **⊘ My availability** (top of the page) to mark periods you're not coming in — vacation, doctor's appointment, conference, remote-work day, etc.
 
+- **Type**: pick **⊘ Not available** (you're not reachable — chip renders grey) or **🏠 Remote work** (you're still working, just off-site — chip renders **green**). Default is *Not available*.
 - **From / To** dates are required.
 - **All day** is on by default. Uncheck it to add **From (time)** / **To (time)** for an intra-day block (e.g. 10:00–12:00).
-- **Reason** (optional) — visible to your whole team. Shows up on the calendar as *"⊘ Pablo — doctor's appointment"*. Leave it blank and it just shows *"Unavailable"*.
+- **Reason** (optional) — visible to your whole team. Shows up on the calendar as *"⊘ Pablo — doctor's appointment"* or *"🏠 Pablo — home office"*. Leave it blank and it shows the generic label (*"Unavailable"* / *"Remote"*).
 - **Private memo** (optional) — author-only note, not shown to anyone else. Useful as a "why did I add this" reminder.
 
-Your supervisors get a 🔔 notification when you add a period. Timed blocks (with hours) draw as a striped slate band right in the day/week-view hour grid so the conflicting slot is obvious at a glance.
+**On the calendar.** Timed blocks draw as a diagonally-striped band right in the day/week-view hour grid — slate for *Not available*, **green** for *Remote work* — so the conflicting slot is obvious at a glance. The bell phrasing follows the type: *"marked a period of remote work"* vs *"marked a period unavailable"*.
+
+**Removing a period.** Click any chip or striped band → the day's availability panel opens → your own rows show a 🗑 trash icon on the right. One click + confirm → the period disappears from every view immediately. Other people's rows don't show the trash button (the server enforces this too — you can only delete your own).
+
+Your supervisors get a 🔔 notification when you add or change a period.
 
 ### Public holidays (Sevilla)
 
@@ -257,7 +262,7 @@ You **cannot** change your role or your supervisor — ask your supervisor or th
 
 ## Notifications
 
-There's a **🔔 bell** in the top bar with a red **count badge** when something changed that you haven't seen yet — a supervisor created or updated one of your tasks or events, added or decided on a reading, marked themselves away, etc. (your own actions don't notify you). Click the bell for the list; click an item to jump straight to it, or **"Mark all read"** to clear the badge. If the admin has email set up, you also get an email for the main ones.
+There's a **🔔 bell** in the top bar with a red **count badge** when something changed that you haven't seen yet — a supervisor created or updated one of your tasks or events, added or decided on a reading, marked themselves away or working remotely, etc. (your own actions don't notify you). Click the bell for the list; click an item to jump straight to it, or **"Mark all read"** to clear the badge (the button is always visible — violet when you actually have unread items, faded when not). If the admin has email set up, you also get an email for the main ones.
 
 Other places that show "you have new stuff":
 
