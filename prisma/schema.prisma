@@ -336,7 +336,10 @@ model Availability {
   endsAt    DateTime
   reason    String? // PUBLIC — shown on the calendar
   label     String? // PRIVATE — author-only memo
-  kind      String   @default("away") // away | busy
+  // away   = not at IMSE, not available (slate chip + striped slate band)
+  // remote = working but off-site (green chip + striped green band)
+  // busy   = legacy alias of "away" from older code; treated as "away" in UI
+  kind      String   @default("away")
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 }

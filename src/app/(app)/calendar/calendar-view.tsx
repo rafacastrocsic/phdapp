@@ -325,14 +325,20 @@ export function CalendarView({
     return map;
   }, [recentlyDeleted]);
 
-  // "I'm not at IMSE" spans, bucketed onto every day they cover.
-  // Any team member (supervisor or student) can post these; the
-  // PUBLIC `reason` is what gets rendered, falling back to a
-  // generic "Unavailable" when blank.
+  // "I'm not at IMSE" spans (or "Remote work"), bucketed onto every
+  // day they cover. Any team member (supervisor or student) can
+  // post these; the PUBLIC `reason` is what gets rendered, with the
+  // fallback string driven by the `kind` ("Remote" for remote
+  // work, "Unavailable" otherwise).
   const availabilityByDay = useMemo(() => {
     const map: Record<
       string,
-      { who: string; reason: string | null; label: string | null }[]
+      {
+        who: string;
+        reason: string | null;
+        label: string | null;
+        kind: string;
+      }[]
     > = {};
     for (const a of availability) {
       const s = new Date(a.startsAt);
@@ -345,6 +351,7 @@ export function CalendarView({
           who: a.who,
           reason: a.reason,
           label: a.label,
+          kind: a.kind,
         });
         cur.setDate(cur.getDate() + 1);
       }
@@ -636,10 +643,16 @@ export function CalendarView({
                 {list.map((a) => (
                   <li
                     key={a.id}
-                    className="rounded-lg border bg-slate-50 p-3 text-sm"
+                    className={cn(
+                      "rounded-lg border p-3 text-sm",
+                      a.kind === "remote"
+                        ? "border-emerald-200 bg-emerald-50"
+                        : "border-slate-200 bg-slate-50",
+                    )}
                   >
                     <div className="font-medium text-slate-900">
-                      ⊘ {a.who} — {a.reason || "Unavailable"}
+                      {a.kind === "remote" ? "🏠" : "⊘"} {a.who} —{" "}
+                      {a.reason || (a.kind === "remote" ? "Remote" : "Unavailable")}
                     </div>
                     <div className="text-xs text-slate-600 mt-0.5">
                       {format(new Date(a.startsAt), "MMM d, HH:mm")} –{" "}
@@ -779,12 +792,23 @@ export function CalendarView({
                         {(() => {
                           const av = availabilityByDay[key] ?? [];
                           if (av.length === 0) return null;
-                          // Single entry: show the reason if set, else
-                          // a generic "X away". Multiple: count only.
-                          const text =
-                            av.length === 1
-                              ? `⊘ ${av[0]!.who} — ${av[0]!.reason || "away"}`
-                              : `⊘ ${av.length} team members away`;
+                          // Single entry: colour by its kind (green
+                          // for remote, slate for away). Multiple
+                          // entries: if they're all the same kind use
+                          // that colour; mixed → slate (catch-all).
+                          const single = av.length === 1 ? av[0]! : null;
+                          const allRemote = av.every((x) => x.kind === "remote");
+                          const styleKind = allRemote ? "remote" : "away";
+                          const style = availabilityStyle(styleKind);
+                          const icon =
+                            single?.kind === "remote"
+                              ? "🏠"
+                              : allRemote
+                                ? "🏠"
+                                : "⊘";
+                          const text = single
+                            ? `${icon} ${single.who} — ${single.reason || style.shortNoun}`
+                            : `${icon} ${av.length} team members ${style.shortNoun}`;
                           return (
                             <button
                               type="button"
@@ -792,7 +816,10 @@ export function CalendarView({
                                 ev.stopPropagation();
                                 setAvailDay(day);
                               }}
-                              className="block w-full truncate rounded bg-slate-200 px-1.5 py-0.5 text-left text-[10px] font-medium text-slate-600 hover:bg-slate-300"
+                              className={cn(
+                                "block w-full truncate rounded px-1.5 py-0.5 text-left text-[10px] font-medium",
+                                style.chipClass,
+                              )}
                             >
                               {text}
                             </button>
@@ -2568,6 +2595,9 @@ function MyAvailabilityDialog({
   const [allDay, setAllDay] = useState(true);
   const [startTime, setStartTime] = useState("09:00");
   const [endTime, setEndTime] = useState("17:00");
+  // "away" = not available; "remote" = working but off-site. Green
+  // vs slate visual treatment, picked by the kind.
+  const [kind, setKind] = useState<"away" | "remote">("away");
   const [reason, setReason] = useState("");
   const [label, setLabel] = useState("");
   const [busy, setBusy] = useState(false);
@@ -2609,6 +2639,7 @@ function MyAvailabilityDialog({
         endsAt: endsAt.toISOString(),
         reason: reason.trim() || null,
         label: label.trim() || null,
+        kind,
       }),
     });
     setBusy(false);
@@ -2626,6 +2657,7 @@ function MyAvailabilityDialog({
     setReason("");
     setLabel("");
     setAllDay(true);
+    setKind("away");
     router.refresh();
   }
   async function remove(id: string) {
@@ -2648,6 +2680,54 @@ function MyAvailabilityDialog({
           or leave it blank and it shows as a generic &ldquo;Unavailable&rdquo;.
         </p>
         <div className="space-y-2">
+          {/* Kind picker — distinguishes a true "I'm not reachable"
+              block from a "still working, just off-site" one. Green
+              tint for remote because the team can still rely on
+              you; slate for unavailable because they shouldn't. */}
+          <div>
+            <div className="text-xs font-semibold text-slate-700 mb-1">
+              Type
+            </div>
+            <div
+              role="radiogroup"
+              aria-label="Availability kind"
+              className="inline-flex rounded-lg border bg-slate-50 p-0.5"
+            >
+              <button
+                type="button"
+                role="radio"
+                aria-checked={kind === "away"}
+                onClick={() => setKind("away")}
+                className={cn(
+                  "px-3 py-1.5 text-xs font-semibold rounded-md transition-colors",
+                  kind === "away"
+                    ? "bg-white text-slate-900 shadow-sm"
+                    : "text-slate-500 hover:text-slate-900",
+                )}
+              >
+                ⊘ Not available
+              </button>
+              <button
+                type="button"
+                role="radio"
+                aria-checked={kind === "remote"}
+                onClick={() => setKind("remote")}
+                className={cn(
+                  "px-3 py-1.5 text-xs font-semibold rounded-md transition-colors",
+                  kind === "remote"
+                    ? "bg-white text-emerald-700 shadow-sm"
+                    : "text-slate-500 hover:text-emerald-700",
+                )}
+              >
+                🏠 Remote work
+              </button>
+            </div>
+            <p className="text-[10px] text-slate-500 mt-1">
+              {kind === "remote"
+                ? "You're working — just not at IMSE. Chip is green."
+                : "You're not reachable. Chip is grey."}
+            </p>
+          </div>
           <div className="grid grid-cols-2 gap-2">
             <Field label="From">
               <Input
@@ -2734,6 +2814,16 @@ function MyAvailabilityDialog({
                 className="flex items-center justify-between gap-2 text-sm"
               >
                 <span className="text-slate-700">
+                  <span
+                    className={cn(
+                      "mr-1.5 inline-flex items-center rounded-full px-1.5 py-0.5 text-[10px] font-semibold",
+                      i.kind === "remote"
+                        ? "bg-emerald-100 text-emerald-700"
+                        : "bg-slate-200 text-slate-600",
+                    )}
+                  >
+                    {i.kind === "remote" ? "🏠 Remote" : "⊘ Away"}
+                  </span>
                   {format(new Date(i.startsAt), "MMM d, HH:mm")} –{" "}
                   {format(new Date(i.endsAt), "MMM d, HH:mm")}
                   {i.reason ? (
@@ -2769,6 +2859,41 @@ function MyAvailabilityDialog({
 // content to scroll to). Auto-scroll-on-mount lands users at 8 AM
 // (or the current hour today), so they don't have to scroll to find
 // the typical workday.
+// ─── Availability kind → visual style ───
+// "remote" renders green (the user IS available, just off-site),
+// everything else renders slate (the user is unavailable).
+// Returns the bits used by all the surfaces that draw availability:
+// chip Tailwind classes, the diagonal-stripe gradient for the
+// week/day band, and the fallback noun shown when no `reason` is
+// set ("Remote" vs "Unavailable" / "away").
+function availabilityStyle(kind: string | null | undefined): {
+  chipClass: string;
+  ringClass: string;
+  stripe: string;
+  defaultNoun: string;
+  shortNoun: string;
+} {
+  if (kind === "remote") {
+    return {
+      chipClass:
+        "bg-emerald-100 text-emerald-800 hover:bg-emerald-200 border-emerald-300/70",
+      ringClass: "border-emerald-300/70",
+      stripe:
+        "repeating-linear-gradient(135deg, rgba(16,185,129,0.18) 0 6px, rgba(16,185,129,0.32) 6px 12px)",
+      defaultNoun: "Remote",
+      shortNoun: "remote",
+    };
+  }
+  return {
+    chipClass: "bg-slate-200 text-slate-600 hover:bg-slate-300 border-slate-300/70",
+    ringClass: "border-slate-300/70",
+    stripe:
+      "repeating-linear-gradient(135deg, rgba(148,163,184,0.18) 0 6px, rgba(148,163,184,0.32) 6px 12px)",
+    defaultNoun: "Unavailable",
+    shortNoun: "away",
+  };
+}
+
 const FIRST_HOUR = 0;
 const LAST_HOUR = 23;
 const HOUR_PX = 56;
@@ -2804,7 +2929,7 @@ function TimeGrid({
     label: string | null;
     kind: string;
   }[];
-  availabilityByDay: Record<string, { who: string; reason: string | null; label: string | null }[]>;
+  availabilityByDay: Record<string, { who: string; reason: string | null; label: string | null; kind: string }[]>;
   holidaysByDay: Map<string, string>;
   effectiveKind: (id: string) => "new" | "updated" | null;
   onEventClick: (id: string) => void;
@@ -2904,18 +3029,29 @@ function TimeGrid({
                   🎉 {holidayName}
                 </div>
               )}
-              {unavail.length > 0 && (
-                <button
-                  type="button"
-                  onClick={() => onAvailClick(d)}
-                  className="mt-1 block w-full truncate rounded bg-slate-200 px-1.5 py-0.5 text-[10px] font-medium text-slate-600 hover:bg-slate-300"
-                >
-                  ⊘{" "}
-                  {unavail.length === 1
-                    ? `${unavail[0]!.who} — ${unavail[0]!.reason || "away"}`
-                    : `${unavail.length} team members away`}
-                </button>
-              )}
+              {unavail.length > 0 && (() => {
+                const single = unavail.length === 1 ? unavail[0]! : null;
+                const allRemote = unavail.every((u) => u.kind === "remote");
+                const styleKind = allRemote ? "remote" : "away";
+                const style = availabilityStyle(styleKind);
+                const icon =
+                  single?.kind === "remote" || allRemote ? "🏠" : "⊘";
+                return (
+                  <button
+                    type="button"
+                    onClick={() => onAvailClick(d)}
+                    className={cn(
+                      "mt-1 block w-full truncate rounded px-1.5 py-0.5 text-[10px] font-medium",
+                      style.chipClass,
+                    )}
+                  >
+                    {icon}{" "}
+                    {single
+                      ? `${single.who} — ${single.reason || style.shortNoun}`
+                      : `${unavail.length} team members ${style.shortNoun}`}
+                  </button>
+                );
+              })()}
             </div>
           );
         })}
@@ -3075,6 +3211,7 @@ function TimeGrid({
                   height,
                   who: a.who,
                   reason: a.reason,
+                  kind: a.kind,
                   startMin,
                   endMin,
                 },
@@ -3090,14 +3227,17 @@ function TimeGrid({
               >
                 {/* Timed-availability bands. Sit behind events
                     (z-0) so an event landing in the same window
-                    still reads as an event. Striped slate
-                    background communicates "blocked-out time"
-                    without competing with event colors. */}
+                    still reads as an event. Color follows the
+                    kind: green stripes for "remote" (still
+                    available), slate for "away" (not available).
+                    Icon flips too: ⊘ for away, 🏠 for remote. */}
                 {timedBands.map((b) => {
                   const fmtMin = (m: number) =>
                     `${String(Math.floor(m / 60)).padStart(2, "0")}:${String(
                       m % 60,
                     ).padStart(2, "0")}`;
+                  const style = availabilityStyle(b.kind);
+                  const icon = b.kind === "remote" ? "🏠" : "⊘";
                   return (
                     <button
                       key={b.id}
@@ -3106,17 +3246,20 @@ function TimeGrid({
                         e.stopPropagation();
                         onAvailClick(d);
                       }}
-                      title={`⊘ ${b.who} — ${b.reason || "away"} · ${fmtMin(b.startMin)}–${fmtMin(b.endMin)}`}
+                      title={`${icon} ${b.who} — ${b.reason || style.shortNoun} · ${fmtMin(b.startMin)}–${fmtMin(b.endMin)}`}
                       style={{
                         top: b.top,
                         height: b.height,
-                        backgroundImage:
-                          "repeating-linear-gradient(135deg, rgba(148,163,184,0.18) 0 6px, rgba(148,163,184,0.32) 6px 12px)",
+                        backgroundImage: style.stripe,
                       }}
-                      className="absolute inset-x-1 z-0 overflow-hidden rounded-md border border-slate-300/70 px-1.5 py-0.5 text-left text-[10px] font-medium text-slate-700 hover:brightness-95"
+                      className={cn(
+                        "absolute inset-x-1 z-0 overflow-hidden rounded-md border px-1.5 py-0.5 text-left text-[10px] font-medium hover:brightness-95",
+                        style.ringClass,
+                        b.kind === "remote" ? "text-emerald-800" : "text-slate-700",
+                      )}
                     >
                       <span className="truncate block">
-                        ⊘ {b.who} — {b.reason || "away"}
+                        {icon} {b.who} — {b.reason || style.shortNoun}
                       </span>
                     </button>
                   );
@@ -3306,7 +3449,7 @@ function YearGrid({
 }: {
   year: number;
   events: Event[];
-  availabilityByDay: Record<string, { who: string; reason: string | null; label: string | null }[]>;
+  availabilityByDay: Record<string, { who: string; reason: string | null; label: string | null; kind: string }[]>;
   holidaysByDay: Map<string, string>;
   onPickDay: (day: Date) => void;
 }) {
@@ -3351,7 +3494,12 @@ function YearGrid({
                 {days.map((day) => {
                   const key = format(day, "yyyy-MM-dd");
                   const evs = byDay[key] ?? [];
-                  const unavailable = (availabilityByDay[key]?.length ?? 0) > 0;
+                  const availList = availabilityByDay[key] ?? [];
+                  const unavailable = availList.length > 0;
+                  // Mini-cal tint colour follows the kind: green if
+                  // every entry is "remote", slate otherwise.
+                  const remoteOnly =
+                    unavailable && availList.every((a) => a.kind === "remote");
                   const inMonth = isSameMonth(day, monthDate);
                   const isToday = isSameDay(day, today);
                   const hasTask = evs.some((e) => e.ticketId);
@@ -3366,7 +3514,8 @@ function YearGrid({
                         !inMonth && "text-slate-300",
                         inMonth && !isToday && "text-slate-700",
                         isToday && "bg-[var(--c-violet)] text-white font-bold hover:bg-[var(--c-violet)]",
-                        unavailable && !isToday && "bg-slate-200/70",
+                        unavailable && !isToday && !remoteOnly && "bg-slate-200/70",
+                        unavailable && !isToday && remoteOnly && "bg-emerald-100/80 text-emerald-700",
                         // Mini-cal: subtle rose tint on holiday days
                         // so they're spottable at a glance without a
                         // text label (no room for one in 7px wide).
@@ -3376,10 +3525,13 @@ function YearGrid({
                         holidayName
                           ? `${format(day, "MMM d")} · 🎉 ${holidayName} · Sevilla`
                           : unavailable
-                            ? `${format(day, "MMM d")} · ${(availabilityByDay[key] ?? [])
-                                .map((a) =>
-                                  a.reason ? `${a.who} (${a.reason})` : `${a.who} away`,
-                                )
+                            ? `${format(day, "MMM d")} · ${availList
+                                .map((a) => {
+                                  const noun =
+                                    a.reason ||
+                                    (a.kind === "remote" ? "remote" : "away");
+                                  return `${a.who} (${noun})`;
+                                })
                                 .join(", ")}`
                             : evs.length > 0
                               ? `${format(day, "MMM d")} · ${evs.length} item${evs.length === 1 ? "" : "s"}`

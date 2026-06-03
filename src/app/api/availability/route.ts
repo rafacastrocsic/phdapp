@@ -10,7 +10,10 @@ const Body = z.object({
   reason: z.string().max(200).nullable().optional(),
   // Optional PRIVATE memo. Visible only to the author.
   label: z.string().max(200).nullable().optional(),
-  kind: z.enum(["away", "busy"]).optional(),
+  // away   = not available at all (default)
+  // remote = working but off-site (still reachable; renders green)
+  // busy   = legacy alias of "away"; kept for old rows
+  kind: z.enum(["away", "remote", "busy"]).optional(),
 });
 
 // The signed-in user's own availability entries.
