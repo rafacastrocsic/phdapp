@@ -139,6 +139,9 @@ export function CalendarView({
     // rows (server scrubs it for everyone else).
     label: string | null;
     kind: string;
+    // True when this row belongs to the viewer — drives the inline
+    // trash button in the day-detail panel.
+    mine: boolean;
   }[];
   myAvailability: {
     id: string;
@@ -199,6 +202,17 @@ export function CalendarView({
   const [newOpen, setNewOpen] = useState(false);
   const [availOpen, setAvailOpen] = useState(false);
   const [availDay, setAvailDay] = useState<Date | null>(null);
+  // Locally-deleted availability row ids — used to optimistically
+  // remove a row the moment the user clicks Delete in the
+  // day-detail panel, before the router.refresh() round-trip
+  // brings the new server state back. Once the refresh lands the
+  // row is gone from `availability` too, so the set just stops
+  // matching anything. The `deleteAvailability` helper itself is
+  // defined further down (it needs the `router` which is set up
+  // later in this function).
+  const [deletedAvailIds, setDeletedAvailIds] = useState<Set<string>>(
+    new Set(),
+  );
   const [selectedDay, setSelectedDay] = useState<Date | null>(null);
   const [syncing, setSyncing] = useState(false);
   const [openEventId, setOpenEventId] = useState<string | null>(null);
@@ -222,6 +236,29 @@ export function CalendarView({
   // wrongly flag out-of-scope events as deleted.
   const pollKeyRef = useRef<string>("");
   const router = useRouter();
+  // Inline-delete a single availability row (called from the
+  // day-detail panel). Optimistic: marks the id as locally-deleted
+  // immediately so every renderer that uses `availability` filters
+  // it out — chip on the month grid, header chip in week/day,
+  // striped band, mini-cal tint, day-detail panel row. On HTTP
+  // failure the optimistic delete is rolled back.
+  async function deleteAvailability(id: string) {
+    setDeletedAvailIds((prev) => {
+      const next = new Set(prev);
+      next.add(id);
+      return next;
+    });
+    const r = await fetch(`/api/availability/${id}`, { method: "DELETE" });
+    if (r.ok) {
+      router.refresh();
+    } else {
+      setDeletedAvailIds((prev) => {
+        const next = new Set(prev);
+        next.delete(id);
+        return next;
+      });
+    }
+  }
   const openEvent = events.find((e) => e.id === openEventId) ?? null;
 
   // Active student in this view: students see themselves implicitly; everyone
@@ -329,7 +366,9 @@ export function CalendarView({
   // day they cover. Any team member (supervisor or student) can
   // post these; the PUBLIC `reason` is what gets rendered, with the
   // fallback string driven by the `kind` ("Remote" for remote
-  // work, "Unavailable" otherwise).
+  // work, "Unavailable" otherwise). Rows the viewer just deleted
+  // (`deletedAvailIds`) are excluded so the chip / band disappears
+  // immediately, before the router.refresh() round-trip lands.
   const availabilityByDay = useMemo(() => {
     const map: Record<
       string,
@@ -341,6 +380,7 @@ export function CalendarView({
       }[]
     > = {};
     for (const a of availability) {
+      if (deletedAvailIds.has(a.id)) continue;
       const s = new Date(a.startsAt);
       const e = new Date(a.endsAt);
       const cur = new Date(s.getFullYear(), s.getMonth(), s.getDate());
@@ -357,7 +397,7 @@ export function CalendarView({
       }
     }
     return map;
-  }, [availability]);
+  }, [availability, deletedAvailIds]);
 
   // Version-gated refetch — replaces the 20s interval poll. The
   // UnreadProvider drives /api/unread freshness across the app; here
@@ -629,6 +669,7 @@ export function CalendarView({
             dayEnd.setHours(23, 59, 59, 999);
             const list = availability.filter(
               (a) =>
+                !deletedAvailIds.has(a.id) &&
                 new Date(a.startsAt) <= dayEnd &&
                 new Date(a.endsAt) >= dayStart,
             );
@@ -644,24 +685,49 @@ export function CalendarView({
                   <li
                     key={a.id}
                     className={cn(
-                      "rounded-lg border p-3 text-sm",
+                      "rounded-lg border p-3 text-sm flex items-start gap-2",
                       a.kind === "remote"
                         ? "border-emerald-200 bg-emerald-50"
                         : "border-slate-200 bg-slate-50",
                     )}
                   >
-                    <div className="font-medium text-slate-900">
-                      {a.kind === "remote" ? "🏠" : "⊘"} {a.who} —{" "}
-                      {a.reason || (a.kind === "remote" ? "Remote" : "Unavailable")}
-                    </div>
-                    <div className="text-xs text-slate-600 mt-0.5">
-                      {format(new Date(a.startsAt), "MMM d, HH:mm")} –{" "}
-                      {format(new Date(a.endsAt), "MMM d, HH:mm")}
-                    </div>
-                    {a.label && (
-                      <div className="text-xs text-slate-500 mt-0.5 italic">
-                        Note (private to you): {a.label}
+                    <div className="flex-1 min-w-0">
+                      <div className="font-medium text-slate-900">
+                        {a.kind === "remote" ? "🏠" : "⊘"} {a.who} —{" "}
+                        {a.reason ||
+                          (a.kind === "remote" ? "Remote" : "Unavailable")}
                       </div>
+                      <div className="text-xs text-slate-600 mt-0.5">
+                        {format(new Date(a.startsAt), "MMM d, HH:mm")} –{" "}
+                        {format(new Date(a.endsAt), "MMM d, HH:mm")}
+                      </div>
+                      {a.label && (
+                        <div className="text-xs text-slate-500 mt-0.5 italic">
+                          Note (private to you): {a.label}
+                        </div>
+                      )}
+                    </div>
+                    {/* Delete button — only on the viewer's own
+                        rows. Confirms inline; optimistic remove
+                        + server DELETE. */}
+                    {a.mine && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          if (
+                            confirm(
+                              `Delete this ${a.kind === "remote" ? "Remote work" : "Unavailable"} period?`,
+                            )
+                          ) {
+                            deleteAvailability(a.id);
+                          }
+                        }}
+                        className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-md text-slate-400 hover:bg-white hover:text-[var(--c-red)]"
+                        title="Delete this period"
+                        aria-label="Delete this availability period"
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </button>
                     )}
                   </li>
                 ))}
@@ -1014,7 +1080,9 @@ export function CalendarView({
               cursor={cursor}
               view={view}
               events={filtered}
-              availability={availability}
+              availability={availability.filter(
+                (a) => !deletedAvailIds.has(a.id),
+              )}
               availabilityByDay={availabilityByDay}
               holidaysByDay={holidaysByDay}
               effectiveKind={effectiveKind}

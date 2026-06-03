@@ -123,7 +123,9 @@ export default async function CalendarPage({
     orderBy: { startsAt: "asc" },
   });
   // PUBLIC `reason` always shown. PRIVATE `label` only travels to the
-  // author's own browser — anyone else gets null.
+  // author's own browser — anyone else gets null. `mine` drives the
+  // inline-delete affordance on the day-detail panel: only the row
+  // owner sees the trash button (and the API enforces it too).
   const availability = availabilityRows.map((a) => ({
     id: a.id,
     startsAt: a.startsAt.toISOString(),
@@ -132,6 +134,7 @@ export default async function CalendarPage({
     reason: a.reason,
     label: a.userId === session.user.id ? a.label : null,
     kind: a.kind,
+    mine: a.userId === session.user.id,
   }));
   const myAvailability = availabilityRows
     .filter((a) => a.userId === session.user.id)
