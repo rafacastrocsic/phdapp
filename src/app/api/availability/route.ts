@@ -61,6 +61,13 @@ export async function POST(req: Request) {
   const targetStudentIds = await getNotificationTargets(session.user.id);
   if (targetStudentIds.length > 0) {
     const { logActivity } = await import("@/lib/activity-log");
+    // Summary phrasing follows the kind so the 🔔 bell + Calendar
+    // sidebar bubble read sensibly: "remote work" reads as the
+    // person is still reachable; "unavailable" reads as away.
+    const summary =
+      item.kind === "remote"
+        ? "marked a period of remote work"
+        : "marked a period unavailable";
     await Promise.all(
       targetStudentIds.map((sid) =>
         logActivity({
@@ -70,7 +77,7 @@ export async function POST(req: Request) {
           action: "availability.create",
           entityType: "availability",
           entityId: item.id,
-          summary: "marked a period unavailable",
+          summary,
         }),
       ),
     ).catch((err) => console.error("availability log failed", err));
