@@ -216,6 +216,12 @@ export function CalendarView({
   const [selectedDay, setSelectedDay] = useState<Date | null>(null);
   const [syncing, setSyncing] = useState(false);
   const [openEventId, setOpenEventId] = useState<string | null>(null);
+  // Source event for the "Duplicate" flow. When set, NewEventDialog
+  // opens with all of this event's fields pre-populated (title,
+  // date/time, location, meeting URL, description, student, drive
+  // folder, linked task, isMeeting). Recurrence is intentionally
+  // NOT copied — a duplicate is a one-off instance copy.
+  const [duplicateSource, setDuplicateSource] = useState<Event | null>(null);
   // Task opened from a calendar task-event: shown in place (stays in Calendar).
   const [peekTicketId, setPeekTicketId] = useState<string | null>(null);
   const [view, setView] = useState<"year" | "month" | "week" | "day">("month");
@@ -1265,7 +1271,13 @@ export function CalendarView({
 
       <NewEventDialog
         open={newOpen}
-        onOpenChange={setNewOpen}
+        onOpenChange={(v) => {
+          setNewOpen(v);
+          // Clear the prefill the moment the dialog closes — a
+          // subsequent + New event click should start blank, not
+          // re-open with the last duplicated event's fields.
+          if (!v) setDuplicateSource(null);
+        }}
         students={students}
         tasks={tasks}
         teamDriveFolderId={teamDriveFolderId ?? null}
@@ -1276,9 +1288,11 @@ export function CalendarView({
             : studentFilter || null
         }
         isStudent={isStudent}
+        prefill={duplicateSource}
         onCreated={(e) => {
           setEvents((prev) => [...prev, e]);
           setNewOpen(false);
+          setDuplicateSource(null);
         }}
       />
 
@@ -1308,6 +1322,14 @@ export function CalendarView({
             prev.map((e) => (e.id === openEventId ? { ...e, ...updates } : e)),
           );
         }}
+        onDuplicate={(source) => {
+          // Close the detail dialog, capture the source event, and
+          // open the New event dialog. NewEventDialog reads
+          // `prefill` and seeds every field from it.
+          setOpenEventId(null);
+          setDuplicateSource(source);
+          setNewOpen(true);
+        }}
       />
 
       <TaskPeek
@@ -1329,6 +1351,7 @@ function EventDetailDialog({
   onPeekTask,
   onDeleted,
   onUpdated,
+  onDuplicate,
 }: {
   event: Event | null;
   open: boolean;
@@ -1340,6 +1363,10 @@ function EventDetailDialog({
   onPeekTask: (ticketId: string) => void;
   onDeleted: (id: string) => void;
   onUpdated: (updates: Partial<Event>) => void;
+  // Optional. When set, a "Duplicate" button shows in the footer
+  // that closes this dialog and opens the New event dialog
+  // pre-populated with this event's fields.
+  onDuplicate?: (source: Event) => void;
 }) {
   const [deleting, setDeleting] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -1619,6 +1646,17 @@ function EventDetailDialog({
             )}
           </div>
           <div className="flex gap-2">
+            {onDuplicate && event && (
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={() => onDuplicate(event)}
+                title="Make a copy of this event you can then edit"
+              >
+                Duplicate
+              </Button>
+            )}
             <Button
               type="button"
               variant="brand"
@@ -1852,6 +1890,7 @@ function NewEventDialog({
   defaultDate,
   defaultStudentId,
   isStudent,
+  prefill,
   onCreated,
 }: {
   open: boolean;
@@ -1862,6 +1901,11 @@ function NewEventDialog({
   defaultDate: Date | null;
   defaultStudentId: string | null;
   isStudent: boolean;
+  // When set, the form opens pre-populated with this event's
+  // fields — title, date, time, location, meetingUrl, description,
+  // student, drive folder, linked task, isMeeting. Recurrence is
+  // intentionally NOT copied: a duplicate is a one-off instance.
+  prefill?: Event | null;
   onCreated: (e: Event) => void;
 }) {
   const [submitting, setSubmitting] = useState(false);
@@ -1870,15 +1914,22 @@ function NewEventDialog({
   const [recurFreq, setRecurFreq] = useState<RecurFreq>("none");
   const [recurInterval, setRecurInterval] = useState(1);
   const [recurUntil, setRecurUntil] = useState("");
-  const [isMeeting, setIsMeeting] = useState(false);
+  const [isMeeting, setIsMeeting] = useState(prefill?.isMeeting ?? false);
   // Default for non-student creators with no defaultStudentId is
   // "General" — events without a student are visible to everyone.
-  const [studentId, setStudentId] = useState(
-    defaultStudentId ?? (isStudent ? "" : "__general__"),
-  );
-  const [linkedTaskId, setLinkedTaskId] = useState("");
+  // Initial student selection — prefill wins, then explicit prop,
+  // then "general" for non-students / "" for students.
+  const initialStudentId = prefill
+    ? prefill.isGeneral
+      ? "__general__"
+      : prefill.student?.id ?? "__general__"
+    : (defaultStudentId ?? (isStudent ? "" : "__general__"));
+  const [studentId, setStudentId] = useState(initialStudentId);
+  const [linkedTaskId, setLinkedTaskId] = useState(prefill?.linkedTaskId ?? "");
   // Optional Drive folder attached at creation (will be sent in payload).
-  const [driveFolderUrl, setDriveFolderUrl] = useState<string | null>(null);
+  const [driveFolderUrl, setDriveFolderUrl] = useState<string | null>(
+    prefill?.driveFolderUrl ?? null,
+  );
 
   // Tasks offered in the picker: scoped to the chosen student when one is
   // set, otherwise all visible tasks (labelled with the student name).
@@ -1892,9 +1943,19 @@ function NewEventDialog({
     ? tasks.filter((t) => t.studentId === effectiveStudentId)
     : tasks;
 
-  const dateStr = defaultDate
-    ? format(defaultDate, "yyyy-MM-dd")
-    : format(new Date(), "yyyy-MM-dd");
+  // Initial date/time defaults — prefill wins (so a Duplicate keeps
+  // the original date+time until the user changes them), then the
+  // day-cell click date, then today. Time defaults to 10:00–11:00
+  // when nothing else.
+  const prefillStart = prefill ? new Date(prefill.startsAt) : null;
+  const prefillEnd = prefill ? new Date(prefill.endsAt) : null;
+  const dateStr = prefillStart
+    ? format(prefillStart, "yyyy-MM-dd")
+    : defaultDate
+      ? format(defaultDate, "yyyy-MM-dd")
+      : format(new Date(), "yyyy-MM-dd");
+  const startTimeStr = prefillStart ? format(prefillStart, "HH:mm") : "10:00";
+  const endTimeStr = prefillEnd ? format(prefillEnd, "HH:mm") : "11:00";
 
   async function onSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -1967,7 +2028,13 @@ function NewEventDialog({
         </DialogHeader>
         <form onSubmit={onSubmit} className="space-y-3">
           <Field label="Title">
-            <Input name="title" required autoFocus placeholder="Weekly 1:1" />
+            <Input
+              name="title"
+              required
+              autoFocus
+              placeholder="Weekly 1:1"
+              defaultValue={prefill?.title ?? ""}
+            />
           </Field>
           {!isStudent && (
             <Field label="Visibility / student">
@@ -1994,17 +2061,35 @@ function NewEventDialog({
               <Input name="date" type="date" defaultValue={dateStr} required />
             </Field>
             <Field label="Start">
-              <Input name="startTime" type="time" defaultValue="10:00" required />
+              <Input
+                name="startTime"
+                type="time"
+                defaultValue={startTimeStr}
+                required
+              />
             </Field>
             <Field label="End">
-              <Input name="endTime" type="time" defaultValue="11:00" required />
+              <Input
+                name="endTime"
+                type="time"
+                defaultValue={endTimeStr}
+                required
+              />
             </Field>
           </div>
           <Field label="Location (optional)">
-            <Input name="location" placeholder="Office, building B, room 12…" />
+            <Input
+              name="location"
+              placeholder="Office, building B, room 12…"
+              defaultValue={prefill?.location ?? ""}
+            />
           </Field>
           <Field label="Meeting link (optional)">
-            <Input name="meetingUrl" placeholder="https://meet.google.com/…" />
+            <Input
+              name="meetingUrl"
+              placeholder="https://meet.google.com/…"
+              defaultValue={prefill?.meetingUrl ?? ""}
+            />
           </Field>
           <Field label="Drive folder (optional)">
             {(() => {
@@ -2057,7 +2142,11 @@ function NewEventDialog({
             })()}
           </Field>
           <Field label="Description (optional)">
-            <Textarea name="description" rows={2} />
+            <Textarea
+              name="description"
+              rows={2}
+              defaultValue={prefill?.description ?? ""}
+            />
           </Field>
           <Field label="Related task (optional)">
             <Select
