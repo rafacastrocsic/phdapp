@@ -1955,7 +1955,18 @@ function NewEventDialog({
       ? format(defaultDate, "yyyy-MM-dd")
       : format(new Date(), "yyyy-MM-dd");
   const startTimeStr = prefillStart ? format(prefillStart, "HH:mm") : "10:00";
-  const endTimeStr = prefillEnd ? format(prefillEnd, "HH:mm") : "11:00";
+  // The form models a SAME-DAY event (one date field + two times).
+  // Sources that span days — Google all-day events end at midnight
+  // of the NEXT day; cross-midnight events too — would prefill an
+  // end time at-or-before the start, and Google rejects inverted
+  // ranges with a 400. Clamp those to 23:59 of the start date.
+  const endTimeStr = (() => {
+    if (!prefillEnd || !prefillStart) return "11:00";
+    const sameDay =
+      format(prefillStart, "yyyy-MM-dd") === format(prefillEnd, "yyyy-MM-dd");
+    if (!sameDay || prefillEnd <= prefillStart) return "23:59";
+    return format(prefillEnd, "HH:mm");
+  })();
 
   async function onSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -1979,6 +1990,14 @@ function NewEventDialog({
       if (isNaN(sISO.getTime()) || isNaN(eISO.getTime())) {
         setSubmitting(false);
         setError("Invalid date or time.");
+        return;
+      }
+      // Google rejects inverted/empty ranges with a 400 ("cannot
+      // push to Google Calendar"), so catch it here with a clear
+      // message instead.
+      if (eISO <= sISO) {
+        setSubmitting(false);
+        setError("End time must be after the start time.");
         return;
       }
       payload.startsAt = sISO.toISOString();
