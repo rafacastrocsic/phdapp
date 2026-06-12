@@ -1164,9 +1164,19 @@ export function ChatView({
                 >
                   <BarChart3 className="h-4 w-4" />
                 </button>
-                <Input
+                {/* Multi-line composer: Enter sends, Shift+Enter
+                    inserts a newline (WhatsApp/Slack convention).
+                    Auto-grows up to 5 rows; bubbles already render
+                    whitespace-pre-wrap so the line breaks survive. */}
+                <Textarea
                   value={body}
                   onChange={(e) => setBody(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter" && !e.shiftKey) {
+                      e.preventDefault();
+                      e.currentTarget.form?.requestSubmit();
+                    }
+                  }}
                   onPaste={(e) => {
                     const files = Array.from(
                       e.clipboardData?.files ?? [],
@@ -1181,7 +1191,8 @@ export function ChatView({
                       ? "Uploading…"
                       : `Message #${active.name}`
                   }
-                  className="!h-10"
+                  rows={Math.min(5, Math.max(1, body.split("\n").length))}
+                  className="flex-1 !min-h-10 resize-none !py-2"
                 />
                 <Button
                   type="submit"
