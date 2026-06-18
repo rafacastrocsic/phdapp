@@ -55,6 +55,7 @@ The app assumes one human admin who is also a developer. If you delegate develop
 
 ### Feature surfaces added since launch
 
+- **Usage & adoption dashboard** (user request) — admin-only `/admin/metrics` (button on `/admin`). Ten adoption metrics computed live from the DB (`src/lib/metrics.ts` `computeMetrics()`): active users + WAU/MAU stickiness, per-role adoption, module engagement, task throughput + completion, chat volume, reading throughput, meetings-with-notes, check-in rate + wellbeing, resources consolidated, engagement recency. Plus daily **trend lines**: a new `MetricSnapshot` table (one upserted row per UTC day) fed by a Vercel Cron (`/api/cron/metrics-snapshot`, 03:00) and opportunistically on each admin view; six headline series rendered as dependency-free inline-SVG `<Sparkline/>`s. No external analytics; history builds forward only (no back-fill). Full description under **Usage & adoption dashboard** below.
 - **Event times now timezone-consistent with the Calendar** (user request) — the student profile is a **server component**, so `format(date, "HH:mm")` ran in the server's zone (UTC on Vercel) while the Calendar formats client-side in the **viewer's** zone — same event, different displayed time. New `<LocalTime iso fmt>` client component (`src/components/local-time.tsx`) formats with date-fns in the browser (placeholder until mounted → hydration-safe, `suppressHydrationWarning`); the profile "Upcoming meetings" card now uses it, so its times match the Calendar exactly. (Date-only server strings like "MMM yyyy" are unaffected; the copyable Catch-up digest remains a server-zone text export by nature.)
 - **Profile "Upcoming meetings" ↔ Calendar mismatch fixed** (user request) — the student profile listed events with raw `where: { startsAt: { gte: now } }`, so (a) **recurring** events whose base `startsAt` is in the past were missing entirely (the Calendar shows their upcoming occurrences) and (b) the auto `[Task]_`/`[Sub-task]_` due-date mirror events were listed as "meetings". Now the query is `ticketId: null, subtaskParentId: null` AND (`startsAt ≥ now` OR `recurrenceRule != null`), and a server-side pass uses `expandOccurrences()` (`@/lib/recurrence`, the same expander the Calendar uses) to compute each recurring series' **next future occurrence**; the card renders that next-occurrence date, sorted soonest-first, capped at 5. Now it matches what the Calendar shows for that student (real events, recurrence-aware). No schema/API/migration.
 - **Tasks filter fix (empty after switching student)** (user request) — the kanban poll + `refetchTickets` fetched `/api/tickets/list?student=<studentFilter>`, so the in-memory `tickets` only ever held the *currently filtered* student's tasks; switching back to "all"/another student showed nothing until the next ≤8 s poll re-scoped. Now both always fetch the **full visible set** (`/api/tickets/list`, no `student` param) and the existing client-side `filtered` memo applies the student filter — switching is instant and correct. The first poll now runs **immediately** (not after 8 s) so a `?student=` deep-link's narrower SSR `initial` is replaced fast. Removed the now-moot `pollKeyRef` scope-gating (single constant scope ⇒ always diff for genuine deletions); ghost rendering stays scoped to the active `studentFilter`. Supersedes the earlier pollKey ghost patch with a simpler model. No schema/API.
@@ -128,10 +129,26 @@ What you can do there:
 
 - **Add team member** — invite a new supervisor / external advisor / committee member by Gmail. They need to sign in once before they get a User row; this tool just registers them in advance.
 - **Edit any user** — change name, color, role, photo (the admin can edit any user, not just themselves).
+- **Usage & adoption** (button, top-right) — opens `/admin/metrics`, the adoption dashboard (see below).
 - **Maintenance**:
   - **Run chat cleanup now** — manually trigger the 7-day chat-attachment cleanup (otherwise it runs piggybacked on chat uploads, throttled to once per hour).
   - **Backfill missing team channels** — idempotent; creates a team channel for any student that doesn't have one yet.
   - **Calendar cleanup — dry run / apply** — three-pass repair for legacy disparities between PhDapp and Google Calendar: (a) deletes DB **duplicates** where the same task title+day exists with both a real task mirror AND a sync-orphan twin; (b) deletes **dangling** `[Task]_` / `[Sub-task]_` rows whose task/sub-task no longer exists (or never did); (c) scans the General + per-student Google calendars for **ghost** `[Task]_*` events that no PhDapp row references and removes them. Then re-pushes to Google any task whose due-event failed to sync originally (e.g. during the invalid_grant period). Run the dry-run first to see what would change before applying. Safe to re-run; idempotent.
+
+## Usage & adoption dashboard (`/admin/metrics`)
+
+Admin-only. Reach it from the **Usage & adoption** button at the top of `/admin`. Every figure is computed **live from PhDapp's own database** — there is no external analytics service, no third-party tracker, nothing leaves the app. "Active" means authenticated page activity (`User.lastActiveAt`, stamped at most once every few minutes per user).
+
+**What it shows.** Four headline KPIs (monthly active users, weekly active + the WAU/MAU stickiness ratio, meetings-with-notes, check-in rate), then: a Trends card (see below), adoption bars per role (active-in-30d overlaid on ever-signed-in), a module-engagement grid (distinct people who created something in Tasks / Calendar / Chat / Reading / Comments / Check-ins in the last 30 days), four detail cards (Tasks throughput + completion rate + median days-to-complete; Chat volume + % of students messaging; Reading proposed-vs-added + approval turnaround; Resources consolidated — Drive folders, thesis chapters, publications, starred files), and Weekly check-ins (submission rate + average wellbeing) + Engagement recency (today / this week / this month / inactive / never-signed-in).
+
+**Trends (time-series).** A nightly job saves a **daily snapshot** of six headline series (monthly active, weekly active, tasks completed, chat messages, check-in rate, meetings with notes). The Trends card draws a sparkline per series with the latest value and the change since the first snapshot. Two things worth knowing:
+
+- **History builds forward, not backward.** Snapshots are point-in-time aggregates — they can't be back-filled. The first data point lands the moment you open the dashboard (opening it captures that day's snapshot too, not just the cron), and a real line forms after ~3–4 days. Until there are ≥2 snapshots the card shows a "trend lines appear once a few daily snapshots accumulate" placeholder.
+- **It's stored in a single `MetricSnapshot` table**, one row per UTC day (upserted, so re-running never duplicates). Driven by a Vercel Cron at 03:00 (`/api/cron/metrics-snapshot`, alongside the weekly digest in `vercel.json`).
+
+**Locking the cron (optional).** Set a `CRON_SECRET` environment variable on Vercel and the snapshot route will require Vercel's bearer token; without it the route runs unguarded (harmless — it only writes one analytics row).
+
+**Using it for reports.** The page is screenshot-friendly. When presenting to the institute or a funder, lead with **monthly active users**, **meetings-with-notes** (proves the tool captures real supervision, not just appointments), and the **trend lines** (proves adoption grew and stuck). For a single research group, favour the *rates* (e.g. "82% of students submit a weekly check-in") over raw counts, which a reviewer could dismiss as small.
 
 ## Architecture at a glance
 
@@ -337,7 +354,7 @@ Each user row on `/admin` shows two activity markers under their email:
 
 The signals are tracked by two `User` columns: `lastLoginAt` (set in the NextAuth signIn event) and `lastActiveAt` (stamped by every authenticated page render of the `(app)` layout, throttled to ~5 minutes so a busy session writes once per window, not per click). Both are nullable; they fill in the first time a user signs in.
 
-This is admin-only — no other surface exposes these timestamps, so other users on the team can't see when their colleagues last browsed.
+This is admin-only — no other surface exposes these timestamps, so other users on the team can't see when their colleagues last browsed. For aggregate adoption figures (active-user counts, per-role adoption, module engagement, trends over time) see the **Usage & adoption dashboard** at `/admin/metrics`, described above.
 
 ## Removing users / off-boarding
 
