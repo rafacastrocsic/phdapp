@@ -246,6 +246,27 @@ model Notification {
   @@index([userId, readAt])
 }
 
+// Daily snapshot of adoption metrics, written by a cron (and
+// opportunistically on first admin-dashboard view each day). Lets
+// the /admin/metrics page draw trend lines without a separate
+// analytics service. One row per UTC day (upserted, so re-running
+// the same day overwrites). The headline trend series are stored as
+// columns for cheap charting; `data` keeps the full Metrics JSON for
+// completeness / future fields.
+model MetricSnapshot {
+  id                String   @id @default(cuid())
+  day               DateTime @unique // midnight UTC of the snapshot day
+  mau               Int
+  wau               Int
+  tasksCompleted30  Int
+  messages7         Int
+  checkinRatePct    Int?
+  meetingsWithNotes Int
+  data              String // full JSON blob of the Metrics object
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+}
+
 model TeamNote {
   id        String   @id @default(cuid())
   authorId  String

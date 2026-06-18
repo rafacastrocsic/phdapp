@@ -1,4 +1,7 @@
 {
   "regions": ["fra1"],
-  "crons": [{ "path": "/api/cron/weekly-digest", "schedule": "0 7 * * 1" }]
+  "crons": [
+    { "path": "/api/cron/weekly-digest", "schedule": "0 7 * * 1" },
+    { "path": "/api/cron/metrics-snapshot", "schedule": "0 3 * * *" }
+  ]
 }

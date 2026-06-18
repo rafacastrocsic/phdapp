@@ -1,9 +1,10 @@
 import { auth } from "@/auth";
 import { redirect } from "next/navigation";
 import Link from "next/link";
-import { computeMetrics } from "@/lib/metrics";
+import { computeMetrics, recordSnapshot, getTrend } from "@/lib/metrics";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { LocalTime } from "@/components/local-time";
+import { Sparkline } from "@/components/sparkline";
 import {
   ArrowLeft,
   Users,
@@ -16,6 +17,7 @@ import {
   FolderOpen,
   Clock,
   Layers,
+  TrendingUp,
 } from "lucide-react";
 
 export const dynamic = "force-dynamic";
@@ -29,6 +31,11 @@ export default async function MetricsPage() {
   if (session.user.role !== "admin") redirect("/");
 
   const m = await computeMetrics();
+  // Capture today's snapshot on view (idempotent per UTC day) so the
+  // trend lines start filling from first visit, not only once the
+  // nightly cron has run. Fire-and-forget — never block the page.
+  await recordSnapshot(m).catch(() => {});
+  const trend = await getTrend(90).catch(() => []);
   const pct = (v: number | null) => (v === null ? "—" : `${v}%`);
   const num = (v: number | null) => (v === null ? "—" : `${v}`);
 
@@ -88,6 +95,72 @@ export default async function MetricsPage() {
           sub={`${m.checkins.last4wReceived}/${m.checkins.last4wExpected} expected`}
         />
       </div>
+
+      {/* ── Trends ── */}
+      <Card>
+        <CardHeader className="flex flex-row items-center gap-2">
+          <TrendingUp className="h-4 w-4 text-[var(--c-violet)]" />
+          <CardTitle>Trends</CardTitle>
+        </CardHeader>
+        <CardContent className="p-5">
+          {trend.length < 2 ? (
+            <p className="text-sm text-slate-500">
+              Trend lines appear once a few daily snapshots accumulate. A
+              snapshot is captured automatically every night (and once each
+              time you open this page), so check back over the coming days —
+              {trend.length === 0
+                ? " none recorded yet."
+                : " 1 recorded so far."}
+            </p>
+          ) : (
+            <>
+              <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-x-6 gap-y-5">
+                <TrendCell
+                  label="Monthly active users"
+                  values={trend.map((t) => t.mau)}
+                  latest={trend[trend.length - 1]!.mau}
+                  color="var(--c-violet)"
+                />
+                <TrendCell
+                  label="Weekly active users"
+                  values={trend.map((t) => t.wau)}
+                  latest={trend[trend.length - 1]!.wau}
+                  color="var(--c-teal)"
+                />
+                <TrendCell
+                  label="Tasks completed (30d window)"
+                  values={trend.map((t) => t.tasksCompleted30)}
+                  latest={trend[trend.length - 1]!.tasksCompleted30}
+                  color="var(--c-orange)"
+                />
+                <TrendCell
+                  label="Chat messages (7d window)"
+                  values={trend.map((t) => t.messages7)}
+                  latest={trend[trend.length - 1]!.messages7}
+                  color="var(--c-green)"
+                />
+                <TrendCell
+                  label="Check-in rate"
+                  values={trend.map((t) => t.checkinRatePct)}
+                  latest={trend[trend.length - 1]!.checkinRatePct}
+                  suffix="%"
+                  color="var(--c-blue)"
+                />
+                <TrendCell
+                  label="Meetings with notes (cumulative)"
+                  values={trend.map((t) => t.meetingsWithNotes)}
+                  latest={trend[trend.length - 1]!.meetingsWithNotes}
+                  color="var(--c-pink)"
+                />
+              </div>
+              <p className="text-[11px] text-slate-400 pt-4">
+                Last {trend.length} daily snapshot{trend.length === 1 ? "" : "s"}{" "}
+                (up to 90 days). Each point is one day; the dot marks the latest.
+              </p>
+            </>
+          )}
+        </CardContent>
+      </Card>
 
       {/* ── Adoption by role ── */}
       <Card>
@@ -300,6 +373,50 @@ function Kpi({
       <div className="text-xs font-medium text-slate-700 mt-1">{label}</div>
       <div className="text-[11px] text-slate-400 mt-0.5">{sub}</div>
     </Card>
+  );
+}
+
+function TrendCell({
+  label,
+  values,
+  latest,
+  color,
+  suffix = "",
+}: {
+  label: string;
+  values: (number | null)[];
+  latest: number | null;
+  color: string;
+  suffix?: string;
+}) {
+  // First non-null value, for the "+N since start" delta.
+  const first = values.find((v) => v !== null) ?? null;
+  const delta =
+    first !== null && latest !== null ? latest - first : null;
+  const deltaStr =
+    delta === null
+      ? null
+      : delta === 0
+        ? "no change"
+        : `${delta > 0 ? "+" : ""}${delta}${suffix} since start`;
+  return (
+    <div>
+      <div className="flex items-baseline justify-between gap-2">
+        <span className="text-xs font-medium text-slate-700">{label}</span>
+        <span className="text-lg font-bold text-slate-900 tabular-nums">
+          {latest === null ? "—" : `${latest}${suffix}`}
+        </span>
+      </div>
+      <Sparkline values={values} color={color} width={260} height={40} />
+      {deltaStr && (
+        <div
+          className="text-[11px] mt-0.5"
+          style={{ color: delta && delta > 0 ? "var(--c-green)" : "#94a3b8" }}
+        >
+          {deltaStr}
+        </div>
+      )}
+    </div>
   );
 }
 

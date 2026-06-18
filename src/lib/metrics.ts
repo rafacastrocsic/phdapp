@@ -98,6 +98,73 @@ export interface Metrics {
   };
 }
 
+/** UTC midnight of the given date — the snapshot's canonical day key. */
+function utcDayStart(d: Date): Date {
+  return new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate()));
+}
+
+/**
+ * Persist today's metrics as a daily snapshot (idempotent: upserts on
+ * the UTC day, so running it twice the same day just overwrites). The
+ * cron calls this nightly; the admin dashboard also calls it on first
+ * view each day so trend lines start filling without waiting for the
+ * cron. Safe to call often — at most one row per day.
+ */
+export async function recordSnapshot(m: Metrics): Promise<void> {
+  const day = utcDayStart(new Date(m.generatedAt));
+  const fields = {
+    mau: m.users.mau,
+    wau: m.users.wau,
+    tasksCompleted30: m.tasks.completed30,
+    messages7: m.chat.messages7,
+    checkinRatePct: m.checkins.submissionRatePct,
+    meetingsWithNotes: m.meetings.withNotesOrAgenda,
+    data: JSON.stringify(m),
+  };
+  await prisma.metricSnapshot.upsert({
+    where: { day },
+    create: { day, ...fields },
+    update: fields,
+  });
+}
+
+export interface TrendPoint {
+  day: string; // ISO date
+  mau: number;
+  wau: number;
+  tasksCompleted30: number;
+  messages7: number;
+  checkinRatePct: number | null;
+  meetingsWithNotes: number;
+}
+
+/** Last N daily snapshots, oldest → newest, for the trend charts. */
+export async function getTrend(days = 90): Promise<TrendPoint[]> {
+  const since = new Date(Date.now() - days * DAY);
+  const rows = await prisma.metricSnapshot.findMany({
+    where: { day: { gte: since } },
+    orderBy: { day: "asc" },
+    select: {
+      day: true,
+      mau: true,
+      wau: true,
+      tasksCompleted30: true,
+      messages7: true,
+      checkinRatePct: true,
+      meetingsWithNotes: true,
+    },
+  });
+  return rows.map((r) => ({
+    day: r.day.toISOString(),
+    mau: r.mau,
+    wau: r.wau,
+    tasksCompleted30: r.tasksCompleted30,
+    messages7: r.messages7,
+    checkinRatePct: r.checkinRatePct,
+    meetingsWithNotes: r.meetingsWithNotes,
+  }));
+}
+
 export async function computeMetrics(): Promise<Metrics> {
   const now = new Date();
   const d7 = new Date(+now - 7 * DAY);
