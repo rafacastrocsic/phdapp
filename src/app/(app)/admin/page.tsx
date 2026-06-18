@@ -5,7 +5,8 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Avatar } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { ProfileEditor } from "@/components/profile-editor";
-import { Shield, Info } from "lucide-react";
+import Link from "next/link";
+import { Shield, Info, BarChart3 } from "lucide-react";
 import { relativeTime } from "@/lib/utils";
 import { AddTeamMember } from "./add-team-member";
 import { MaintenanceTools } from "./maintenance";
@@ -66,16 +67,25 @@ export default async function AdminPage() {
 
   return (
     <div className="p-6 lg:p-8 space-y-6 max-w-5xl">
-      <div className="flex items-center gap-3">
-        <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-red-100 text-red-700">
-          <Shield className="h-5 w-5" />
-        </span>
-        <div>
-          <h1 className="text-2xl font-bold text-slate-900">Admin</h1>
-          <p className="text-sm text-slate-500 mt-1">
-            Edit any user&apos;s profile and role. Only the admin sees this page.
-          </p>
+      <div className="flex items-start justify-between gap-3 flex-wrap">
+        <div className="flex items-center gap-3">
+          <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-red-100 text-red-700">
+            <Shield className="h-5 w-5" />
+          </span>
+          <div>
+            <h1 className="text-2xl font-bold text-slate-900">Admin</h1>
+            <p className="text-sm text-slate-500 mt-1">
+              Edit any user&apos;s profile and role. Only the admin sees this page.
+            </p>
+          </div>
         </div>
+        <Link
+          href="/admin/metrics"
+          className="inline-flex items-center gap-1.5 rounded-lg border bg-white px-3 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50"
+        >
+          <BarChart3 className="h-4 w-4 text-[var(--c-violet)]" /> Usage &
+          adoption
+        </Link>
       </div>
 
       <AddTeamMember students={studentOpts} />
