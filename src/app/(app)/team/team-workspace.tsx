@@ -1,6 +1,6 @@
 "use client";
 import { useState } from "react";
-import { FolderOpen, Lock, Send, Trash2, Pencil } from "lucide-react";
+import { FolderOpen, Lock, Send, Trash2, Pencil, RefreshCw } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -37,6 +37,36 @@ export function TeamWorkspace({
   const [notes, setNotes] = useState<Note[]>(initialNotes);
   const [draft, setDraft] = useState("");
   const [busy, setBusy] = useState(false);
+  const [syncing, setSyncing] = useState(false);
+
+  // Grant the senior team writer access to the team folder so the
+  // Files-module "Team Drive" entry lists contents for everyone (Drive
+  // hides folders an account isn't shared with).
+  async function syncSharing() {
+    setSyncing(true);
+    try {
+      const r = await fetch("/api/team/workspace/sync-drive", {
+        method: "POST",
+      });
+      const j = await r.json().catch(() => ({}));
+      if (!r.ok) {
+        alert(j.error ?? "Could not sync sharing.");
+        return;
+      }
+      if (j.warning) {
+        alert(j.warning);
+      } else {
+        const fail = (j.failed ?? []).length;
+        alert(
+          `Done — ${j.shared} team member${j.shared === 1 ? "" : "s"} now have access` +
+            (fail ? ` (${fail} failed)` : "") +
+            ".",
+        );
+      }
+    } finally {
+      setSyncing(false);
+    }
+  }
 
   async function saveFolder() {
     const r = await fetch("/api/team/workspace", {
@@ -111,6 +141,25 @@ export function TeamWorkspace({
             <span className="flex-1 text-sm text-slate-400 italic">
               No shared team folder set
             </span>
+          )}
+          {/* Sync sharing — grants the whole senior team writer
+              access so the Files → Team Drive entry lists contents
+              for everyone, not just the folder owner. Shown to any
+              supervising viewer when a folder is set. */}
+          {folder && !editingFolder && (
+            <Button
+              type="button"
+              size="sm"
+              variant="outline"
+              onClick={syncSharing}
+              disabled={syncing}
+              title="Give the whole team access to this folder"
+            >
+              <RefreshCw
+                className={`h-3.5 w-3.5 ${syncing ? "animate-spin" : ""}`}
+              />
+              {syncing ? "Syncing…" : "Sync sharing"}
+            </Button>
           )}
           {isAdmin && !editingFolder && (
             <button
