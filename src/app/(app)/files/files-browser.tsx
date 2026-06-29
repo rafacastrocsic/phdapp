@@ -95,6 +95,11 @@ export function FilesBrowser({
   const [files, setFiles] = useState<DriveFile[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // Bumped to force a re-fetch of the current folder. Needed because
+  // the listing effect is keyed on currentFolderId (a string), so
+  // "refresh" — which keeps the same folder — wouldn't otherwise
+  // re-run the effect.
+  const [reloadNonce, setReloadNonce] = useState(0);
   const [favorites, setFavorites] = useState<Set<string>>(new Set());
   const [view, setView] = useState<"icons" | "list">("icons");
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
@@ -220,7 +225,7 @@ export function FilesBrowser({
     return () => {
       cancelled = true;
     };
-  }, [currentFolderId]);
+  }, [currentFolderId, reloadNonce]);
 
   function openFolder(f: DriveFile) {
     setPath((p) => [...p, { id: targetFolderId(f), name: f.name }]);
@@ -467,7 +472,8 @@ export function FilesBrowser({
             <Button
               variant="ghost"
               size="sm"
-              onClick={() => setPath((p) => [...p])}
+              onClick={() => setReloadNonce((n) => n + 1)}
+              disabled={loading}
               title="Refresh"
             >
               <RefreshCw className={cn("h-4 w-4", loading && "animate-spin")} />
