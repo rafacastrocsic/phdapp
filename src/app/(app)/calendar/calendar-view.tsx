@@ -383,12 +383,26 @@ export function CalendarView({
         reason: string | null;
         label: string | null;
         kind: string;
+        // Carried so the week/day header can show WHEN, not just
+        // who/why. `startsAt`/`endsAt` are the full span's ISO
+        // strings; `allDay` is the "no specific hours" heuristic
+        // (00:00 → 23:59). Consumers that only need who/why (month
+        // chip, mini-cal) simply ignore these.
+        startsAt: string;
+        endsAt: string;
+        allDay: boolean;
       }[]
     > = {};
     for (const a of availability) {
       if (deletedAvailIds.has(a.id)) continue;
       const s = new Date(a.startsAt);
       const e = new Date(a.endsAt);
+      const allDay =
+        s.getHours() === 0 &&
+        s.getMinutes() === 0 &&
+        s.getSeconds() === 0 &&
+        e.getHours() === 23 &&
+        e.getMinutes() === 59;
       const cur = new Date(s.getFullYear(), s.getMonth(), s.getDate());
       let guard = 0;
       while (cur <= e && guard++ < 400) {
@@ -398,6 +412,9 @@ export function CalendarView({
           reason: a.reason,
           label: a.label,
           kind: a.kind,
+          startsAt: a.startsAt,
+          endsAt: a.endsAt,
+          allDay,
         });
         cur.setDate(cur.getDate() + 1);
       }
@@ -3105,7 +3122,7 @@ function TimeGrid({
     label: string | null;
     kind: string;
   }[];
-  availabilityByDay: Record<string, { who: string; reason: string | null; label: string | null; kind: string }[]>;
+  availabilityByDay: Record<string, { who: string; reason: string | null; label: string | null; kind: string; startsAt: string; endsAt: string; allDay: boolean }[]>;
   holidaysByDay: Map<string, string>;
   effectiveKind: (id: string) => "new" | "updated" | null;
   onEventClick: (id: string) => void;
@@ -3206,26 +3223,62 @@ function TimeGrid({
                 </div>
               )}
               {unavail.length > 0 && (() => {
-                const single = unavail.length === 1 ? unavail[0]! : null;
-                const allRemote = unavail.every((u) => u.kind === "remote");
-                const styleKind = allRemote ? "remote" : "away";
-                const style = availabilityStyle(styleKind);
-                const icon =
-                  single?.kind === "remote" || allRemote ? "🏠" : "⊘";
+                // Per-entry chips (who · when · why) — far more useful
+                // than the old "N team members away" summary. Each
+                // chip shows the icon + first name; the tooltip carries
+                // the full "who — reason · time". A timed entry adds
+                // its clamped HH:MM–HH:MM inline; all-day shows nothing
+                // extra (it fills the day). Cap at 3 chips + "+N more"
+                // that opens the day-detail panel.
+                const CAP = 3;
+                const shown = unavail.slice(0, CAP);
+                const overflow = unavail.length - shown.length;
+                const dayStartMs = +new Date(dKey + "T00:00:00");
+                const dayEndMs = +new Date(dKey + "T23:59:59");
+                const clampLabel = (u: (typeof unavail)[number]) => {
+                  if (u.allDay) return "";
+                  const s = Math.max(+new Date(u.startsAt), dayStartMs);
+                  const e = Math.min(+new Date(u.endsAt), dayEndMs);
+                  return `${format(new Date(s), "HH:mm")}–${format(new Date(e), "HH:mm")}`;
+                };
+                const firstName = (who: string) => who.split(/\s+/)[0] ?? who;
                 return (
-                  <button
-                    type="button"
-                    onClick={() => onAvailClick(d)}
-                    className={cn(
-                      "mt-1 block w-full truncate rounded px-1.5 py-0.5 text-[10px] font-medium",
-                      style.chipClass,
+                  <div className="mt-1 space-y-0.5">
+                    {shown.map((u, i) => {
+                      const style = availabilityStyle(u.kind);
+                      const icon = u.kind === "remote" ? "🏠" : "⊘";
+                      const time = clampLabel(u);
+                      return (
+                        <button
+                          key={i}
+                          type="button"
+                          onClick={() => onAvailClick(d)}
+                          title={`${u.who} — ${u.reason || style.shortNoun}${time ? ` · ${time}` : " · all day"}`}
+                          className={cn(
+                            "block w-full truncate rounded px-1.5 py-0.5 text-left text-[10px] font-medium leading-tight",
+                            style.chipClass,
+                          )}
+                        >
+                          {icon} {firstName(u.who)}
+                          {u.reason ? (
+                            <span className="opacity-80"> · {u.reason}</span>
+                          ) : null}
+                          {time ? (
+                            <span className="opacity-70"> · {time}</span>
+                          ) : null}
+                        </button>
+                      );
+                    })}
+                    {overflow > 0 && (
+                      <button
+                        type="button"
+                        onClick={() => onAvailClick(d)}
+                        className="block w-full rounded px-1.5 py-0.5 text-[10px] font-medium text-slate-500 hover:bg-slate-100"
+                      >
+                        +{overflow} more
+                      </button>
                     )}
-                  >
-                    {icon}{" "}
-                    {single
-                      ? `${single.who} — ${single.reason || style.shortNoun}`
-                      : `${unavail.length} team members ${style.shortNoun}`}
-                  </button>
+                  </div>
                 );
               })()}
             </div>
@@ -3625,7 +3678,7 @@ function YearGrid({
 }: {
   year: number;
   events: Event[];
-  availabilityByDay: Record<string, { who: string; reason: string | null; label: string | null; kind: string }[]>;
+  availabilityByDay: Record<string, { who: string; reason: string | null; label: string | null; kind: string; startsAt: string; endsAt: string; allDay: boolean }[]>;
   holidaysByDay: Map<string, string>;
   onPickDay: (day: Date) => void;
 }) {
