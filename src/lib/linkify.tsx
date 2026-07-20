@@ -7,24 +7,47 @@ import React from "react";
  * `whitespace-pre-wrap` container (newlines and runs of whitespace
  * inside the string segments are preserved).
  *
- * Rules:
- *  - Matches `http://...` and `https://...` (full schemes), plus
- *    schemeless `www....` (which we then prefix with `https://` in
- *    the rendered `href` so the link still works).
- *  - Stops at whitespace or a few obviously-not-part-of-the-url
- *    characters (`<`, `>`, `"`).
- *  - Trims trailing sentence punctuation (`.,;:!?'")]}`) off the
- *    URL — so `look at https://example.com.` doesn't include the
- *    final period in the link. The trimmer is paren/bracket aware:
- *    it keeps a trailing `)` if the URL also contains a `(` (so
- *    Wikipedia-style `…/Foo_(bar)` links survive).
- *  - Only `http(s)` / `www` are matched, so `javascript:` and
- *    `data:` payloads can never appear in the rendered href.
+ * Matches three shapes:
+ *  - Full schemes: `http://…` / `https://…`.
+ *  - Schemeless `www.…`.
+ *  - Bare domains with a recognised TLD, with or without a path —
+ *    e.g. `doi.org/10.1000/xyz`, `github.com/org/repo`, `example.com`.
+ *    A TLD whitelist keeps prose like `Node.js`, `Fig.2`, `e.g.`,
+ *    `index.html`, `v1.2` from being mistaken for links, and a
+ *    look-behind avoids linking the domain part of an email address.
+ * Schemeless matches get an `https://` prefix in the rendered href.
+ * Only `http(s)` hrefs are ever produced, so `javascript:` / `data:`
+ * payloads can never appear.
  */
 
-// One greedy run of non-space, non-bracket-stop chars after a scheme.
-// The trailing trimmer cleans up after-the-fact (see below).
-const URL_REGEX = /(?:https?:\/\/|www\.)[^\s<>"]+/gi;
+// Common gTLDs + ccTLDs. Deliberately excludes things that show up in
+// prose after a dot (js, ts, py, html, pdf, 2, 0, …).
+const TLD =
+  "com|org|net|edu|gov|mil|int|io|co|ai|app|dev|me|info|biz|tv|online|site|" +
+  "xyz|blog|wiki|cloud|tech|academy|uk|us|ca|au|nl|se|ch|it|es|de|fr|eu|pt|" +
+  "be|dk|no|fi|pl|cz|at|ie|jp|cn|in|br|ru|za|nz|kr|mx|ar|cl|gr|tr|il|sg|hk";
+
+const SCHEMED = String.raw`(?:https?:\/\/|www\.)[^\s<>"]+`;
+const BARE =
+  String.raw`(?:[a-z0-9](?:[a-z0-9-]*[a-z0-9])?\.)+(?:` +
+  TLD +
+  String.raw`)\b(?:[\/?#][^\s<>"]*)?`;
+// Look-behind blocks a match that's glued to an @ (email) or a word
+// char / dot (so we don't grab a fragment of a longer token). A few old
+// engines (pre-16.4 Safari) don't support look-behind and throw when the
+// pattern is compiled — fall back to a look-behind-free version there so
+// linkify never crashes a render (at worst an email's domain gets linked).
+function buildUrlRegex(): RegExp {
+  try {
+    return new RegExp(
+      String.raw`(?<![@\w.])(?:` + SCHEMED + "|" + BARE + ")",
+      "gi",
+    );
+  } catch {
+    return new RegExp("(?:" + SCHEMED + "|" + BARE + ")", "gi");
+  }
+}
+const URL_REGEX = buildUrlRegex();
 
 function trimTrailing(url: string): string {
   let s = url;
@@ -59,7 +82,7 @@ export function linkify(text: string): React.ReactNode[] {
     if (!url) continue;
     const end = start + url.length;
     if (start > last) out.push(text.slice(last, start));
-    const href = url.startsWith("www.") ? `https://${url}` : url;
+    const href = /^https?:\/\//i.test(url) ? url : `https://${url}`;
     out.push(
       <a
         key={idx++}
