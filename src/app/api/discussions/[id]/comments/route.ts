@@ -10,10 +10,18 @@ import {
 } from "@/lib/discussions-access";
 import { notify } from "@/lib/notify";
 import { logActivity } from "@/lib/activity-log";
+import {
+  AttachmentInput,
+  sanitiseAttachments,
+  parseAttachments,
+} from "@/lib/comment-attachments";
 
 const Body = z.object({
-  body: z.string().min(1),
+  // Body OR attachments (or both) — an attachment-only comment is allowed,
+  // email-style.
+  body: z.string().max(20000).optional(),
   parentId: z.string().nullable().optional(),
+  attachments: z.array(AttachmentInput).max(20).optional(),
 });
 
 // Load the topic if this user is allowed to read it (visibility gate).
@@ -71,6 +79,7 @@ export async function GET(
       },
       createdAt: c.createdAt.toISOString(),
       editedAt: c.editedAt?.toISOString() ?? null,
+      attachments: parseAttachments(c.attachments),
       mine: c.author.id === session.user.id,
     })),
   });
@@ -96,6 +105,14 @@ export async function POST(
   if (!parsed.success)
     return NextResponse.json({ error: "bad input" }, { status: 400 });
 
+  const body = (parsed.data.body ?? "").trim();
+  const attachments = sanitiseAttachments(parsed.data.attachments ?? []);
+  if (!body && attachments.length === 0)
+    return NextResponse.json(
+      { error: "Add some text or an attachment." },
+      { status: 400 },
+    );
+
   let parentId: string | null = null;
   if (parsed.data.parentId) {
     const parent = await prisma.comment.findUnique({
@@ -111,7 +128,9 @@ export async function POST(
     data: {
       topicId: id,
       parentId,
-      body: parsed.data.body,
+      body,
+      attachments:
+        attachments.length > 0 ? JSON.stringify(attachments) : null,
       authorId: session.user.id,
     },
     include: { author: { select: { name: true, image: true, color: true } } },
@@ -152,6 +171,7 @@ export async function POST(
       author: c.author,
       createdAt: c.createdAt.toISOString(),
       editedAt: null as string | null,
+      attachments,
       mine: true,
     },
   });

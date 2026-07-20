@@ -513,6 +513,10 @@ model Comment {
   parent        Comment?     @relation("CommentReplies", fields: [parentId], references: [id], onDelete: Cascade)
   replies       Comment[]    @relation("CommentReplies")
   author        User         @relation(fields: [authorId], references: [id])
+  // JSON array of { name, url, mimeType, size } — email-style attachments
+  // (images + documents) on a comment. Currently only populated by the
+  // Discussions module; stored in permanent Blob storage. Null = none.
+  attachments   String?
   createdAt     DateTime     @default(now())
   editedAt      DateTime? // set when the author edits; drives the "edited" mark
 

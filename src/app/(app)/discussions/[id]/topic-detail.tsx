@@ -265,6 +265,8 @@ export function TopicDetail({
         <CommentsThread
           apiBase={`/api/discussions/${topic.id}/comments`}
           readOnly={topic.closed}
+          enableAttachments
+          uploadUrl="/api/discussions/upload"
           emptyHint="No comments yet — kick off the discussion."
           composerPlaceholder="Share a thought, a link, a question…"
         />

@@ -4,6 +4,7 @@ import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
 import { isAdmin, type Role } from "@/lib/access";
 import { isSeniorTeam, canSeeVisibility } from "@/lib/discussions-access";
+import { parseAttachments } from "@/lib/comment-attachments";
 
 const Body = z.object({ body: z.string().min(1) });
 
@@ -67,6 +68,7 @@ export async function PATCH(
       author: c.author,
       createdAt: c.createdAt.toISOString(),
       editedAt: c.editedAt?.toISOString() ?? null,
+      attachments: parseAttachments(c.attachments),
       mine: true,
     },
   });
