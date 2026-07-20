@@ -39,9 +39,9 @@ export default async function CalendarPage({
   // People who can be invited to a meeting: the senior team (admins +
   // supervisors — which covers co-supervisors and team advisors, who
   // carry the supervisor role) plus the linked user accounts of the
-  // students the viewer can see. Excludes the viewer themselves (they
-  // organise the meeting, they're not an invitee). Students are only
-  // invitable if they've signed in at least once (have a User row).
+  // students the viewer can see. Includes the viewer themselves so an
+  // organiser can add their own name to the guest list. Students are
+  // only invitable if they've signed in at least once (have a User row).
   const invitablePeople = (
     await prisma.user.findMany({
       where: {
@@ -49,7 +49,6 @@ export default async function CalendarPage({
           { role: { in: ["admin", "supervisor"] } },
           { studentProfile: { id: { in: studentIds } } },
         ],
-        NOT: { id: session.user.id },
       },
       select: { id: true, name: true, email: true, image: true, color: true, role: true },
       orderBy: { name: "asc" },

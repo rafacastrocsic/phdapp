@@ -269,8 +269,10 @@ export async function POST(req: Request) {
     image: string | null;
     color: string;
   }[] = [];
+  // Self is allowed — the organiser can add their own name to the
+  // guest list. notify() skips the actor, so no self-notification.
   const inviteIds = Array.from(
-    new Set((d.attendeeUserIds ?? []).filter((id) => id && id !== session.user.id)),
+    new Set((d.attendeeUserIds ?? []).filter((id) => !!id)),
   );
   if (inviteIds.length > 0) {
     // Only accept ids that are real users.

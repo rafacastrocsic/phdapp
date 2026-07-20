@@ -245,8 +245,10 @@ export async function PATCH(
       }[]
     | undefined;
   if (d.attendeeUserIds !== undefined) {
+    // Self is allowed on the guest list (organiser can include
+    // themselves). notify() skips the actor for the added set.
     const desired = Array.from(
-      new Set(d.attendeeUserIds.filter((u) => u && u !== session.user.id)),
+      new Set(d.attendeeUserIds.filter((u) => !!u)),
     );
     const existing = await prisma.eventAttendee.findMany({
       where: { eventId: id },
