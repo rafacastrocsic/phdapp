@@ -60,6 +60,11 @@ const Patch = z.object({
   // IANA timezone for Google start/end — required when the event is
   // recurring. See POST route comment for details.
   timeZone: z.string().nullable().optional(),
+  // Full desired invitee list (PhDapp User ids). When present, the
+  // EventAttendee rows are diffed to match: added ids are inserted +
+  // notified, removed ids are deleted. Omit to leave invitees
+  // untouched.
+  attendeeUserIds: z.array(z.string()).optional(),
 });
 
 export async function PATCH(
@@ -227,6 +232,70 @@ export async function PATCH(
 
   await prisma.event.update({ where: { id }, data });
 
+  // ── Invitee diff (in-app only) ──
+  // When attendeeUserIds is present, make the EventAttendee set match:
+  // insert newly-added ids (+ notify them), delete removed ones.
+  let attendees:
+    | {
+        userId: string;
+        status: string;
+        name: string | null;
+        image: string | null;
+        color: string;
+      }[]
+    | undefined;
+  if (d.attendeeUserIds !== undefined) {
+    const desired = Array.from(
+      new Set(d.attendeeUserIds.filter((u) => u && u !== session.user.id)),
+    );
+    const existing = await prisma.eventAttendee.findMany({
+      where: { eventId: id },
+      select: { userId: true },
+    });
+    const existingIds = new Set(existing.map((a) => a.userId));
+    const toAdd = desired.filter((u) => !existingIds.has(u));
+    const toRemove = [...existingIds].filter((u) => !desired.includes(u));
+
+    if (toRemove.length > 0)
+      await prisma.eventAttendee.deleteMany({
+        where: { eventId: id, userId: { in: toRemove } },
+      });
+    if (toAdd.length > 0) {
+      const valid = await prisma.user.findMany({
+        where: { id: { in: toAdd } },
+        select: { id: true },
+      });
+      await prisma.eventAttendee.createMany({
+        data: valid.map((u) => ({ eventId: id, userId: u.id, status: "invited" })),
+        skipDuplicates: true,
+      });
+      const { notify } = await import("@/lib/notify");
+      await notify(
+        valid.map((u) => u.id),
+        {
+          type: "event.invite",
+          message: `You're invited to “${event.title}” on [[${event.startsAt.toISOString()}]]`,
+          link: "/calendar",
+          actorId: session.user.id,
+        },
+      );
+    }
+    // Return the fresh guest list so the client can update in place.
+    const fresh = await prisma.eventAttendee.findMany({
+      where: { eventId: id },
+      include: {
+        user: { select: { id: true, name: true, image: true, color: true } },
+      },
+    });
+    attendees = fresh.map((a) => ({
+      userId: a.userId,
+      status: a.status,
+      name: a.user.name,
+      image: a.user.image,
+      color: a.user.color,
+    }));
+  }
+
   await logActivity({
     actorId: session.user.id,
     actorRole: session.user.role,
@@ -238,7 +307,7 @@ export async function PATCH(
     details: data,
   });
 
-  return NextResponse.json({ ok: true, googleWarning });
+  return NextResponse.json({ ok: true, googleWarning, attendees });
 }
 
 export async function DELETE(

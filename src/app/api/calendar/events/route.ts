@@ -45,6 +45,10 @@ const Body = z.object({
   // When studentId is null: false = team-only, true = general (visible
   // to everyone). Ignored if studentId is set.
   isGeneral: z.boolean().optional(),
+  // In-app invitees (PhDapp User ids). Stored as EventAttendee rows and
+  // notified via the 🔔 bell. NOT added to the Google Calendar event's
+  // attendees — invites stay inside PhDapp.
+  attendeeUserIds: z.array(z.string()).optional(),
 });
 
 export async function POST(req: Request) {
@@ -255,6 +259,54 @@ export async function POST(req: Request) {
     },
   });
 
+  // ── Invitees (in-app only) ──
+  // Store EventAttendee rows for the picked users and notify them via
+  // the 🔔 bell. Never adds them to the Google Calendar event.
+  let attendees: {
+    userId: string;
+    status: string;
+    name: string | null;
+    image: string | null;
+    color: string;
+  }[] = [];
+  const inviteIds = Array.from(
+    new Set((d.attendeeUserIds ?? []).filter((id) => id && id !== session.user.id)),
+  );
+  if (inviteIds.length > 0) {
+    // Only accept ids that are real users.
+    const validUsers = await prisma.user.findMany({
+      where: { id: { in: inviteIds } },
+      select: { id: true, name: true, image: true, color: true },
+    });
+    if (validUsers.length > 0) {
+      await prisma.eventAttendee.createMany({
+        data: validUsers.map((u) => ({
+          eventId: event.id,
+          userId: u.id,
+          status: "invited",
+        })),
+        skipDuplicates: true,
+      });
+      attendees = validUsers.map((u) => ({
+        userId: u.id,
+        status: "invited",
+        name: u.name,
+        image: u.image,
+        color: u.color,
+      }));
+      const { notify } = await import("@/lib/notify");
+      await notify(
+        validUsers.map((u) => u.id),
+        {
+          type: "event.invite",
+          message: `You're invited to “${event.title}” on [[${event.startsAt.toISOString()}]]`,
+          link: "/calendar",
+          actorId: session.user.id,
+        },
+      );
+    }
+  }
+
   await logActivity({
     actorId: session.user.id,
     actorRole: session.user.role,
@@ -281,6 +333,7 @@ export async function POST(req: Request) {
       googleCalendarId: event.googleCalendarId,
       linkedTaskId: event.linkedTaskId,
       linkedTaskTitle: event.linkedTask?.title ?? null,
+      attendees,
     },
     googleWarning,
     pushedToGoogle: !!googleEventId,

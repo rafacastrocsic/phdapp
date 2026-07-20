@@ -36,6 +36,33 @@ export default async function CalendarPage({
   });
   const studentIds = students.map((s) => s.id);
 
+  // People who can be invited to a meeting: the senior team (admins +
+  // supervisors — which covers co-supervisors and team advisors, who
+  // carry the supervisor role) plus the linked user accounts of the
+  // students the viewer can see. Excludes the viewer themselves (they
+  // organise the meeting, they're not an invitee). Students are only
+  // invitable if they've signed in at least once (have a User row).
+  const invitablePeople = (
+    await prisma.user.findMany({
+      where: {
+        OR: [
+          { role: { in: ["admin", "supervisor"] } },
+          { studentProfile: { id: { in: studentIds } } },
+        ],
+        NOT: { id: session.user.id },
+      },
+      select: { id: true, name: true, email: true, image: true, color: true, role: true },
+      orderBy: { name: "asc" },
+    })
+  ).map((u) => ({
+    id: u.id,
+    name: u.name,
+    email: u.email,
+    image: u.image,
+    color: u.color,
+    role: u.role,
+  }));
+
   const from = subMonths(startOfMonth(monthBase), 1);
   const to = addMonths(endOfMonth(monthBase), 1);
 
@@ -64,6 +91,11 @@ export default async function CalendarPage({
       student: { select: { id: true, fullName: true, alias: true, color: true } },
       ticket: { select: { id: true, priority: true } },
       linkedTask: { select: { id: true, title: true } },
+      attendees: {
+        include: {
+          user: { select: { id: true, name: true, image: true, color: true } },
+        },
+      },
     },
     orderBy: { startsAt: "asc" },
   });
@@ -201,6 +233,7 @@ export default async function CalendarPage({
     <CalendarView
       viewerRole={role}
       viewerStudentId={viewerStudent?.id ?? null}
+      viewerUserId={session.user.id}
       students={students}
       teamDriveFolderId={teamDrive?.id ?? null}
       events={events.map((e) => ({
@@ -227,6 +260,13 @@ export default async function CalendarPage({
         isGeneral: e.isGeneral,
         allDay: e.allDay,
         subtaskParentId: e.subtaskParentId,
+        attendees: e.attendees.map((a) => ({
+          userId: a.userId,
+          status: a.status,
+          name: a.user.name,
+          image: a.user.image,
+          color: a.user.color,
+        })),
       }))}
       tasks={linkableTasks
         // Team-only / unassigned tasks are filtered out of the link picker
@@ -258,6 +298,7 @@ export default async function CalendarPage({
         date: h.date.toISOString(),
         name: h.name,
       }))}
+      invitablePeople={invitablePeople}
     />
   );
 }

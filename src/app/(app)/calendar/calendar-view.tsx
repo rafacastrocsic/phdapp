@@ -27,6 +27,7 @@ import {
 } from "@/components/ui/dialog";
 import { Input, Select, Textarea } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
+import { Avatar } from "@/components/ui/avatar";
 import { cn, displayName } from "@/lib/utils";
 import {
   buildRRule,
@@ -99,6 +100,25 @@ interface Event {
   // click to the parent task instead of opening a generic event
   // dialog, and so we can render sub-task pills distinctly.
   subtaskParentId?: string | null;
+  // In-app invitees (guest list). Empty for events with no invitees.
+  attendees?: Attendee[];
+}
+
+interface Attendee {
+  userId: string;
+  status: string; // invited | accepted | declined | tentative
+  name: string | null;
+  image: string | null;
+  color: string;
+}
+
+export interface InvitablePerson {
+  id: string;
+  name: string | null;
+  email: string;
+  image: string | null;
+  color: string;
+  role: string;
 }
 
 type LinkableTask = {
@@ -121,9 +141,12 @@ export function CalendarView({
   initialStudent,
   highlightByEvent: initialHighlights,
   holidays = [],
+  invitablePeople = [],
+  viewerUserId,
 }: {
   viewerRole: string;
   viewerStudentId: string | null;
+  viewerUserId: string;
   students: Student[];
   teamDriveFolderId?: string | null;
   events: Event[];
@@ -156,6 +179,9 @@ export function CalendarView({
   highlightByEvent?: Record<string, "new" | "updated">;
   /** Sevilla public holidays in the visible window (ISO date + name). */
   holidays?: { date: string; name: string }[];
+  // People who can be invited to a meeting (team + visible students'
+  // user accounts). Empty for students / when nobody is invitable.
+  invitablePeople?: InvitablePerson[];
 }) {
   // Lookup: dateKey "yyyy-MM-dd" → holiday name (first wins if a date
   // somehow has two entries). Used by month/week/day/mini views to
@@ -1305,6 +1331,7 @@ export function CalendarView({
             : studentFilter || null
         }
         isStudent={isStudent}
+        invitablePeople={invitablePeople}
         prefill={duplicateSource}
         onCreated={(e) => {
           setEvents((prev) => [...prev, e]);
@@ -1320,6 +1347,8 @@ export function CalendarView({
         students={students}
         teamDriveFolderId={teamDriveFolderId ?? null}
         canAssignStudent={!isStudent}
+        invitablePeople={invitablePeople}
+        viewerUserId={viewerUserId}
         onOpenChange={(o) => !o && setOpenEventId(null)}
         onPeekTask={(id) => {
           setOpenEventId(null);
@@ -1364,6 +1393,8 @@ function EventDetailDialog({
   students,
   teamDriveFolderId,
   canAssignStudent,
+  invitablePeople,
+  viewerUserId,
   onOpenChange,
   onPeekTask,
   onDeleted,
@@ -1376,6 +1407,8 @@ function EventDetailDialog({
   students: Student[];
   teamDriveFolderId?: string | null;
   canAssignStudent: boolean;
+  invitablePeople: InvitablePerson[];
+  viewerUserId: string;
   onOpenChange: (b: boolean) => void;
   onPeekTask: (ticketId: string) => void;
   onDeleted: (id: string) => void;
@@ -1388,9 +1421,53 @@ function EventDetailDialog({
   const [deleting, setDeleting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [editing, setEditing] = useState(false);
+  // Invitee editing (open guest-list editor) + RSVP busy flag.
+  const [editingInvitees, setEditingInvitees] = useState(false);
+  const [inviteeDraft, setInviteeDraft] = useState<Set<string>>(new Set());
+  const [rsvpBusy, setRsvpBusy] = useState(false);
   const router = useRouter();
 
   if (!event) return null;
+  const attendees = event.attendees ?? [];
+  const myAttendee = attendees.find((a) => a.userId === viewerUserId);
+  // Whether the viewer can edit the guest list — the organizer or a
+  // non-student (supervisors/admin). Students can only RSVP.
+  const canEditInvitees = invitablePeople.length > 0 && canAssignStudent;
+
+  async function saveInvitees(next: Set<string>) {
+    if (!event) return;
+    const r = await fetch(`/api/calendar/events/${event.id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ attendeeUserIds: Array.from(next) }),
+    });
+    if (r.ok) {
+      const j = await r.json();
+      onUpdated({ attendees: j.attendees ?? [] });
+      setEditingInvitees(false);
+    }
+  }
+  async function rsvp(status: string) {
+    if (!event) return;
+    setRsvpBusy(true);
+    try {
+      const r = await fetch(`/api/calendar/events/${event.id}/rsvp`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ status }),
+      });
+      if (r.ok) {
+        onUpdated({
+          attendees: attendees.map((a) =>
+            a.userId === viewerUserId ? { ...a, status } : a,
+          ),
+        });
+      }
+    } finally {
+      setRsvpBusy(false);
+    }
+  }
+
   const linkedToGoogle = !!event.googleEventId;
   const rec = parseRRule(event.recurrenceRule);
   const recSummary =
@@ -1488,6 +1565,126 @@ function EventDetailDialog({
             <div className="flex items-center gap-2 text-slate-700">
               <UsersIcon className="h-4 w-4 text-slate-400" />
               <Badge color={event.student.color}>{displayName(event.student)}</Badge>
+            </div>
+          )}
+
+          {/* ── Guest list ── */}
+          {(attendees.length > 0 || canEditInvitees) && (
+            <div className="rounded-lg border bg-slate-50/60 p-3">
+              <div className="flex items-center justify-between gap-2">
+                <span className="text-xs font-semibold uppercase text-slate-500">
+                  Invited ({attendees.length})
+                </span>
+                {canEditInvitees && !editingInvitees && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setInviteeDraft(new Set(attendees.map((a) => a.userId)));
+                      setEditingInvitees(true);
+                    }}
+                    className="text-[11px] text-[var(--c-violet)] hover:underline"
+                  >
+                    Edit
+                  </button>
+                )}
+              </div>
+
+              {editingInvitees ? (
+                <div className="mt-2 space-y-2">
+                  <InviteePicker
+                    people={invitablePeople}
+                    selected={inviteeDraft}
+                    onChange={setInviteeDraft}
+                  />
+                  <div className="flex justify-end gap-2">
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="outline"
+                      onClick={() => setEditingInvitees(false)}
+                    >
+                      Cancel
+                    </Button>
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="brand"
+                      onClick={() => saveInvitees(inviteeDraft)}
+                    >
+                      Save
+                    </Button>
+                  </div>
+                </div>
+              ) : attendees.length === 0 ? (
+                <p className="mt-1 text-xs text-slate-400">No one invited yet.</p>
+              ) : (
+                <ul className="mt-2 space-y-1">
+                  {attendees.map((a) => (
+                    <li
+                      key={a.userId}
+                      className="flex items-center gap-2 text-sm"
+                    >
+                      <Avatar
+                        name={a.name ?? "?"}
+                        src={a.image}
+                        color={a.color}
+                        size="sm"
+                        className="!h-6 !w-6 !text-[10px]"
+                      />
+                      <span className="flex-1 truncate text-slate-700">
+                        {a.name ?? "Someone"}
+                      </span>
+                      <span
+                        className={cn(
+                          "rounded-full px-1.5 py-0.5 text-[10px] font-semibold",
+                          a.status === "accepted"
+                            ? "bg-emerald-100 text-emerald-700"
+                            : a.status === "declined"
+                              ? "bg-red-100 text-red-700"
+                              : a.status === "tentative"
+                                ? "bg-amber-100 text-amber-700"
+                                : "bg-slate-200 text-slate-600",
+                        )}
+                      >
+                        {a.status}
+                      </span>
+                    </li>
+                  ))}
+                </ul>
+              )}
+
+              {/* Viewer's own RSVP — only when they're an invitee. */}
+              {myAttendee && !editingInvitees && (
+                <div className="mt-2 flex items-center gap-1.5 border-t pt-2">
+                  <span className="text-[11px] text-slate-500 mr-auto">
+                    Your response:
+                  </span>
+                  {(["accepted", "tentative", "declined"] as const).map((s) => (
+                    <button
+                      key={s}
+                      type="button"
+                      disabled={rsvpBusy}
+                      onClick={() => rsvp(s)}
+                      className={cn(
+                        "rounded-md px-2 py-1 text-[11px] font-semibold",
+                        myAttendee.status === s
+                          ? s === "accepted"
+                            ? "bg-emerald-600 text-white"
+                            : s === "declined"
+                              ? "bg-red-600 text-white"
+                              : "bg-amber-500 text-white"
+                          : "bg-white border text-slate-600 hover:bg-slate-100",
+                      )}
+                    >
+                      {s === "accepted"
+                        ? "Going"
+                        : s === "declined"
+                          ? "Can't"
+                          : "Maybe"}
+                    </button>
+                  ))}
+                </div>
+              )}
             </div>
           )}
 
@@ -1907,6 +2104,7 @@ function NewEventDialog({
   defaultDate,
   defaultStudentId,
   isStudent,
+  invitablePeople,
   prefill,
   onCreated,
 }: {
@@ -1918,6 +2116,7 @@ function NewEventDialog({
   defaultDate: Date | null;
   defaultStudentId: string | null;
   isStudent: boolean;
+  invitablePeople: InvitablePerson[];
   // When set, the form opens pre-populated with this event's
   // fields — title, date, time, location, meetingUrl, description,
   // student, drive folder, linked task, isMeeting. Recurrence is
@@ -1928,6 +2127,11 @@ function NewEventDialog({
   const [submitting, setSubmitting] = useState(false);
   const [pushGoogle, setPushGoogle] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  // In-app invitees. When duplicating (prefill), seed from the source
+  // event's guest list.
+  const [inviteeIds, setInviteeIds] = useState<Set<string>>(
+    () => new Set((prefill?.attendees ?? []).map((a) => a.userId)),
+  );
   const [recurFreq, setRecurFreq] = useState<RecurFreq>("none");
   const [recurInterval, setRecurInterval] = useState(1);
   const [recurUntil, setRecurUntil] = useState("");
@@ -2035,7 +2239,11 @@ function NewEventDialog({
     const r = await fetch("/api/calendar/events", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ ...payload, isGeneral: isGeneralChoice }),
+      body: JSON.stringify({
+        ...payload,
+        isGeneral: isGeneralChoice,
+        attendeeUserIds: Array.from(inviteeIds),
+      }),
     });
     setSubmitting(false);
     if (!r.ok) {
@@ -2259,6 +2467,19 @@ function NewEventDialog({
             />
             This is a 1:1 meeting (agenda, notes & action items)
           </label>
+          {invitablePeople.length > 0 && (
+            <Field label="Invite people (optional)">
+              <InviteePicker
+                people={invitablePeople}
+                selected={inviteeIds}
+                onChange={setInviteeIds}
+              />
+              <p className="mt-1 text-[11px] text-slate-500">
+                Invitees get a 🔔 PhDapp notification and see the event on
+                their calendar. (No Google Calendar email is sent.)
+              </p>
+            </Field>
+          )}
           <label className="flex items-center gap-2 text-sm text-slate-700">
             <input
               type="checkbox"
@@ -2291,6 +2512,114 @@ function Field({ label, children }: { label: string; children: React.ReactNode }
       <span className="text-xs font-semibold text-slate-700">{label}</span>
       <div className="mt-1">{children}</div>
     </label>
+  );
+}
+
+// Multi-select invitee picker: search + chips. Used in the New and
+// Edit event dialogs. Controlled — the parent owns the selected-id
+// Set. People already selected drop out of the suggestion list.
+function InviteePicker({
+  people,
+  selected,
+  onChange,
+}: {
+  people: InvitablePerson[];
+  selected: Set<string>;
+  onChange: (next: Set<string>) => void;
+}) {
+  const [query, setQuery] = useState("");
+  const chosen = people.filter((p) => selected.has(p.id));
+  const q = query.trim().toLowerCase();
+  const matches = q
+    ? people
+        .filter((p) => !selected.has(p.id))
+        .filter(
+          (p) =>
+            (p.name ?? "").toLowerCase().includes(q) ||
+            p.email.toLowerCase().includes(q),
+        )
+        .slice(0, 6)
+    : [];
+  function add(id: string) {
+    const next = new Set(selected);
+    next.add(id);
+    onChange(next);
+    setQuery("");
+  }
+  function remove(id: string) {
+    const next = new Set(selected);
+    next.delete(id);
+    onChange(next);
+  }
+  return (
+    <div>
+      {chosen.length > 0 && (
+        <div className="mb-1.5 flex flex-wrap gap-1.5">
+          {chosen.map((p) => (
+            <span
+              key={p.id}
+              className="inline-flex items-center gap-1 rounded-full bg-slate-100 py-0.5 pl-0.5 pr-1.5 text-xs"
+            >
+              <Avatar
+                name={p.name ?? p.email}
+                src={p.image}
+                color={p.color}
+                size="sm"
+                className="!h-5 !w-5 !text-[9px]"
+              />
+              <span className="max-w-[10rem] truncate">
+                {p.name ?? p.email}
+              </span>
+              <button
+                type="button"
+                onClick={() => remove(p.id)}
+                className="text-slate-400 hover:text-[var(--c-red)]"
+                title="Remove"
+              >
+                <XIcon className="h-3 w-3" />
+              </button>
+            </span>
+          ))}
+        </div>
+      )}
+      <div className="relative">
+        <Input
+          value={query}
+          onChange={(e) => setQuery(e.target.value)}
+          placeholder="Search people to invite…"
+          className="!h-8"
+        />
+        {matches.length > 0 && (
+          <ul className="absolute z-20 mt-1 max-h-52 w-full overflow-auto rounded-lg border bg-white p-1 shadow-lg">
+            {matches.map((p) => (
+              <li key={p.id}>
+                <button
+                  type="button"
+                  onClick={() => add(p.id)}
+                  className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-sm hover:bg-slate-100"
+                >
+                  <Avatar
+                    name={p.name ?? p.email}
+                    src={p.image}
+                    color={p.color}
+                    size="sm"
+                    className="!h-6 !w-6 !text-[10px]"
+                  />
+                  <span className="flex-1 min-w-0">
+                    <span className="block truncate text-slate-800">
+                      {p.name ?? p.email}
+                    </span>
+                    <span className="block truncate text-[10px] text-slate-400">
+                      {p.role} · {p.email}
+                    </span>
+                  </span>
+                </button>
+              </li>
+            ))}
+          </ul>
+        )}
+      </div>
+    </div>
   );
 }
 

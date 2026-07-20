@@ -58,6 +58,11 @@ export async function GET(req: Request) {
       student: { select: { id: true, fullName: true, alias: true, color: true } },
       ticket: { select: { id: true, priority: true } },
       linkedTask: { select: { id: true, title: true } },
+      attendees: {
+        include: {
+          user: { select: { id: true, name: true, image: true, color: true } },
+        },
+      },
     },
     orderBy: { startsAt: "asc" },
   });
@@ -120,6 +125,13 @@ export async function GET(req: Request) {
       // as "all day" instead of at their noon-UTC anchor time.
       allDay: e.allDay,
       subtaskParentId: e.subtaskParentId,
+      attendees: e.attendees.map((a) => ({
+        userId: a.userId,
+        status: a.status,
+        name: a.user.name,
+        image: a.user.image,
+        color: a.user.color,
+      })),
     })),
     highlightByEvent,
   });
