@@ -255,6 +255,10 @@ Opening a linked event shows a **Related task: …** line — click it for an in
 
 > **Reverse view (from the task):** open the linked task and the **Related events** card lists every event linked to it (title + start time, clickable back to the Calendar). The task's Board card and List-view row also carry a teal **📅 N** badge next to the comment count, so you can spot tasks with attached meetings at a glance — no need to open them. The badge counts *manual* links only; the auto `[Task]_` deadline event isn't counted (it's already represented by the due date).
 
+### Invitees & RSVP
+
+Any event can carry an **invitee list**. In the New / Edit event dialog, **Invite people** searches the senior team plus the students you can see — add them as guests (they show as chips; **you can add yourself** too). Each invitee gets a 🔔 notification and appears on the event's **guest list** with their RSVP status; when *you* are on the list, the event dialog gives you **Going / Maybe / Can't** buttons. Invites are **in-app only** — PhDapp does *not* send a Google Calendar invitation email — and this is separate from the automatic "add the linked student to the Google event" behaviour. **Duplicating** an event copies its guest list.
+
 ### Comments on events
 
 Every event has a **threaded comment section** at the bottom of its detail dialog — same component, same JSON shape and same behaviour as the comments on a task. The whole team that can see the event sees the thread, so it's the natural place for pre-meeting questions, post-meeting recaps, agenda nits, links to materials, etc. — anything that belongs *with the event*, not buried in chat. Top-level comments get a **Reply** action on hover (one-level nesting; replies are indented under their parent); your own comments are editable and deletable; any supervisor or admin who can write the event's student can moderate-delete others' comments. Posting a reply notifies the parent comment's author; a new top-level comment notifies the event owner and the student-user. Edited comments get an **(edited)** mark; deleting a parent comment also removes its replies. Activity is mirrored as an `event.update` row in the log so the rest of the team sees recent activity on the event from the Calendar's recent-activity hints.
@@ -296,6 +300,22 @@ The **Chat** module is for ongoing conversation with each student and their team
 - **Edit channel**: **⋮ → Edit channel** lets you change the **name, description, colour, and members**. Changing membership asks for confirmation (removed people lose access and history; added people see all past messages). Available to any member of the channel.
 
 You can collapse the channels column with the chevron at the top of that column. Same with the main left sidebar.
+
+## Discussions
+
+The **Discussions** module (💡 violet icon) is a **persistent, topic-first** space for the team — brainstorms, open questions, "let's decide X". Unlike Chat (which is organised around each student and whose attachments auto-delete after 7 days), a **Topic** has a title, an opening post, a threaded discussion, a Links list, and an optional Drive folder — **none of which expire**. It's where an idea and its documents live so you can still find them six months later.
+
+- **Start a topic** — **New topic** (top-right): a **title**, an optional **opening post**, **who can read it**, and an optional **student tag**.
+  - **Who can read it** — **Supervisors only** (the senior team: admins, supervisors, co-supervisors and team advisors — *not* students, external advisors or committee members) or **Whole team** (everyone, students included). Defaults to *Supervisors only*.
+  - **Tag a student** (optional) — a label to say "this is about ‹student›" (and it can later surface on that student's context). It's **metadata only**: it does *not* change who can read the topic — visibility alone governs that.
+- **The topic page** has three parts:
+  - **Opening post** — your framing text; any URL becomes a clickable link.
+  - **Links** and **Documents** — a labelled links list (papers, Overleaf, repos…) and one **Google Drive folder**, picked exactly like on tasks/events. Both are permanent.
+  - **Discussion** — a threaded comment section (same one-level-reply model as task/event comments).
+- **Email-style comments** — a comment can carry **text plus images plus documents**, like writing an email. Use **Attach files** or **drag-and-drop** onto the box; remove any file before sending; you can even post an **attachment-only** comment. Images show as **inline thumbnails** (click to enlarge), documents as **download chips**. These attachments are **permanent** (not the 7-day chat rule), up to 25 MB per file. Replies can carry attachments too.
+- **Manage a topic** (author or admin): **✎ Edit** (title, opening post, visibility, student tag), **📌 Pin** to the top of the list, **🔒 Close** (thread goes read-only; **Unlock** to re-open), **🗑 Delete** (removes the topic and all its comments).
+- **Notifications & unread** — posting a comment notifies the topic author and everyone already in the thread (🔔 bell). A **violet dot / count** on the Discussions sidebar entry flags new topics or comments you haven't seen; opening the module clears it.
+- **Who can do what** — the **senior team** starts topics; **students** can read *Whole team* topics and join the discussion (attachments included), but can't start topics or see *Supervisors only* threads.
 
 ## Files
 
@@ -420,6 +440,9 @@ _"Team advisor" is per-student — the ticks below apply only to the students th
 | **Auto-included** on the student's shared Drive folder & Calendar | ✓ | ✓ | – | – | ✓ | n/a |
 | See the student's activity (profile / modules) | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
 | Send suggestions to the supervisors | – | – | – | – | ✓ | ✓ |
+| Start a Discussion topic | ✓ | ✓ | – | – | ✓ | ✓ |
+| Read *Supervisors-only* Discussion topics | ✓ | ✓ | – | – | ✓ | ✓ |
+| Comment on a Discussion you can see | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
 
 _**Task comments** are communication, not a task edit: anyone who can **see** a student (incl. team advisors, external advisors and committee members) can post comments on that student's tasks. The "read-only" limit on team advisors refers to changing data (tasks/events/profile), which they still cannot do._
 

@@ -174,6 +174,10 @@ If a calendar event is marked as a 1:1 meeting, opening it shows an **agenda** (
 
 Every calendar event has its own **threaded comment section** — open the event from the Calendar and scroll to the bottom of the dialog to find it. It works exactly like comments on a task: type at the bottom and hit **Send**, hover any comment to **Reply / Edit / Delete** your own (others can only be edited by their author, and your supervisors can moderate-delete any), and **(edited)** appears next to anything you've changed. Replies are indented under the comment they answer; deleting a parent comment also removes its replies. The whole team that can see the event sees the thread — useful for pre-meeting questions, links, or last-minute notes that belong with the event rather than buried in chat. When someone posts a reply to your comment (or comments on an event you own), you get a 🔔 bell notification.
 
+### Meeting invites & RSVP
+
+If a supervisor **invites you to a meeting**, you'll get a 🔔 bell notification and the event shows you on its **guest list**. Open the event and reply **Going / Maybe / Can't** so the team knows whether to expect you. These invites live entirely inside PhDapp — there's no separate Google Calendar email to accept.
+
 ### Supervisors' availability
 
 On the calendar you may see grey **⊘ Unavailable** blocks on some days — that means one of your supervisors marked themselves away (travel, leave, holidays) so you know not to expect a reply or to drop by then. You only see "Unavailable" — never the reason. It shows in every view (Month, Year, Week, Day), and the Calendar sidebar gets an unread count bubble when a supervisor adds a new away period (clears when you open the Calendar). **Click an "away" block** to see exactly which supervisor(s) and the dates (you still don't see the reason).
@@ -207,6 +211,14 @@ The **Chat** module (green icon) is for direct messages with your supervisor and
 You can collapse the channels column to icons-only with the small chevron at the top of that column. Same trick on the main left sidebar.
 
 > **About attachments:** files you attach are shared via an unguessable link and auto-deleted after 7 days. They aren't individually password-protected, so anyone given that exact link could open it within those 7 days — don't paste highly sensitive material into chat (a stronger private-file scheme is a planned improvement).
+
+## Discussions
+
+The **Discussions** module (💡 violet icon) holds **topic threads** your supervisors open up to the whole team — brainstorms, open questions, things to decide together. Unlike Chat, a topic is **persistent**: its title, links and documents don't expire, so you can always find that good idea again later.
+
+- You'll see a topic here when a supervisor sets its visibility to **Whole team** (topics marked *Supervisors only* stay hidden from students). You can't start a topic yourself, but you can fully **join the discussion**.
+- **Email-style comments** — a comment can be **text plus images plus documents**, like writing an email. Use **Attach files** or **drag-and-drop** onto the box (up to 25 MB per file); you can even post a comment that's just an attachment. Images appear as inline thumbnails, documents as download links, and — unlike chat — these files **stay permanently**. You can **reply** to a comment, and **edit or delete** your own.
+- A **violet dot** on the Discussions sidebar entry means there's a new topic or comment you haven't read; opening the module clears it.
 
 ## Files
 
