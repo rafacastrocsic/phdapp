@@ -1,14 +1,6 @@
 "use client";
-import { useRef, useState } from "react";
-import {
-  Paperclip,
-  FileText,
-  X,
-  Loader2,
-  ArrowUp,
-  ArrowDown,
-  Plus,
-} from "lucide-react";
+import { useEffect, useRef, useState } from "react";
+import { Paperclip, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
 // A single content block of a document-style comment.
@@ -22,35 +14,136 @@ export type DocBlock =
       size?: number;
     };
 
-type EditorBlock = DocBlock & { _id: string };
-
-function newId(): string {
-  return typeof crypto !== "undefined" && "randomUUID" in crypto
-    ? crypto.randomUUID()
-    : Math.random().toString(36).slice(2);
-}
-
-function withIds(blocks: DocBlock[]): EditorBlock[] {
-  return blocks.map((b) => ({ ...b, _id: newId() }));
-}
-
-// Strip the editor-only _id back to a wire DocBlock.
-function toDocBlock(b: EditorBlock): DocBlock {
-  return b.type === "text"
-    ? { type: "text", text: b.text }
-    : { type: "file", name: b.name, url: b.url, mimeType: b.mimeType, size: b.size };
-}
-
 function isImage(b: { mimeType?: string }): boolean {
   return (b.mimeType ?? "").startsWith("image/");
 }
 
+const IMG_STYLE =
+  "display:block;max-width:100%;max-height:240px;border-radius:8px;margin:6px 0;border:1px solid #e2e8f0";
+const CHIP_STYLE =
+  "display:inline-flex;align-items:center;gap:6px;border:1px solid #e2e8f0;background:#f8fafc;border-radius:6px;padding:2px 8px;font-size:12px;font-weight:500;color:#334155";
+
+function esc(s: string): string {
+  return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+}
+function escAttr(s: string): string {
+  return esc(s).replace(/"/g, "&quot;");
+}
+
+function blocksToHtml(blocks: DocBlock[]): string {
+  return blocks
+    .map((b) => {
+      if (b.type === "text") {
+        const inner = esc(b.text).replace(/\n/g, "<br>");
+        return `<div>${inner || "<br>"}</div>`;
+      }
+      if (isImage(b)) {
+        return `<div><img src="${escAttr(b.url)}" data-url="${escAttr(b.url)}" data-name="${escAttr(b.name)}" data-mime="${escAttr(b.mimeType || "")}" data-size="${b.size ?? ""}" style="${IMG_STYLE}"/></div>`;
+      }
+      return `<div><span data-file="1" data-url="${escAttr(b.url)}" data-name="${escAttr(b.name)}" data-mime="${escAttr(b.mimeType || "")}" data-size="${b.size ?? ""}" contenteditable="false" style="${CHIP_STYLE}">📎 ${esc(b.name)}</span></div>`;
+    })
+    .join("");
+}
+
+// Build the DOM node for an uploaded file (image inline / doc chip).
+function fileEl(b: DocBlock & { type: "file" }): HTMLElement {
+  if (isImage(b)) {
+    const img = document.createElement("img");
+    img.src = b.url;
+    img.dataset.url = b.url;
+    img.dataset.name = b.name;
+    if (b.mimeType) img.dataset.mime = b.mimeType;
+    if (b.size != null) img.dataset.size = String(b.size);
+    img.setAttribute("style", IMG_STYLE);
+    return img;
+  }
+  const span = document.createElement("span");
+  span.dataset.file = "1";
+  span.dataset.url = b.url;
+  span.dataset.name = b.name;
+  if (b.mimeType) span.dataset.mime = b.mimeType;
+  if (b.size != null) span.dataset.size = String(b.size);
+  span.contentEditable = "false";
+  span.setAttribute("style", CHIP_STYLE);
+  span.textContent = `📎 ${b.name}`;
+  return span;
+}
+
+const BLOCK_TAGS = new Set([
+  "DIV", "P", "LI", "UL", "OL", "BLOCKQUOTE",
+  "H1", "H2", "H3", "H4", "H5", "H6", "TR", "SECTION",
+]);
+
+// Walk the editor DOM in document order → ordered blocks. Text runs collapse
+// into text blocks; <img>/file-chips become file blocks in place.
+function serialize(root: HTMLElement): DocBlock[] {
+  const blocks: DocBlock[] = [];
+  let buf = "";
+  const flush = () => {
+    const t = buf
+      .replace(/ /g, " ")
+      .replace(/[ \t]+\n/g, "\n")
+      .replace(/\n{3,}/g, "\n\n")
+      .trim();
+    if (t) blocks.push({ type: "text", text: t });
+    buf = "";
+  };
+  const pushFile = (el: HTMLElement) => {
+    flush();
+    const url = el.dataset.url || (el as HTMLImageElement).src || "";
+    if (!url) return;
+    const size = el.dataset.size ? Number(el.dataset.size) : undefined;
+    blocks.push({
+      type: "file",
+      name: el.dataset.name || "file",
+      url,
+      mimeType: el.dataset.mime || undefined,
+      size: Number.isFinite(size) ? size : undefined,
+    });
+  };
+  const walk = (node: Node) => {
+    node.childNodes.forEach((child) => {
+      if (child.nodeType === Node.TEXT_NODE) {
+        buf += child.textContent ?? "";
+      } else if (child.nodeType === Node.ELEMENT_NODE) {
+        const el = child as HTMLElement;
+        if (el.tagName === "IMG" || el.dataset.file === "1") {
+          pushFile(el);
+        } else if (el.tagName === "BR") {
+          buf += "\n";
+        } else {
+          const block = BLOCK_TAGS.has(el.tagName);
+          if (block && buf && !buf.endsWith("\n")) buf += "\n";
+          walk(el);
+          if (block) buf += "\n";
+        }
+      }
+    });
+  };
+  walk(root);
+  flush();
+  return blocks;
+}
+
+function filesFromDataTransfer(dt: DataTransfer): File[] {
+  const out: File[] = [];
+  if (dt.files && dt.files.length) out.push(...Array.from(dt.files));
+  else if (dt.items) {
+    for (const it of Array.from(dt.items)) {
+      if (it.kind === "file") {
+        const f = it.getAsFile();
+        if (f) out.push(f);
+      }
+    }
+  }
+  return out.filter((f) => f.size > 0);
+}
+
 /**
- * Email/document-style comment composer: an ordered stack of blocks that
- * interleaves editable text and uploaded files (images inline, documents as
- * chips) in the author's order. Attach / paste / drop inserts a file where
- * you are; each block can be reordered or removed. The last block is always
- * a text block, so there's always a line to keep typing on below.
+ * Email-style comment composer: a single editable surface where you type
+ * freely and drop / paste / attach images and files inline, exactly where
+ * the caret is — like writing an email. Content is serialised straight from
+ * the DOM on send (so text is always captured).
  */
 export function DocumentComposer({
   uploadUrl,
@@ -59,7 +152,7 @@ export function DocumentComposer({
   onCancel,
   submitLabel = "Send",
   sending = false,
-  placeholder = "Write here… attach or paste images anywhere.",
+  placeholder = "Write here… paste or drop images right where you want them.",
 }: {
   uploadUrl: string;
   initial?: DocBlock[];
@@ -70,20 +163,37 @@ export function DocumentComposer({
   sending?: boolean;
   placeholder?: string;
 }) {
-  const [blocks, setBlocks] = useState<EditorBlock[]>(
-    initial && initial.length ? withIds(initial) : [{ type: "text", text: "", _id: newId() }],
-  );
+  const editorRef = useRef<HTMLDivElement>(null);
+  const savedRange = useRef<Range | null>(null);
+  const attachRef = useRef<HTMLInputElement>(null);
   const [uploading, setUploading] = useState(false);
-  // Which block index last had focus — so Attach/paste inserts right there.
-  const focusedIndex = useRef<number>(0);
+  const [empty, setEmpty] = useState(true);
+  const [canSend, setCanSend] = useState(false);
 
-  function normalize(list: EditorBlock[]): EditorBlock[] {
-    // Guarantee at least one block and a trailing text block to type on.
-    let next = list.length ? list : [{ type: "text", text: "", _id: newId() } as EditorBlock];
-    const last = next[next.length - 1];
-    if (last.type !== "text")
-      next = [...next, { type: "text", text: "", _id: newId() }];
-    return next;
+  // Seed the editor once (edit mode) and set initial state.
+  useEffect(() => {
+    const el = editorRef.current;
+    if (!el) return;
+    if (initial && initial.length) el.innerHTML = blocksToHtml(initial);
+    syncState();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  function syncState() {
+    const el = editorRef.current;
+    if (!el) return;
+    const hasFiles = !!el.querySelector("img, [data-file]");
+    const hasText = (el.textContent ?? "").trim().length > 0;
+    setEmpty(!hasFiles && !hasText);
+    setCanSend(hasFiles || hasText);
+  }
+
+  function rememberSelection() {
+    const sel = window.getSelection();
+    const el = editorRef.current;
+    if (sel && sel.rangeCount > 0 && el && el.contains(sel.anchorNode)) {
+      savedRange.current = sel.getRangeAt(0).cloneRange();
+    }
   }
 
   async function upload(files: File[]): Promise<DocBlock[]> {
@@ -110,182 +220,138 @@ export function DocumentComposer({
     return done;
   }
 
-  async function insertFilesAfter(index: number, files: FileList | File[]) {
-    const arr = Array.from(files);
-    if (arr.length === 0) return;
+  function insertNodeAtSaved(node: HTMLElement) {
+    const editor = editorRef.current;
+    if (!editor) return;
+    editor.focus();
+    let range = savedRange.current;
+    if (!range || !editor.contains(range.commonAncestorContainer)) {
+      range = document.createRange();
+      range.selectNodeContents(editor);
+      range.collapse(false);
+    }
+    range.collapse(false);
+    // Put each file on its own line: wrap in a div, add a trailing line.
+    const wrap = document.createElement("div");
+    wrap.appendChild(node);
+    range.insertNode(wrap);
+    const after = document.createElement("div");
+    after.appendChild(document.createElement("br"));
+    wrap.after(after);
+    const newRange = document.createRange();
+    newRange.setStart(after, 0);
+    newRange.collapse(true);
+    const sel = window.getSelection();
+    sel?.removeAllRanges();
+    sel?.addRange(newRange);
+    savedRange.current = newRange.cloneRange();
+  }
+
+  async function handleFiles(files: File[]) {
+    if (files.length === 0) return;
     setUploading(true);
-    const uploaded = await upload(arr);
+    const uploaded = await upload(files);
     setUploading(false);
-    if (uploaded.length === 0) return;
-    setBlocks((prev) => {
-      const next = [...prev];
-      const at = Math.min(Math.max(index + 1, 0), next.length);
-      next.splice(at, 0, ...uploaded.map((b) => ({ ...b, _id: newId() })));
-      return normalize(next);
-    });
+    for (const b of uploaded)
+      if (b.type === "file") insertNodeAtSaved(fileEl(b));
+    editorRef.current?.focus();
+    syncState();
   }
-
-  function setText(id: string, text: string) {
-    setBlocks((prev) => prev.map((b) => (b._id === id && b.type === "text" ? { ...b, text } : b)));
-  }
-  function removeBlock(id: string) {
-    setBlocks((prev) => normalize(prev.filter((b) => b._id !== id)));
-  }
-  function move(index: number, dir: -1 | 1) {
-    setBlocks((prev) => {
-      const j = index + dir;
-      if (j < 0 || j >= prev.length) return prev;
-      const next = [...prev];
-      [next[index], next[j]] = [next[j], next[index]];
-      return next;
-    });
-  }
-  function addTextBlock() {
-    setBlocks((prev) => [...prev, { type: "text", text: "", _id: newId() }]);
-  }
-
-  const attachRef = useRef<HTMLInputElement>(null);
-
-  const hasContent = blocks.some(
-    (b) => (b.type === "text" && b.text.trim()) || b.type === "file",
-  );
 
   async function submit() {
-    if (!hasContent || sending || uploading) return;
-    const payload: DocBlock[] = blocks.map(toDocBlock);
-    const ok = await onSubmit(payload);
-    if (ok) setBlocks([{ type: "text", text: "", _id: newId() }]);
+    const editor = editorRef.current;
+    if (!editor || sending || uploading) return;
+    const blocks = serialize(editor);
+    if (blocks.length === 0) return;
+    const ok = await onSubmit(blocks);
+    if (ok) {
+      editor.innerHTML = "";
+      savedRange.current = null;
+      syncState();
+    }
   }
 
   return (
-    <div
-      className="rounded-lg border p-2"
-      onDragOver={(e) => e.preventDefault()}
-      onDrop={(e) => {
-        e.preventDefault();
-        if (e.dataTransfer.files?.length)
-          void insertFilesAfter(blocks.length - 1, e.dataTransfer.files);
-      }}
-    >
+    <div className="rounded-lg border">
       <input
         ref={attachRef}
         type="file"
         multiple
         className="hidden"
         onChange={(e) => {
-          if (e.target.files)
-            void insertFilesAfter(focusedIndex.current, e.target.files);
+          if (e.target.files) void handleFiles(Array.from(e.target.files));
           e.target.value = "";
         }}
       />
 
-      <div className="space-y-1.5">
-        {blocks.map((b, i) => (
-          <div key={b._id} className="group/blk flex items-start gap-1.5">
-            <div className="min-w-0 flex-1">
-              {b.type === "text" ? (
-                <textarea
-                  rows={2}
-                  value={b.text}
-                  placeholder={i === 0 ? placeholder : "Write…"}
-                  onFocus={() => (focusedIndex.current = i)}
-                  onInput={(e) => {
-                    const t = e.currentTarget;
-                    t.style.height = "auto";
-                    t.style.height = `${t.scrollHeight}px`;
-                  }}
-                  onPaste={(e) => {
-                    const files = Array.from(e.clipboardData.files);
-                    if (files.length > 0) {
-                      e.preventDefault();
-                      void insertFilesAfter(i, files);
-                    }
-                  }}
-                  onChange={(e) => setText(b._id, e.target.value)}
-                  className="w-full resize-none rounded-md border-0 bg-transparent px-1 py-1 text-sm text-slate-800 placeholder:text-slate-400 focus:outline-none [overflow-wrap:anywhere]"
-                />
-              ) : isImage(b) ? (
-                <a href={b.url} target="_blank" rel="noopener" className="block">
-                  {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img
-                    src={b.url}
-                    alt={b.name}
-                    className="max-h-52 max-w-full rounded-lg border object-contain"
-                  />
-                </a>
-              ) : (
-                <div className="inline-flex items-center gap-2 rounded-md border bg-slate-50 px-2.5 py-1.5 text-xs font-medium text-slate-700">
-                  <FileText className="h-4 w-4 text-slate-400" />
-                  <span className="max-w-[220px] truncate">{b.name}</span>
-                </div>
-              )}
-            </div>
-            {/* Per-block controls (reorder / remove) — files always; text on hover. */}
-            <div
-              className={
-                "flex shrink-0 flex-col items-center gap-0.5 pt-1 transition-opacity " +
-                (b.type === "file"
-                  ? "opacity-60 group-hover/blk:opacity-100"
-                  : "opacity-0 group-hover/blk:opacity-100")
-              }
-            >
-              <button
-                type="button"
-                title="Move up"
-                disabled={i === 0}
-                onClick={() => move(i, -1)}
-                className="text-slate-400 hover:text-slate-700 disabled:opacity-30"
-              >
-                <ArrowUp className="h-3.5 w-3.5" />
-              </button>
-              <button
-                type="button"
-                title="Move down"
-                disabled={i === blocks.length - 1}
-                onClick={() => move(i, 1)}
-                className="text-slate-400 hover:text-slate-700 disabled:opacity-30"
-              >
-                <ArrowDown className="h-3.5 w-3.5" />
-              </button>
-              {/* Don't allow removing the sole trailing text block. */}
-              {!(b.type === "text" && blocks.length === 1) && (
-                <button
-                  type="button"
-                  title="Remove"
-                  onClick={() => removeBlock(b._id)}
-                  className="text-slate-400 hover:text-[var(--c-red)]"
-                >
-                  <X className="h-3.5 w-3.5" />
-                </button>
-              )}
-            </div>
+      <div className="relative">
+        {empty && (
+          <div className="pointer-events-none absolute left-3 top-2 text-sm text-slate-400">
+            {placeholder}
           </div>
-        ))}
+        )}
+        <div
+          ref={editorRef}
+          contentEditable
+          suppressContentEditableWarning
+          role="textbox"
+          aria-multiline="true"
+          className="max-h-80 min-h-[4.5rem] overflow-y-auto px-3 py-2 text-sm text-slate-800 focus:outline-none [overflow-wrap:anywhere]"
+          onInput={() => syncState()}
+          onBlur={rememberSelection}
+          onKeyUp={rememberSelection}
+          onMouseUp={rememberSelection}
+          onPaste={(e) => {
+            const files = filesFromDataTransfer(e.clipboardData);
+            if (files.length > 0) {
+              e.preventDefault();
+              rememberSelection();
+              void handleFiles(files);
+            } else {
+              // Paste as plain text (strip external formatting).
+              e.preventDefault();
+              const text = e.clipboardData.getData("text/plain");
+              document.execCommand("insertText", false, text);
+              syncState();
+            }
+          }}
+          onDragOver={(e) => e.preventDefault()}
+          onDrop={(e) => {
+            const files = filesFromDataTransfer(e.dataTransfer);
+            if (files.length > 0) {
+              e.preventDefault();
+              const cd = document as Document & {
+                caretRangeFromPoint?: (x: number, y: number) => Range | null;
+              };
+              const r = cd.caretRangeFromPoint
+                ? cd.caretRangeFromPoint(e.clientX, e.clientY)
+                : null;
+              if (r) savedRange.current = r;
+              void handleFiles(files);
+            }
+          }}
+        />
       </div>
 
-      <div className="mt-2 flex items-center justify-between gap-2 border-t pt-2">
-        <div className="flex items-center gap-1">
-          <button
-            type="button"
-            onClick={() => attachRef.current?.click()}
-            disabled={uploading}
-            className="inline-flex items-center gap-1.5 rounded-md px-2 py-1 text-xs font-medium text-slate-500 hover:bg-slate-100 hover:text-slate-700 disabled:opacity-50"
-          >
-            {uploading ? (
-              <Loader2 className="h-3.5 w-3.5 animate-spin" />
-            ) : (
-              <Paperclip className="h-3.5 w-3.5" />
-            )}
-            {uploading ? "Uploading…" : "Attach image / file"}
-          </button>
-          <button
-            type="button"
-            onClick={addTextBlock}
-            className="inline-flex items-center gap-1.5 rounded-md px-2 py-1 text-xs font-medium text-slate-500 hover:bg-slate-100 hover:text-slate-700"
-          >
-            <Plus className="h-3.5 w-3.5" /> Text
-          </button>
-        </div>
+      <div className="flex items-center justify-between gap-2 border-t px-2 py-1.5">
+        <button
+          type="button"
+          onMouseDown={(e) => {
+            // Keep the editor selection so the file lands where the caret is.
+            e.preventDefault();
+            rememberSelection();
+          }}
+          onClick={() => attachRef.current?.click()}
+          disabled={uploading}
+          className="inline-flex items-center gap-1.5 rounded-md px-2 py-1 text-xs font-medium text-slate-500 hover:bg-slate-100 hover:text-slate-700 disabled:opacity-50"
+        >
+          {uploading ? (
+            <Loader2 className="h-3.5 w-3.5 animate-spin" />
+          ) : (
+            <Paperclip className="h-3.5 w-3.5" />
+          )}
+          {uploading ? "Uploading…" : "Attach image / file"}
+        </button>
         <div className="flex items-center gap-2">
           {onCancel && (
             <Button type="button" variant="ghost" size="sm" onClick={onCancel}>
@@ -296,7 +362,7 @@ export function DocumentComposer({
             type="button"
             variant="brand"
             size="sm"
-            disabled={!hasContent || sending || uploading}
+            disabled={!canSend || sending || uploading}
             onClick={submit}
           >
             {sending ? "Sending…" : submitLabel}
