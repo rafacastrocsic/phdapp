@@ -168,7 +168,6 @@ export function DocumentComposer({
   const attachRef = useRef<HTMLInputElement>(null);
   const [uploading, setUploading] = useState(false);
   const [empty, setEmpty] = useState(true);
-  const [canSend, setCanSend] = useState(false);
 
   // Seed the editor once (edit mode) and set initial state.
   useEffect(() => {
@@ -185,7 +184,6 @@ export function DocumentComposer({
     const hasFiles = !!el.querySelector("img, [data-file]");
     const hasText = (el.textContent ?? "").trim().length > 0;
     setEmpty(!hasFiles && !hasText);
-    setCanSend(hasFiles || hasText);
   }
 
   function rememberSelection() {
@@ -262,7 +260,10 @@ export function DocumentComposer({
     const editor = editorRef.current;
     if (!editor || sending || uploading) return;
     const blocks = serialize(editor);
-    if (blocks.length === 0) return;
+    if (blocks.length === 0) {
+      editor.focus();
+      return;
+    }
     const ok = await onSubmit(blocks);
     if (ok) {
       editor.innerHTML = "";
@@ -362,7 +363,7 @@ export function DocumentComposer({
             type="button"
             variant="brand"
             size="sm"
-            disabled={!canSend || sending || uploading}
+            disabled={sending || uploading}
             onClick={submit}
           >
             {sending ? "Sending…" : submitLabel}
