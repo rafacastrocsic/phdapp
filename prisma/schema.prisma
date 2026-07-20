@@ -516,7 +516,15 @@ model Comment {
   // JSON array of { name, url, mimeType, size } — email-style attachments
   // (images + documents) on a comment. Currently only populated by the
   // Discussions module; stored in permanent Blob storage. Null = none.
+  // Derived from `blocks` (the file blocks) when a document-style comment
+  // is posted, so existing "has attachments" logic keeps working.
   attachments   String?
+  // JSON ordered array of content blocks — a document-style comment that
+  // interleaves text and files in the order the author placed them:
+  //   [{ "type":"text", "text":"…" }, { "type":"file", "name","url",… }, …]
+  // Discussions only. When present it is the render source of truth; older
+  // comments (body + attachments, no blocks) still render via the fallback.
+  blocks        String?
   createdAt     DateTime     @default(now())
   editedAt      DateTime? // set when the author edits; drives the "edited" mark
 

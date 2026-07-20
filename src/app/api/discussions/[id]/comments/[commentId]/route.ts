@@ -4,9 +4,19 @@ import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
 import { isAdmin, type Role } from "@/lib/access";
 import { isSeniorTeam, canSeeVisibility } from "@/lib/discussions-access";
-import { parseAttachments } from "@/lib/comment-attachments";
+import {
+  parseAttachments,
+  parseBlocks,
+  BlockInput,
+  sanitiseBlocks,
+  blocksToText,
+  blocksToAttachments,
+} from "@/lib/comment-attachments";
 
-const Body = z.object({ body: z.string().min(1) });
+const Body = z.object({
+  blocks: z.array(BlockInput).max(200).optional(),
+  body: z.string().max(20000).optional(),
+});
 
 async function loadTopicComment(
   topicId: string,
@@ -54,10 +64,32 @@ export async function PATCH(
   const parsed = Body.safeParse(await req.json().catch(() => null));
   if (!parsed.success)
     return NextResponse.json({ error: "bad input" }, { status: 400 });
+  const d = parsed.data;
+
+  const data: Record<string, unknown> = { editedAt: new Date() };
+  if (d.blocks && d.blocks.length > 0) {
+    // Full document edit — re-derive body + attachments from the blocks.
+    const blocks = sanitiseBlocks(d.blocks);
+    if (blocks.length === 0)
+      return NextResponse.json(
+        { error: "Add some text or an attachment." },
+        { status: 400 },
+      );
+    data.blocks = JSON.stringify(blocks);
+    data.body = blocksToText(blocks);
+    const att = blocksToAttachments(blocks);
+    data.attachments = att.length > 0 ? JSON.stringify(att) : null;
+  } else {
+    // Legacy plain-text edit (old comments / other modules).
+    const text = (d.body ?? "").trim();
+    if (!text)
+      return NextResponse.json({ error: "bad input" }, { status: 400 });
+    data.body = text;
+  }
 
   const c = await prisma.comment.update({
     where: { id: commentId },
-    data: { body: parsed.data.body, editedAt: new Date() },
+    data,
     include: { author: { select: { name: true, image: true, color: true } } },
   });
   return NextResponse.json({
@@ -69,6 +101,7 @@ export async function PATCH(
       createdAt: c.createdAt.toISOString(),
       editedAt: c.editedAt?.toISOString() ?? null,
       attachments: parseAttachments(c.attachments),
+      blocks: parseBlocks(c.blocks),
       mine: true,
     },
   });

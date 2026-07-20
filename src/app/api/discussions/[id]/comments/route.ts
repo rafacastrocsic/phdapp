@@ -14,11 +14,18 @@ import {
   AttachmentInput,
   sanitiseAttachments,
   parseAttachments,
+  BlockInput,
+  sanitiseBlocks,
+  blocksToText,
+  blocksToAttachments,
+  parseBlocks,
+  type CommentBlock,
 } from "@/lib/comment-attachments";
 
 const Body = z.object({
-  // Body OR attachments (or both) — an attachment-only comment is allowed,
-  // email-style.
+  // Preferred: an ordered document (text + file blocks). Legacy body /
+  // attachments are still accepted and folded into blocks below.
+  blocks: z.array(BlockInput).max(200).optional(),
   body: z.string().max(20000).optional(),
   parentId: z.string().nullable().optional(),
   attachments: z.array(AttachmentInput).max(20).optional(),
@@ -80,6 +87,7 @@ export async function GET(
       createdAt: c.createdAt.toISOString(),
       editedAt: c.editedAt?.toISOString() ?? null,
       attachments: parseAttachments(c.attachments),
+      blocks: parseBlocks(c.blocks),
       mine: c.author.id === session.user.id,
     })),
   });
@@ -105,13 +113,25 @@ export async function POST(
   if (!parsed.success)
     return NextResponse.json({ error: "bad input" }, { status: 400 });
 
-  const body = (parsed.data.body ?? "").trim();
-  const attachments = sanitiseAttachments(parsed.data.attachments ?? []);
-  if (!body && attachments.length === 0)
+  // Build the ordered block list. Prefer explicit `blocks`; otherwise fold
+  // any legacy body + attachments into an equivalent block sequence.
+  let blocks: CommentBlock[] =
+    parsed.data.blocks && parsed.data.blocks.length > 0
+      ? sanitiseBlocks(parsed.data.blocks)
+      : [];
+  if (blocks.length === 0) {
+    const legacyText = (parsed.data.body ?? "").trim();
+    if (legacyText) blocks.push({ type: "text", text: legacyText });
+    for (const a of sanitiseAttachments(parsed.data.attachments ?? []))
+      blocks.push({ type: "file", ...a });
+  }
+  if (blocks.length === 0)
     return NextResponse.json(
       { error: "Add some text or an attachment." },
       { status: 400 },
     );
+  const body = blocksToText(blocks);
+  const attachments = blocksToAttachments(blocks);
 
   let parentId: string | null = null;
   if (parsed.data.parentId) {
@@ -131,6 +151,7 @@ export async function POST(
       body,
       attachments:
         attachments.length > 0 ? JSON.stringify(attachments) : null,
+      blocks: JSON.stringify(blocks),
       authorId: session.user.id,
     },
     include: { author: { select: { name: true, image: true, color: true } } },
@@ -172,6 +193,7 @@ export async function POST(
       createdAt: c.createdAt.toISOString(),
       editedAt: null as string | null,
       attachments,
+      blocks,
       mine: true,
     },
   });
