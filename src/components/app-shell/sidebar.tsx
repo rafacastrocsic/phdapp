@@ -18,6 +18,7 @@ import {
   Shield,
   BookOpen,
   Megaphone,
+  Lightbulb,
   ChevronLeft,
   ChevronRight,
   X as XIcon,
@@ -42,6 +43,7 @@ const NAV: Nav[] = [
   { href: "/reading", label: "Reading", icon: BookOpen, color: "var(--c-violet)" },
   { href: "/files", label: "Files", icon: FolderOpen, color: "var(--c-blue)" },
   { href: "/chat", label: "Chat", icon: MessagesSquare, color: "var(--c-green)" },
+  { href: "/discussions", label: "Discussions", icon: Lightbulb, color: "var(--c-violet)" },
   { href: "/log", label: "Log book", icon: ScrollText, color: "var(--c-red)" },
   { href: "/team", label: "Team", icon: Users, color: "var(--c-yellow)", hideFor: ["student"] },
   { href: "/feedback", label: "Feedback", icon: Megaphone, color: "var(--c-violet)" },
@@ -73,6 +75,7 @@ export function Sidebar({
   const unreadReading = unread?.reading?.count ?? 0;
   const unreadTeam = unread?.team?.count ?? 0;
   const unreadFeedback = unread?.feedback?.count ?? 0;
+  const unreadDiscussions = unread?.discussions?.count ?? 0;
   const [collapsed, setCollapsed] = useState(false);
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -181,7 +184,9 @@ export function Sidebar({
                       ? unreadTeam
                       : item.href === "/feedback"
                         ? unreadFeedback
-                        : 0;
+                        : item.href === "/discussions"
+                          ? unreadDiscussions
+                          : 0;
           const unreadColor =
             item.href === "/chat"
               ? "var(--c-pink)"
@@ -193,7 +198,9 @@ export function Sidebar({
                     ? "var(--c-yellow)"
                     : item.href === "/feedback"
                       ? "var(--c-violet)"
-                      : "var(--c-teal)";
+                      : item.href === "/discussions"
+                        ? "var(--c-violet)"
+                        : "var(--c-teal)";
           const unreadLabel =
             item.href === "/chat"
               ? `${unread} unread message${unread === 1 ? "" : "s"}`
@@ -205,7 +212,9 @@ export function Sidebar({
                     ? `${unread} new advisor suggestion${unread === 1 ? "" : "s"}`
                     : item.href === "/feedback"
                       ? `${unread} feedback update${unread === 1 ? "" : "s"}`
-                      : `${unread} new event change${unread === 1 ? "" : "s"}`;
+                      : item.href === "/discussions"
+                        ? `${unread} discussion update${unread === 1 ? "" : "s"}`
+                        : `${unread} new event change${unread === 1 ? "" : "s"}`;
           return (
             <Link
               key={item.href}

@@ -34,6 +34,7 @@ export function CommentsThread({
   initialCount,
   emptyHint = "No comments yet.",
   composerPlaceholder = "Add a comment…",
+  readOnly = false,
 }: {
   /** e.g. `/api/tickets/<id>/comments` or `/api/calendar/events/<id>/comments` */
   apiBase: string;
@@ -41,6 +42,9 @@ export function CommentsThread({
   initialCount?: number;
   emptyHint?: string;
   composerPlaceholder?: string;
+  /** Hide the composer + Reply affordance (e.g. a closed thread). Existing
+   *  comments still render; authors can still edit/delete their own. */
+  readOnly?: boolean;
 }) {
   const [items, setItems] = useState<C[] | null>(null);
   const [canModerate, setCanModerate] = useState(false);
@@ -178,7 +182,7 @@ export function CommentsThread({
             {editingId !== c.id && (
               <div className="flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
                 {/* Only top-level comments accept replies (1 level deep). */}
-                {!isReply && (
+                {!isReply && !readOnly && (
                   <button
                     type="button"
                     onClick={() => {
@@ -306,27 +310,29 @@ export function CommentsThread({
           <p className="text-xs text-slate-400 italic">{emptyHint}</p>
         )}
       </div>
-      <form
-        onSubmit={send}
-        className={cn(
-          "mt-3 flex gap-2",
-          grouped.length === 0 && "mt-2",
-        )}
-      >
-        <Input
-          value={body}
-          onChange={(e) => setBody(e.target.value)}
-          placeholder={composerPlaceholder}
-        />
-        <Button
-          type="submit"
-          variant="default"
-          size="sm"
-          disabled={sending || !body.trim()}
+      {!readOnly && (
+        <form
+          onSubmit={send}
+          className={cn(
+            "mt-3 flex gap-2",
+            grouped.length === 0 && "mt-2",
+          )}
         >
-          Send
-        </Button>
-      </form>
+          <Input
+            value={body}
+            onChange={(e) => setBody(e.target.value)}
+            placeholder={composerPlaceholder}
+          />
+          <Button
+            type="submit"
+            variant="default"
+            size="sm"
+            disabled={sending || !body.trim()}
+          >
+            Send
+          </Button>
+        </form>
+      )}
     </div>
   );
 }

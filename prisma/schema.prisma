@@ -28,6 +28,7 @@ model User {
   notificationsLastSeenAt DateTime?
   teamSuggestionsLastSeenAt DateTime?
   feedbackLastSeenAt DateTime?
+  discussionsLastSeenAt DateTime?
 
   // Admin-only visibility: when did this user actually use the app?
   //   lastLoginAt  — bumped in the NextAuth signIn event
@@ -78,6 +79,7 @@ model User {
   feedbackMessages      FeedbackMessage[] @relation("FeedbackMessageAuthor")
   pollsCreated          Poll[]            @relation("PollAuthor")
   pollVotes             PollVote[]        @relation("PollVoter")
+  topicsAuthored        Topic[]           @relation("TopicAuthor")
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -164,6 +166,7 @@ model Student {
   readingItems    ReadingItem[]
   checkIns        CheckIn[]
   taskGroups      TaskGroup[]
+  topics          Topic[]
 
   createdAt       DateTime  @default(now())
   updatedAt       DateTime  @updatedAt
@@ -490,21 +493,23 @@ model TicketTag {
   ticket   Ticket  @relation(fields: [ticketId], references: [id], onDelete: Cascade)
 }
 
-// Polymorphic: a Comment attaches to EITHER a Ticket (task) OR an Event.
-// Exactly one of ticketId/eventId must be set — DB CHECK enforces this.
+// Polymorphic: a Comment attaches to a Ticket (task), an Event, a
+// ReadingItem, OR a discussion Topic. Exactly one parent id is set.
 // Comments can also be threaded via parentId (1-level reply UX); the parent
-// lives in the same Ticket/Event as the reply (server enforces).
+// lives in the same entity as the reply (server enforces).
 model Comment {
   id            String       @id @default(cuid())
   body          String
   ticketId      String?
   eventId       String?
   readingItemId String?
+  topicId       String?
   parentId      String?
   authorId      String
   ticket        Ticket?      @relation(fields: [ticketId], references: [id], onDelete: Cascade)
   event         Event?       @relation("EventComments", fields: [eventId], references: [id], onDelete: Cascade)
   readingItem   ReadingItem? @relation("ReadingComments", fields: [readingItemId], references: [id], onDelete: Cascade)
+  topic         Topic?       @relation("TopicComments", fields: [topicId], references: [id], onDelete: Cascade)
   parent        Comment?     @relation("CommentReplies", fields: [parentId], references: [id], onDelete: Cascade)
   replies       Comment[]    @relation("CommentReplies")
   author        User         @relation(fields: [authorId], references: [id])
@@ -514,7 +519,47 @@ model Comment {
   @@index([ticketId])
   @@index([eventId])
   @@index([readingItemId])
+  @@index([topicId])
   @@index([parentId])
+}
+
+// ───────── Discussions (topic threads) ─────────
+//
+// A persistent, topic-first discussion space for the team — brainstorms,
+// open questions, "let's decide X". Unlike Chat (student-scoped, ephemeral
+// attachments), a Topic has a title, an opening post, a threaded comment
+// section (reuses the Comment table), a Links list, and an optional Drive
+// folder — none of which expire.
+//
+// visibility:
+//   "supervisors" → visible to admins + supervisors (covers co-supervisors
+//                   and team advisors, who carry the supervisor role)
+//   "team"        → visible to everyone, students included
+// studentId is an OPTIONAL tag (metadata + shows on that student's profile);
+// it does NOT change who can read the topic — visibility alone governs that.
+model Topic {
+  id             String    @id @default(cuid())
+  title          String
+  body           String? // opening post (Markdown-ish plain text)
+  authorId       String
+  author         User      @relation("TopicAuthor", fields: [authorId], references: [id])
+  visibility     String    @default("supervisors") // "supervisors" | "team"
+  studentId      String? // optional tag — not an access control
+  student        Student?  @relation(fields: [studentId], references: [id], onDelete: SetNull)
+  // JSON array of { id, label, url } — mirrors Ticket.links / Event.links.
+  links          String?
+  driveFolderUrl String?
+  pinned         Boolean   @default(false)
+  closedAt       DateTime? // set when someone closes the thread (read-only-ish)
+  // Bumped whenever a comment is posted so the list can sort by real recency
+  // without a subquery. Seeded to createdAt.
+  lastActivityAt DateTime  @default(now())
+  comments       Comment[] @relation("TopicComments")
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+
+  @@index([visibility, lastActivityAt])
+  @@index([studentId])
 }
 
 // ───────── Calendar (mirrors Google Calendar) ─────────

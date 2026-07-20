@@ -14,6 +14,7 @@ import {
 } from "@/lib/chat-access";
 import { getDismissedTicketIds } from "@/lib/kanban-dismissed";
 import { getDismissedEventIds } from "@/lib/calendar-dismissed";
+import { isSeniorTeam } from "@/lib/discussions-access";
 
 // Aggregated unread-counts endpoint.
 //
@@ -46,6 +47,7 @@ export async function GET() {
       reading: { count: 0, version: null },
       team: { count: 0, version: null },
       feedback: { count: 0, version: null },
+      discussions: { count: 0, version: null },
       serverNow: new Date().toISOString(),
     });
   }
@@ -59,6 +61,7 @@ export async function GET() {
     readingBlob,
     teamBlob,
     feedbackBlob,
+    discussionsBlob,
   ] = await Promise.all([
     computeChat(userId),
     computeKanban(userId, role),
@@ -66,6 +69,7 @@ export async function GET() {
     computeReading(userId, role),
     computeTeam(userId, role),
     computeFeedback(userId, role),
+    computeDiscussions(userId, role),
   ]);
 
   return NextResponse.json({
@@ -75,6 +79,7 @@ export async function GET() {
     reading: readingBlob,
     team: teamBlob,
     feedback: feedbackBlob,
+    discussions: discussionsBlob,
     serverNow: new Date().toISOString(),
   });
 }
@@ -401,4 +406,50 @@ async function computeFeedback(userId: string, role: Role) {
     msgAgg._max.createdAt ? msgAgg._max.createdAt.toISOString() : null,
   );
   return { count: withLegacyReply + withNewMessage, version };
+}
+
+// ─── discussions ─────────────────────────────────────────────────────────
+// New topics + new comments since the user last visited /discussions, by
+// someone other than them, within their visibility (senior team sees all;
+// everyone else sees "team" topics only).
+async function computeDiscussions(userId: string, role: Role) {
+  const me = await prisma.user.findUnique({
+    where: { id: userId },
+    select: { discussionsLastSeenAt: true },
+  });
+  const since = me?.discussionsLastSeenAt ?? new Date(0);
+  const senior = await isSeniorTeam(userId, role);
+
+  // Visibility fragments: topics list vs. the topic behind a comment.
+  const topicWhere = senior ? {} : { visibility: "team" };
+  const commentTopicWhere = senior
+    ? { topicId: { not: null } }
+    : { topic: { visibility: "team" } };
+
+  const [newTopics, newComments, topicAgg, commentAgg] = await Promise.all([
+    prisma.topic.count({
+      where: { ...topicWhere, authorId: { not: userId }, createdAt: { gt: since } },
+    }),
+    prisma.comment.count({
+      where: {
+        ...commentTopicWhere,
+        authorId: { not: userId },
+        createdAt: { gt: since },
+      },
+    }),
+    prisma.topic.aggregate({
+      where: { ...topicWhere, authorId: { not: userId } },
+      _max: { createdAt: true },
+    }),
+    prisma.comment.aggregate({
+      where: { ...commentTopicWhere, authorId: { not: userId } },
+      _max: { createdAt: true },
+    }),
+  ]);
+
+  const version = maxIso(
+    topicAgg._max.createdAt ? topicAgg._max.createdAt.toISOString() : null,
+    commentAgg._max.createdAt ? commentAgg._max.createdAt.toISOString() : null,
+  );
+  return { count: newTopics + newComments, version };
 }

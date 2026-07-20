@@ -41,6 +41,7 @@ export interface UnreadData {
   reading: { count: number; version: string | null };
   team: { count: number; version: string | null };
   feedback: { count: number; version: string | null };
+  discussions: { count: number; version: string | null };
   serverNow?: string;
 }
 
@@ -182,7 +183,14 @@ export function useUnread() {
  * drives every page's freshness.
  */
 export function useSectionVersion(
-  section: "chat" | "kanban" | "calendar" | "reading" | "team" | "feedback",
+  section:
+    | "chat"
+    | "kanban"
+    | "calendar"
+    | "reading"
+    | "team"
+    | "feedback"
+    | "discussions",
 ): string | null {
   const { data } = useUnread();
   return data?.[section]?.version ?? null;
