@@ -265,6 +265,9 @@ model MetricSnapshot {
   messages7         Int
   checkinRatePct    Int?
   meetingsWithNotes Int
+  // Discussion comments in the trailing 30d window. Added after the first
+  // snapshots existed, so older rows default to 0 (history builds forward).
+  discussionComments30 Int @default(0)
   data              String // full JSON blob of the Metrics object
   createdAt         DateTime @default(now())
   updatedAt         DateTime @updatedAt

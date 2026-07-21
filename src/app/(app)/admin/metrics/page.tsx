@@ -17,6 +17,7 @@ import {
   FolderOpen,
   Clock,
   Layers,
+  Lightbulb,
   TrendingUp,
 } from "lucide-react";
 
@@ -152,6 +153,12 @@ export default async function MetricsPage() {
                   latest={trend[trend.length - 1]!.meetingsWithNotes}
                   color="var(--c-pink)"
                 />
+                <TrendCell
+                  label="Discussion comments (30d window)"
+                  values={trend.map((t) => t.discussionComments30)}
+                  latest={trend[trend.length - 1]!.discussionComments30}
+                  color="var(--c-violet)"
+                />
               </div>
               <p className="text-[11px] text-slate-400 pt-4">
                 Last {trend.length} daily snapshot{trend.length === 1 ? "" : "s"}{" "}
@@ -211,7 +218,7 @@ export default async function MetricsPage() {
           <CardTitle>Module engagement (last 30 days)</CardTitle>
         </CardHeader>
         <CardContent className="p-5">
-          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
+          <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-7 gap-3">
             {m.modules.map((mod) => (
               <div
                 key={mod.key}
@@ -274,6 +281,26 @@ export default async function MetricsPage() {
               m.reading.medianApprovalHours === null
                 ? "—"
                 : `${m.reading.medianApprovalHours} h`,
+            ],
+          ]}
+        />
+        <DetailCard
+          icon={<Lightbulb className="h-4 w-4 text-[var(--c-violet)]" />}
+          title="Discussions"
+          rows={[
+            ["Topics (total)", num(m.discussions.totalTopics)],
+            ["New topics (30d)", num(m.discussions.topics30)],
+            ["Comments (30d)", num(m.discussions.comments30)],
+            ["People taking part (30d)", num(m.discussions.participants30)],
+            [
+              "Avg. comments per topic",
+              m.discussions.avgCommentsPerTopic === null
+                ? "—"
+                : `${m.discussions.avgCommentsPerTopic}`,
+            ],
+            [
+              "Comments with files",
+              num(m.discussions.commentsWithFiles),
             ],
           ]}
         />

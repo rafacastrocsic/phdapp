@@ -80,6 +80,15 @@ export interface Metrics {
     submissionRatePct: number | null;
     avgWellbeing: number | null; // last 4w
   };
+  // 8b — discussions (topic threads)
+  discussions: {
+    totalTopics: number;
+    topics30: number; // new topics in the last 30d
+    comments30: number; // comments on topics in the last 30d
+    participants30: number; // distinct topic authors + commenters (30d)
+    commentsWithFiles: number; // comments carrying images/documents
+    avgCommentsPerTopic: number | null;
+  };
   // 9 — resources consolidated
   resources: {
     studentsWithDrive: number;
@@ -119,6 +128,7 @@ export async function recordSnapshot(m: Metrics): Promise<void> {
     messages7: m.chat.messages7,
     checkinRatePct: m.checkins.submissionRatePct,
     meetingsWithNotes: m.meetings.withNotesOrAgenda,
+    discussionComments30: m.discussions.comments30,
     data: JSON.stringify(m),
   };
   await prisma.metricSnapshot.upsert({
@@ -136,6 +146,7 @@ export interface TrendPoint {
   messages7: number;
   checkinRatePct: number | null;
   meetingsWithNotes: number;
+  discussionComments30: number;
 }
 
 /** Last N daily snapshots, oldest → newest, for the trend charts. */
@@ -152,6 +163,7 @@ export async function getTrend(days = 90): Promise<TrendPoint[]> {
       messages7: true,
       checkinRatePct: true,
       meetingsWithNotes: true,
+      discussionComments30: true,
     },
   });
   return rows.map((r) => ({
@@ -162,6 +174,7 @@ export async function getTrend(days = 90): Promise<TrendPoint[]> {
     messages7: r.messages7,
     checkinRatePct: r.checkinRatePct,
     meetingsWithNotes: r.meetingsWithNotes,
+    discussionComments30: r.discussionComments30,
   }));
 }
 
@@ -217,6 +230,8 @@ export async function computeMetrics(): Promise<Metrics> {
     readingActors,
     commentActors,
     checkinActors,
+    topicActors,
+    topicCommentActors,
   ] = await Promise.all([
     prisma.ticket.findMany({
       where: { createdAt: { gte: d30 } },
@@ -238,8 +253,10 @@ export async function computeMetrics(): Promise<Metrics> {
       select: { addedById: true },
       distinct: ["addedById"],
     }),
+    // Scoped to non-discussion comments (tasks / events / readings) so the
+    // Discussions module below isn't double-counted here.
     prisma.comment.findMany({
-      where: { createdAt: { gte: d30 } },
+      where: { createdAt: { gte: d30 }, topicId: null },
       select: { authorId: true },
       distinct: ["authorId"],
     }),
@@ -247,12 +264,32 @@ export async function computeMetrics(): Promise<Metrics> {
       where: { createdAt: { gte: d30 }, student: { userId: { not: null } } },
       select: { student: { select: { userId: true } } },
     }),
+    prisma.topic.findMany({
+      where: { createdAt: { gte: d30 } },
+      select: { authorId: true },
+      distinct: ["authorId"],
+    }),
+    prisma.comment.findMany({
+      where: { createdAt: { gte: d30 }, topicId: { not: null } },
+      select: { authorId: true },
+      distinct: ["authorId"],
+    }),
+  ]);
+  // Someone "used Discussions" if they opened a topic or commented in one.
+  const discussionParticipants = new Set<string>([
+    ...topicActors.map((t) => t.authorId),
+    ...topicCommentActors.map((c) => c.authorId),
   ]);
   const modules: Metrics["modules"] = [
     { key: "tasks", label: "Tasks", users: taskActors.length },
     { key: "calendar", label: "Calendar", users: eventActors.length },
     { key: "chat", label: "Chat", users: msgActors.length },
     { key: "reading", label: "Reading", users: readingActors.length },
+    {
+      key: "discussions",
+      label: "Discussions",
+      users: discussionParticipants.size,
+    },
     { key: "comments", label: "Comments", users: commentActors.length },
     {
       key: "checkins",
@@ -428,6 +465,36 @@ export async function computeMetrics(): Promise<Metrics> {
     })(),
   };
 
+  // ── Discussions (topic threads) ──
+  const [
+    totalTopics,
+    topics30,
+    discComments30,
+    discCommentsTotal,
+    discCommentsWithFiles,
+  ] = await Promise.all([
+    prisma.topic.count(),
+    prisma.topic.count({ where: { createdAt: { gte: d30 } } }),
+    prisma.comment.count({
+      where: { topicId: { not: null }, createdAt: { gte: d30 } },
+    }),
+    prisma.comment.count({ where: { topicId: { not: null } } }),
+    prisma.comment.count({
+      where: { topicId: { not: null }, attachments: { not: null } },
+    }),
+  ]);
+  const discussions: Metrics["discussions"] = {
+    totalTopics,
+    topics30,
+    comments30: discComments30,
+    participants30: discussionParticipants.size,
+    commentsWithFiles: discCommentsWithFiles,
+    avgCommentsPerTopic:
+      totalTopics > 0
+        ? Math.round((discCommentsTotal / totalTopics) * 10) / 10
+        : null,
+  };
+
   // ── Resources consolidated ──
   const [studentsWithDrive, thesisChapters, publications, starredFiles] =
     await Promise.all([
@@ -468,6 +535,7 @@ export async function computeMetrics(): Promise<Metrics> {
     reading,
     meetings,
     checkins,
+    discussions,
     resources,
     recency,
   };
