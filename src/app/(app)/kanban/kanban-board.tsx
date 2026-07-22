@@ -43,6 +43,23 @@ import { CommentsThread } from "@/components/comments-thread";
 import { LinksSection } from "@/components/links-section";
 import { useSectionVersion } from "@/components/app-shell/unread-provider";
 
+// How much of the Done column to show. Persisted per device.
+type DoneWindow = "7" | "14" | "30" | "all";
+const DONE_WINDOW_KEY = "phdapp.doneWindow";
+const DONE_WINDOW_LABEL: Record<DoneWindow, string> = {
+  "7": "7 days",
+  "14": "14 days",
+  "30": "30 days",
+  all: "All",
+};
+
+/** Completion instant in ms, or 0 when the task has no completedAt. */
+function completedMs(t: { completedAt?: string | null }): number {
+  if (!t.completedAt) return 0;
+  const ms = Date.parse(t.completedAt);
+  return Number.isFinite(ms) ? ms : 0;
+}
+
 export interface Ticket {
   id: string;
   title: string;
@@ -81,6 +98,10 @@ export interface Ticket {
   tags: { id: string; label: string; color: string }[];
   subtasks: Subtask[];
   completionRequestedAt?: string | null;
+  // Set when the task was moved to Done. Drives the Done column's rolling
+  // window + completion chart. Null on legacy rows completed before this
+  // was recorded — those are treated as "older".
+  completedAt?: string | null;
   group?: { id: string; name: string; color: string } | null;
   dependsOnIds?: string[];
   createdAt?: string;
@@ -184,6 +205,26 @@ export function KanbanBoard({
   const [draggingId, setDraggingId] = useState<string | null>(null);
   const [hoverStatus, setHoverStatus] = useState<string | null>(null);
   const [view, setView] = useState<"board" | "list" | "gantt">("board");
+  // Done piles up forever, so the column only shows what was completed
+  // recently; the rest folds into an expandable "+N older" row. The choice
+  // is remembered per device.
+  const [doneWindow, setDoneWindow] = useState<DoneWindow>("14");
+  const [showOlderDone, setShowOlderDone] = useState(false);
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const saved = window.localStorage.getItem(DONE_WINDOW_KEY);
+    if (saved === "7" || saved === "14" || saved === "30" || saved === "all")
+      setDoneWindow(saved);
+  }, []);
+  function changeDoneWindow(next: DoneWindow) {
+    setDoneWindow(next);
+    setShowOlderDone(false);
+    try {
+      window.localStorage.setItem(DONE_WINDOW_KEY, next);
+    } catch {
+      // ignore (private mode)
+    }
+  }
   // On mobile (< md) default to List view — the horizontal-scroll
   // Board with fixed w-80 columns is unusable at phone width, and
   // List is grouped/legible. Runs once on mount; users can still
@@ -246,6 +287,52 @@ export function KanbanBoard({
     for (const t of filtered) (m[t.status] ??= []).push(t);
     return m;
   }, [filtered]);
+
+  // ── Done column: recent vs older ──
+  // Done accumulates forever, so only tasks completed inside the selected
+  // window render by default (newest first); everything else — including
+  // legacy rows with no completedAt — folds behind a "+N older" toggle.
+  const doneSplit = useMemo(() => {
+    const all = [...(grouped.done ?? [])].sort(
+      (a, b) => completedMs(b) - completedMs(a),
+    );
+    if (doneWindow === "all") return { recent: all, older: [] as Ticket[] };
+    const cutoff = Date.now() - Number(doneWindow) * 86_400_000;
+    const recent: Ticket[] = [];
+    const older: Ticket[] = [];
+    for (const t of all) {
+      const ms = completedMs(t);
+      (ms > 0 && ms >= cutoff ? recent : older).push(t);
+    }
+    return { recent, older };
+  }, [grouped.done, doneWindow]);
+
+  // Completions per week for the last 8 weeks (oldest → newest) + the
+  // headline counts under the Done column's mini chart.
+  const doneStats = useMemo(() => {
+    const weeks = new Array(8).fill(0);
+    const now = Date.now();
+    let thisWeek = 0;
+    let thisMonth = 0;
+    for (const t of grouped.done ?? []) {
+      const ms = completedMs(t);
+      if (ms <= 0) continue;
+      const ageDays = (now - ms) / 86_400_000;
+      if (ageDays < 7) thisWeek++;
+      if (ageDays < 30) thisMonth++;
+      const bucket = 7 - Math.floor(ageDays / 7);
+      if (bucket >= 0 && bucket < 8) weeks[bucket]++;
+    }
+    return { weeks, thisWeek, thisMonth };
+  }, [grouped.done]);
+
+  /** Cards to render in a column — Done is windowed, the rest are as-is. */
+  function ticketsForColumn(colId: string): Ticket[] {
+    if (colId !== "done") return grouped[colId] ?? [];
+    return showOlderDone
+      ? [...doneSplit.recent, ...doneSplit.older]
+      : doneSplit.recent;
+  }
 
   // Version-gated refetch. Subscribes to the kanban section version
   // published by /api/unread via UnreadProvider. The provider's single
@@ -355,9 +442,22 @@ export function KanbanBoard({
       await requestCompletion(id);
       return;
     }
-    // optimistic
+    // optimistic — mirror the server's completedAt handling too, so a card
+    // dropped on Done lands inside the "recent" window straight away
+    // instead of being classed as older (i.e. hidden) until the next poll.
     setTickets((prev) =>
-      prev.map((t) => (t.id === id ? { ...t, status } : t)),
+      prev.map((t) =>
+        t.id === id
+          ? {
+              ...t,
+              status,
+              completedAt:
+                status === "done"
+                  ? t.completedAt ?? new Date().toISOString()
+                  : null,
+            }
+          : t,
+      ),
     );
     const res = await fetch(`/api/tickets/${id}`, {
       method: "PATCH",
@@ -539,6 +639,23 @@ export function KanbanBoard({
                     {grouped[col.id]?.length ?? 0}
                   </span>
                 </div>
+                {/* Done-only: how far back to show. */}
+                {col.id === "done" && (grouped.done?.length ?? 0) > 0 && (
+                  <select
+                    value={doneWindow}
+                    onChange={(e) =>
+                      changeDoneWindow(e.target.value as DoneWindow)
+                    }
+                    title="How much of Done to show"
+                    className="rounded-md border bg-white px-1.5 py-0.5 text-[10px] font-medium text-slate-600 focus:outline-none"
+                  >
+                    {(["7", "14", "30", "all"] as DoneWindow[]).map((w) => (
+                      <option key={w} value={w}>
+                        {DONE_WINDOW_LABEL[w]}
+                      </option>
+                    ))}
+                  </select>
+                )}
               </div>
               <div className="flex-1 overflow-y-auto px-2 pb-3 space-y-2">
                 {recentlyDeleted
@@ -558,7 +675,14 @@ export function KanbanBoard({
                       }
                     />
                   ))}
-                {(grouped[col.id] ?? []).map((t) => (
+                {col.id === "done" && (grouped.done?.length ?? 0) > 0 && (
+                  <DoneSummary
+                    weeks={doneStats.weeks}
+                    thisWeek={doneStats.thisWeek}
+                    thisMonth={doneStats.thisMonth}
+                  />
+                )}
+                {ticketsForColumn(col.id).map((t) => (
                   <TicketCard
                     key={t.id}
                     ticket={t}
@@ -593,6 +717,18 @@ export function KanbanBoard({
                     }}
                   />
                 ))}
+                {/* Done-only: fold everything outside the window. */}
+                {col.id === "done" && doneSplit.older.length > 0 && (
+                  <button
+                    type="button"
+                    onClick={() => setShowOlderDone((v) => !v)}
+                    className="block w-full rounded-lg border border-dashed border-slate-300 bg-white/60 px-3 py-2 text-left text-xs font-medium text-slate-500 hover:border-slate-400 hover:text-slate-700"
+                  >
+                    {showOlderDone
+                      ? "▾ Hide older completed"
+                      : `▸ ${doneSplit.older.length} older completed`}
+                  </button>
+                )}
                 {(grouped[col.id]?.length ?? 0) === 0 && (
                   <button
                     onClick={() => setNewOpen(true)}
@@ -1241,6 +1377,15 @@ function TicketDetailDialog({
     }
     setErr(null);
     const optimistic = { ...ticket, ...patch } as Ticket;
+    // Mirror the server's completedAt handling on a status change, so the
+    // board's Done window places the card correctly straight away rather
+    // than treating a freshly-completed task as "older" (i.e. hiding it).
+    if (patch.status !== undefined && patch.status !== ticket.status) {
+      optimistic.completedAt =
+        patch.status === "done"
+          ? ticket.completedAt ?? new Date().toISOString()
+          : null;
+    }
     onChange(optimistic);
     const res = await fetch(`/api/tickets/${ticket.id}`, {
       method: "PATCH",
@@ -2591,6 +2736,51 @@ function TaskListView({
           </section>
         );
       })}
+    </div>
+  );
+}
+
+/**
+ * Compact completion summary shown at the top of the Done column: a
+ * bar per week for the last 8 weeks, plus this-week / this-month counts.
+ * Turns a column you'd otherwise scroll past into a throughput signal.
+ */
+function DoneSummary({
+  weeks,
+  thisWeek,
+  thisMonth,
+}: {
+  weeks: number[];
+  thisWeek: number;
+  thisMonth: number;
+}) {
+  const max = Math.max(1, ...weeks);
+  return (
+    <div className="rounded-xl border bg-white px-3 py-2">
+      <div className="flex items-end gap-1 h-8" aria-hidden>
+        {weeks.map((v, i) => (
+          <div
+            key={i}
+            className="flex-1 rounded-sm"
+            style={{
+              height: `${Math.max(v > 0 ? 12 : 4, (v / max) * 100)}%`,
+              background:
+                i === weeks.length - 1 ? "var(--c-green)" : "#cbd5e1",
+            }}
+            title={`${v} completed ${
+              i === weeks.length - 1
+                ? "this week"
+                : `${weeks.length - 1 - i} week(s) ago`
+            }`}
+          />
+        ))}
+      </div>
+      <div className="mt-1.5 text-[11px] text-slate-500">
+        <span className="font-semibold text-slate-700">{thisWeek}</span> this
+        week ·{" "}
+        <span className="font-semibold text-slate-700">{thisMonth}</span> this
+        month
+      </div>
     </div>
   );
 }

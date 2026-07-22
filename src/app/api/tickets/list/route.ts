@@ -103,6 +103,7 @@ export async function GET(req: Request) {
       subtasks: parseSubtasks(t.subtasks),
       links: parseLinks(t.links),
       completionRequestedAt: t.completionRequestedAt?.toISOString() ?? null,
+      completedAt: t.completedAt?.toISOString() ?? null,
       group: t.group,
       dependsOnIds: t.dependsOn.map((x) => x.dependsOnId),
       createdAt: t.createdAt.toISOString(),

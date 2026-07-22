@@ -72,6 +72,12 @@ The **Tasks** module (orange icon, sidebar) is where most of the day-to-day work
 
 Toggle between them with the **Board / List / Gantt** switch at the top right.
 
+### The Done column
+
+So the Done column doesn't turn into an endless scroll, it only shows what you finished **recently** — by default the **last 14 days**, newest first. Use the small selector in the column header to change it (**7 days / 14 days / 30 days / All**); your choice is remembered on that device. Everything older folds into a single **"▸ N older completed"** row — click it to show them, click again to hide. Nothing is deleted: the number beside "Done" is still the full count.
+
+At the top of the column there's a small **completion chart** — one bar per week for the last 8 weeks, plus "N this week · N this month" — so you can see your own momentum at a glance.
+
 ### Grouping tasks (List view)
 
 **Create a group:** in **List** view each task row has a checkbox. Tick the tasks you want (all the same student — always you), type a **group name** in the bar that appears, and click **Create group**. If a group already exists you can instead pick **Add to existing group…** in that same bar to drop the selected tasks into it.

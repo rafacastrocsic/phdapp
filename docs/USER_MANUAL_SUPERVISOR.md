@@ -110,6 +110,16 @@ The **Tasks** module is the heart of the app. Tasks are work items you assign to
 
 Toggle with **Board / List / Gantt** at the top right.
 
+### The Done column (recent-first, with a rollup)
+
+Done would otherwise grow forever and bury the board in scrolling, so it only shows what was **completed recently**:
+
+- **A rolling window.** By default the column lists tasks completed in the **last 14 days**, newest first. The small selector in the column header switches it — **7 days / 14 days / 30 days / All** — and your choice is remembered on that device.
+- **Everything older folds up.** Below the recent cards a single row reads **"▸ N older completed"**; click it to expand them in place, click again to hide. Nothing is deleted or archived — the count badge next to "Done" is still the true total.
+- **A completion mini-chart** sits at the top of the column: one bar per week for the last 8 weeks (the last bar, in green, is the current week) plus **"N this week · N this month"**. It turns Done from a dumping ground into a throughput signal — handy for a progress screenshot.
+
+Tasks completed long ago that pre-date this feature have no recorded completion date; they're treated as "older" and live behind the rollup.
+
 ### Task dependencies
 
 When creating or editing a task, the **Depends on** field is a drop-down **selector**: choose a parent task and it appears as a removable chip (× to drop it). You can depend on one or more existing tasks of the **same student** (cross-student links and dependency loops are rejected). The app then keeps the status in sync automatically:
