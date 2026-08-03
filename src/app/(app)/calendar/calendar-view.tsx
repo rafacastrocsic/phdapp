@@ -129,6 +129,16 @@ type LinkableTask = {
   studentName: string;
 };
 
+export interface AvailabilitySummaryItem {
+  id: string;
+  who: string;
+  startsAt: string;
+  endsAt: string;
+  reason: string | null;
+  kind: string; // away | remote | busy
+  mine: boolean;
+}
+
 export function CalendarView({
   viewerRole,
   viewerStudentId,
@@ -138,6 +148,8 @@ export function CalendarView({
   tasks,
   availability,
   myAvailability,
+  availabilitySummary = [],
+  nowIso,
   initialStudent,
   highlightByEvent: initialHighlights,
   holidays = [],
@@ -174,6 +186,11 @@ export function CalendarView({
     label: string | null;
     kind: string;
   }[];
+  // Everyone's away/remote periods for the next 30 days (anchored to
+  // page-load, independent of the visible month). Powers the "Team
+  // availability" summary dialog.
+  availabilitySummary?: AvailabilitySummaryItem[];
+  nowIso?: string;
   initialStudent: string | null;
   initialMonth: string | null;
   highlightByEvent?: Record<string, "new" | "updated">;
@@ -227,6 +244,7 @@ export function CalendarView({
   const [events, setEvents] = useState<Event[]>(initial);
   const [newOpen, setNewOpen] = useState(false);
   const [availOpen, setAvailOpen] = useState(false);
+  const [summaryOpen, setSummaryOpen] = useState(false);
   const [availDay, setAvailDay] = useState<Date | null>(null);
   // Locally-deleted availability row ids — used to optimistically
   // remove a row the moment the user clicks Delete in the
@@ -681,6 +699,13 @@ export function CalendarView({
           {/* Open to ALL roles — students post their own
               vacation / doctor / remote / etc. so the team knows
               when they're at IMSE. */}
+          <Button
+            variant="outline"
+            onClick={() => setSummaryOpen(true)}
+            title="Who's away or remote over the next 7 / 30 days"
+          >
+            <UsersIcon className="h-4 w-4" /> Team availability
+          </Button>
           <Button variant="outline" onClick={() => setAvailOpen(true)}>
             ⊘ My availability
           </Button>
@@ -694,6 +719,13 @@ export function CalendarView({
         open={availOpen}
         onOpenChange={setAvailOpen}
         initial={myAvailability}
+      />
+
+      <AvailabilitySummaryDialog
+        open={summaryOpen}
+        onOpenChange={setSummaryOpen}
+        items={availabilitySummary}
+        nowIso={nowIso}
       />
 
       <Dialog
@@ -3090,6 +3122,171 @@ function MeetingPanel({
         </p>
       </div>
     </div>
+  );
+}
+
+// ── Team availability summary ──
+// Read-only roll-up of everyone's away / remote periods for the next
+// 7 or 30 days, grouped by person. Answers "who's out, and when?" without
+// scanning the grid.
+const AVAIL_KIND_META: Record<
+  string,
+  { label: string; dot: string; text: string }
+> = {
+  remote: { label: "Remote", dot: "#10b981", text: "text-emerald-700" },
+  away: { label: "Away", dot: "#64748b", text: "text-slate-600" },
+  busy: { label: "Away", dot: "#64748b", text: "text-slate-600" },
+};
+
+function formatAvailPeriod(startIso: string, endIso: string): string {
+  const s = new Date(startIso);
+  const e = new Date(endIso);
+  const sameDay = isSameDay(s, e);
+  // "Timed" = not a whole-day block (starts off-midnight or ends off-midnight).
+  const timed =
+    s.getHours() !== 0 ||
+    s.getMinutes() !== 0 ||
+    e.getHours() !== 0 ||
+    e.getMinutes() !== 0;
+  if (sameDay) {
+    const day = format(s, "EEE d MMM");
+    return timed ? `${day} · ${format(s, "HH:mm")}–${format(e, "HH:mm")}` : day;
+  }
+  const range = `${format(s, "EEE d MMM")} – ${format(e, "EEE d MMM")}`;
+  return timed
+    ? `${range} · ${format(s, "HH:mm")}–${format(e, "HH:mm")}`
+    : range;
+}
+
+function AvailabilitySummaryDialog({
+  open,
+  onOpenChange,
+  items,
+  nowIso,
+}: {
+  open: boolean;
+  onOpenChange: (b: boolean) => void;
+  items: AvailabilitySummaryItem[];
+  nowIso?: string;
+}) {
+  const [win, setWin] = useState<7 | 30>(7);
+
+  const { people, periodCount } = useMemo(() => {
+    const now = nowIso ? new Date(nowIso) : new Date();
+    const end = new Date(+now + win * 86_400_000);
+    // Keep entries that overlap [now, now+win] (clip past-but-ongoing).
+    const inWindow = items.filter(
+      (a) => new Date(a.startsAt) <= end && new Date(a.endsAt) >= now,
+    );
+    // Group by person, ordered by their earliest upcoming period.
+    const byWho = new Map<string, AvailabilitySummaryItem[]>();
+    for (const a of inWindow) {
+      const arr = byWho.get(a.who) ?? [];
+      arr.push(a);
+      byWho.set(a.who, arr);
+    }
+    const grouped = Array.from(byWho.entries())
+      .map(([who, list]) => ({
+        who,
+        mine: list.some((x) => x.mine),
+        periods: [...list].sort(
+          (a, b) => +new Date(a.startsAt) - +new Date(b.startsAt),
+        ),
+      }))
+      .sort(
+        (a, b) =>
+          +new Date(a.periods[0]!.startsAt) - +new Date(b.periods[0]!.startsAt),
+      );
+    return { people: grouped, periodCount: inWindow.length };
+  }, [items, win, nowIso]);
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="!max-w-lg">
+        <DialogHeader>
+          <DialogTitle>Team availability</DialogTitle>
+        </DialogHeader>
+
+        <div className="mb-3 flex items-center justify-between gap-3">
+          <div className="inline-flex rounded-lg border bg-slate-50 p-0.5 text-xs font-medium">
+            {([7, 30] as const).map((w) => (
+              <button
+                key={w}
+                type="button"
+                onClick={() => setWin(w)}
+                className={cn(
+                  "rounded-md px-3 py-1",
+                  win === w
+                    ? "bg-white text-slate-900 shadow-sm"
+                    : "text-slate-500 hover:text-slate-800",
+                )}
+              >
+                Next {w} days
+              </button>
+            ))}
+          </div>
+          <span className="text-xs text-slate-500">
+            {people.length} {people.length === 1 ? "person" : "people"} ·{" "}
+            {periodCount} {periodCount === 1 ? "period" : "periods"}
+          </span>
+        </div>
+
+        {people.length === 0 ? (
+          <p className="rounded-lg bg-slate-50 px-3 py-6 text-center text-sm text-slate-500">
+            Everyone is available for the next {win} days — no away or remote
+            periods on record.
+          </p>
+        ) : (
+          <div className="max-h-[24rem] space-y-3 overflow-y-auto pr-1">
+            {people.map((p) => (
+              <div key={p.who}>
+                <div className="mb-1 text-sm font-semibold text-slate-800">
+                  {p.who}
+                  {p.mine && (
+                    <span className="ml-1.5 text-[10px] font-medium text-slate-400">
+                      (you)
+                    </span>
+                  )}
+                </div>
+                <ul className="space-y-1">
+                  {p.periods.map((a) => {
+                    const meta = AVAIL_KIND_META[a.kind] ?? AVAIL_KIND_META.away;
+                    return (
+                      <li
+                        key={a.id}
+                        className="flex items-start gap-2 rounded-md bg-slate-50 px-2.5 py-1.5 text-sm"
+                      >
+                        <span
+                          className="mt-1.5 h-2 w-2 shrink-0 rounded-full"
+                          style={{ background: meta.dot }}
+                        />
+                        <div className="min-w-0">
+                          <span className="text-slate-700">
+                            {formatAvailPeriod(a.startsAt, a.endsAt)}
+                          </span>
+                          <span className={cn("ml-2 text-xs", meta.text)}>
+                            {meta.label}
+                          </span>
+                          {a.reason && (
+                            <span className="ml-1 text-xs text-slate-400 [overflow-wrap:anywhere]">
+                              · {a.reason}
+                            </span>
+                          )}
+                        </div>
+                      </li>
+                    );
+                  })}
+                </ul>
+              </div>
+            ))}
+          </div>
+        )}
+        <p className="mt-3 text-[11px] text-slate-400">
+          Everyone on the teams you can see, for the window selected. Grey =
+          away (not at IMSE), green = remote (working off-site).
+        </p>
+      </DialogContent>
+    </Dialog>
   );
 }
 

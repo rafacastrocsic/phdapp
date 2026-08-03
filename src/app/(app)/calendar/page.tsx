@@ -178,6 +178,32 @@ export default async function CalendarPage({
       kind: a.kind,
     }));
 
+  // Anchored-to-today roll-up of everyone's away/remote periods for the
+  // NEXT 30 DAYS — independent of which month the grid is showing (the
+  // main availability query above is windowed to the visible month). The
+  // client splits this into 7-day and 30-day views. `nowIso` pins the
+  // window boundaries to page-load time so client/server agree.
+  const nowIso = new Date().toISOString();
+  const summaryEnd = new Date(Date.now() + 30 * 86_400_000);
+  const summaryRows = await prisma.availability.findMany({
+    where: {
+      userId: { in: teamUserIds },
+      startsAt: { lte: summaryEnd },
+      endsAt: { gte: new Date() },
+    },
+    include: { user: { select: { name: true } } },
+    orderBy: { startsAt: "asc" },
+  });
+  const availabilitySummary = summaryRows.map((a) => ({
+    id: a.id,
+    who: a.user.name ?? "A team member",
+    startsAt: a.startsAt.toISOString(),
+    endsAt: a.endsAt.toISOString(),
+    reason: a.reason, // PUBLIC
+    kind: a.kind,
+    mine: a.userId === session.user.id,
+  }));
+
   // For student-role viewers, their own studentId so the new-event dialog can
   // hide the student picker and just attach the event to themselves.
   const viewerStudent =
@@ -281,6 +307,8 @@ export default async function CalendarPage({
         }))}
       availability={availability}
       myAvailability={myAvailability}
+      availabilitySummary={availabilitySummary}
+      nowIso={nowIso}
       initialStudent={sp.student ?? null}
       initialMonth={sp.month ?? null}
       highlightByEvent={highlightByEvent}

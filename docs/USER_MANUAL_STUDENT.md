@@ -188,6 +188,8 @@ If a supervisor **invites you to a meeting**, you'll get a 🔔 bell notificatio
 
 On the calendar you may see grey **⊘ Unavailable** blocks on some days — that means one of your supervisors marked themselves away (travel, leave, holidays) so you know not to expect a reply or to drop by then. You only see "Unavailable" — never the reason. It shows in every view (Month, Year, Week, Day), and the Calendar sidebar gets an unread count bubble when a supervisor adds a new away period (clears when you open the Calendar). **Click an "away" block** to see exactly which supervisor(s) and the dates (you still don't see the reason).
 
+For a quick overview, the **👥 Team availability** button in the calendar toolbar lists everyone's away / remote periods for the **next 7 or 30 days** in one place (grouped by person), so you can see at a glance who's around before planning a meeting.
+
 ### Creating an event
 
 You usually don't need to — your supervisor schedules things. But if you want to add something personal, click **New event** top-right.

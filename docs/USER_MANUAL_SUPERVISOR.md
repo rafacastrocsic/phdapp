@@ -218,6 +218,8 @@ Events come from two places:
 
 The **⊘ My availability** button (calendar toolbar) lets you mark periods you're away — conference travel, leave, holidays. Add a From/To range and an optional label *only you see*. Your students see a grey **⊘ &lt;name&gt; away** block on those days; **clicking it** opens a details dialog with who and the dates (students never see the label/reason — you and other supervisors do). It's not a weekly chore; add periods as they come up. You also see other supervisors' availability (with labels, since you're not a student).
 
+**Team availability summary.** Next to it, the **👥 Team availability** button opens a roll-up of *everyone's* away / remote periods so you don't have to scan the grid to answer "who's out?". Toggle between **Next 7 days** and **Next 30 days**; entries are grouped by person (soonest first) with the dates, the kind (grey = away, green = remote), and the public reason. It's anchored to today regardless of which month the grid is showing, covers everyone on the teams you can see, and refreshes as availability is added or removed.
+
 ### Recurring events
 
 When creating an event, the **Repeats** control lets you make it recur: *Daily / Weekly / Monthly*, every N days/weeks/months, until a chosen date. Recurring events expand across the calendar automatically and are pushed to Google Calendar as a proper recurring series. Opening any occurrence shows a *Repeats: …* note with a **Stop repeating** button. Note (current limitation): editing or deleting a repeating event affects the **whole series** — there's no per-occurrence exception yet; to change one occurrence, stop the series and recreate.
