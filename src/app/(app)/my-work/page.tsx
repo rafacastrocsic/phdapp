@@ -168,6 +168,7 @@ export default async function MyWorkPage() {
     owner: r.owner
       ? { id: r.owner.id, name: r.owner.name, color: r.owner.color }
       : null,
+    createdAt: r.createdAt.toISOString(),
     updatedAt: r.updatedAt.toISOString(),
   });
 

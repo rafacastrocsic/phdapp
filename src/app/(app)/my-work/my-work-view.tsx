@@ -31,6 +31,7 @@ import { LinksSection } from "@/components/links-section";
 import { DriveFolderPicker } from "@/components/drive-folder-picker";
 import { CommentsThread } from "@/components/comments-thread";
 import { MessageSquare } from "lucide-react";
+import { format } from "date-fns";
 import { linkify } from "@/lib/linkify";
 import { cn } from "@/lib/utils";
 import { statusColor } from "@/lib/kanban-constants";
@@ -57,6 +58,7 @@ export type Involvement = {
   task: Ref | null;
   event: { id: string; title: string; startsAt: string } | null;
   owner: { id: string; name: string | null; color: string } | null;
+  createdAt: string;
   updatedAt: string;
 };
 
@@ -283,6 +285,19 @@ function InvolvementCard({
                 <Avatar name={item.owner.name} src={null} color={item.owner.color} size="xs" />
                 {item.owner.name}
               </span>
+            )}
+          </div>
+          <div className="mt-0.5 text-[11px] text-slate-400">
+            Created {format(new Date(item.createdAt), "d MMM yyyy")}
+            {Math.abs(
+              +new Date(item.updatedAt) - +new Date(item.createdAt),
+            ) > 2000 && (
+              <>
+                {" · Updated "}
+                <span title={format(new Date(item.updatedAt), "d MMM yyyy, HH:mm")}>
+                  {format(new Date(item.updatedAt), "d MMM yyyy")}
+                </span>
+              </>
             )}
           </div>
         </div>
