@@ -594,7 +594,10 @@ model Involvement {
   owner          User      @relation("InvolvementOwner", fields: [ownerId], references: [id], onDelete: Cascade)
   title          String
   notes          String?
-  progress       Int       @default(0) // 0..100
+  progress       Int       @default(0) // 0..100 — auto-derived when a checklist exists
+  // JSON array of { id, text, done }. When non-empty, `progress` is
+  // computed from it (done/total) rather than set by hand.
+  checklist      String?
   status         String    @default("active") // active | paused | done
   shared         Boolean   @default(false) // visible to the senior team when true
   pinned         Boolean   @default(false)

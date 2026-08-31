@@ -37,11 +37,13 @@ import type { ExternalLink } from "@/lib/links";
 const DRIVE_FOLDER_URL_RE = /\/folders\/([a-zA-Z0-9_-]+)/;
 
 type Ref = { id: string; title: string; status?: string };
+export type ChecklistItem = { id: string; text: string; done: boolean };
 export type Involvement = {
   id: string;
   title: string;
   notes: string | null;
   progress: number;
+  checklist: ChecklistItem[];
   status: "active" | "paused" | "done";
   shared: boolean;
   pinned: boolean;
@@ -58,6 +60,15 @@ type StudentOpt = { id: string; name: string; color: string };
 type TaskOpt = { id: string; title: string; status: string; studentName: string };
 type EventOpt = { id: string; title: string; startsAt: string };
 type DriveRoot = { id: string; name: string; kind: "student" | "team" };
+
+function newRowId(): string {
+  return typeof crypto !== "undefined" && "randomUUID" in crypto
+    ? crypto.randomUUID()
+    : Math.random().toString(36).slice(2);
+}
+function clCount(list: ChecklistItem[]): { done: number; total: number } {
+  return { done: list.filter((c) => c.done).length, total: list.length };
+}
 
 const STATUS_META: Record<string, { label: string; chip: string; bar: string }> = {
   active: { label: "Active", chip: "bg-violet-50 text-[var(--c-violet)]", bar: "var(--c-violet)" },
@@ -274,10 +285,45 @@ function InvolvementCard({
             style={{ width: `${item.progress}%`, background: sm.bar }}
           />
         </div>
-        <span className="w-9 shrink-0 text-right text-xs font-semibold text-slate-500 tabular-nums">
+        <span className="shrink-0 text-right text-xs font-semibold text-slate-500 tabular-nums">
+          {item.checklist.length > 0 && (
+            <span className="mr-1 font-normal text-slate-400">
+              {clCount(item.checklist).done}/{clCount(item.checklist).total}
+            </span>
+          )}
           {item.progress}%
         </span>
       </div>
+
+      {/* Checklist — tick items to move the % (own items only). */}
+      {item.checklist.length > 0 && (
+        <ul className="mt-2 space-y-0.5">
+          {item.checklist.map((c) => (
+            <li key={c.id} className="flex items-start gap-2 text-sm">
+              <input
+                type="checkbox"
+                checked={c.done}
+                disabled={readOnly || busy}
+                onChange={() => {
+                  const next = item.checklist.map((x) =>
+                    x.id === c.id ? { ...x, done: !x.done } : x,
+                  );
+                  void patch({ checklist: next });
+                }}
+                className="mt-0.5 h-3.5 w-3.5 shrink-0 accent-[var(--c-teal)] disabled:opacity-50"
+              />
+              <span
+                className={cn(
+                  "[overflow-wrap:anywhere]",
+                  c.done ? "text-slate-400 line-through" : "text-slate-700",
+                )}
+              >
+                {c.text}
+              </span>
+            </li>
+          ))}
+        </ul>
+      )}
 
       {item.notes && (
         <p className="mt-2 whitespace-pre-wrap text-sm text-slate-600 [overflow-wrap:anywhere]">
@@ -401,9 +447,26 @@ function InvolvementDialog({
   const [title, setTitle] = useState(item?.title ?? "");
   const [notes, setNotes] = useState(item?.notes ?? "");
   const [progress, setProgress] = useState(item?.progress ?? 0);
+  const [checklist, setChecklist] = useState<ChecklistItem[]>(
+    item?.checklist ?? [],
+  );
+  const [newItem, setNewItem] = useState("");
   const [status, setStatus] = useState<"active" | "paused" | "done">(
     item?.status ?? "active",
   );
+  const derived =
+    checklist.length > 0
+      ? Math.round(
+          (checklist.filter((c) => c.done).length / checklist.length) * 100,
+        )
+      : null;
+
+  function addChecklistItem() {
+    const t = newItem.trim();
+    if (!t) return;
+    setChecklist((prev) => [...prev, { id: newRowId(), text: t, done: false }]);
+    setNewItem("");
+  }
   const [shared, setShared] = useState(item?.shared ?? false);
   const [links, setLinks] = useState<ExternalLink[]>(item?.links ?? []);
   const [driveUrl, setDriveUrl] = useState<string | null>(
@@ -426,6 +489,7 @@ function InvolvementDialog({
       title: title.trim(),
       notes: notes.trim() || null,
       progress,
+      checklist,
       status,
       shared,
       links,
@@ -482,20 +546,118 @@ function InvolvementDialog({
             />
           </div>
 
+          {/* Checklist — ticking items drives the % automatically. */}
+          <div>
+            <label className="mb-1 block text-xs font-semibold text-slate-600">
+              Checklist{" "}
+              <span className="font-normal text-slate-400">
+                (optional — ticking items sets the progress %)
+              </span>
+            </label>
+            {checklist.length > 0 && (
+              <ul className="mb-1.5 space-y-1">
+                {checklist.map((c) => (
+                  <li key={c.id} className="flex items-center gap-2">
+                    <input
+                      type="checkbox"
+                      checked={c.done}
+                      onChange={() =>
+                        setChecklist((prev) =>
+                          prev.map((x) =>
+                            x.id === c.id ? { ...x, done: !x.done } : x,
+                          ),
+                        )
+                      }
+                      className="h-4 w-4 shrink-0 accent-[var(--c-teal)]"
+                    />
+                    <Input
+                      value={c.text}
+                      onChange={(e) =>
+                        setChecklist((prev) =>
+                          prev.map((x) =>
+                            x.id === c.id ? { ...x, text: e.target.value } : x,
+                          ),
+                        )
+                      }
+                      className="!h-8 flex-1 !text-sm"
+                    />
+                    <button
+                      type="button"
+                      onClick={() =>
+                        setChecklist((prev) => prev.filter((x) => x.id !== c.id))
+                      }
+                      className="shrink-0 text-slate-400 hover:text-[var(--c-red)]"
+                      title="Remove"
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            )}
+            <div className="flex gap-2">
+              <Input
+                value={newItem}
+                onChange={(e) => setNewItem(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") {
+                    e.preventDefault();
+                    addChecklistItem();
+                  }
+                }}
+                placeholder="Add a step and press Enter…"
+                className="!h-8 flex-1 !text-sm"
+              />
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={addChecklistItem}
+                disabled={!newItem.trim()}
+              >
+                Add
+              </Button>
+            </div>
+          </div>
+
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
             <div>
               <label className="mb-1 block text-xs font-semibold text-slate-600">
-                Progress: {progress}%
+                Progress
+                {derived !== null && (
+                  <span className="ml-1 font-normal text-slate-400">
+                    (from checklist)
+                  </span>
+                )}
               </label>
-              <input
-                type="range"
-                min={0}
-                max={100}
-                step={5}
-                value={progress}
-                onChange={(e) => setProgress(Number(e.target.value))}
-                className="w-full accent-[var(--c-teal)]"
-              />
+              {derived !== null ? (
+                <div className="flex items-center gap-2 pt-1.5">
+                  <div className="h-2 flex-1 overflow-hidden rounded-full bg-slate-100">
+                    <div
+                      className="h-full rounded-full bg-[var(--c-teal)] transition-all"
+                      style={{ width: `${derived}%` }}
+                    />
+                  </div>
+                  <span className="w-9 text-right text-xs font-semibold text-slate-500 tabular-nums">
+                    {derived}%
+                  </span>
+                </div>
+              ) : (
+                <div className="flex items-center gap-2 pt-1.5">
+                  <input
+                    type="range"
+                    min={0}
+                    max={100}
+                    step={5}
+                    value={progress}
+                    onChange={(e) => setProgress(Number(e.target.value))}
+                    className="w-full accent-[var(--c-teal)]"
+                  />
+                  <span className="w-9 text-right text-xs font-semibold text-slate-500 tabular-nums">
+                    {progress}%
+                  </span>
+                </div>
+              )}
             </div>
             <div>
               <label className="mb-1 block text-xs font-semibold text-slate-600">

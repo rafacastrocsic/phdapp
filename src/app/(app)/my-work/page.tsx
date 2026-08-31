@@ -9,6 +9,7 @@ import {
 import { isSeniorTeam } from "@/lib/discussions-access";
 import { getTeamDriveFolder } from "@/lib/team-drive";
 import { parseLinks } from "@/lib/links";
+import { parseChecklist } from "@/lib/involvement-checklist";
 import { displayName } from "@/lib/utils";
 import { MyWorkView } from "./my-work-view";
 
@@ -142,6 +143,7 @@ export default async function MyWorkPage() {
     title: r.title,
     notes: r.notes,
     progress: r.progress,
+    checklist: parseChecklist(r.checklist),
     status: r.status as "active" | "paused" | "done",
     shared: r.shared,
     pinned: r.pinned,

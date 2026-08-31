@@ -10,11 +10,17 @@ import {
   resolveTaskRef,
   resolveEventRef,
 } from "@/lib/involvement-refs";
+import {
+  ChecklistInput,
+  sanitiseChecklist,
+  checklistProgress,
+} from "@/lib/involvement-checklist";
 
 const Body = z.object({
   title: z.string().min(1).max(300),
   notes: z.string().max(20000).nullable().optional(),
   progress: z.number().int().min(0).max(100).optional(),
+  checklist: ChecklistInput.optional(),
   status: z.enum(["active", "paused", "done"]).optional(),
   shared: z.boolean().optional(),
   pinned: z.boolean().optional(),
@@ -54,12 +60,19 @@ export async function POST(req: Request) {
     );
 
   const sane = d.links ? sanitiseLinks(d.links) : [];
+  // A checklist, when present, drives the progress %; otherwise the manual
+  // value is used.
+  const checklist = d.checklist ? sanitiseChecklist(d.checklist) : [];
+  const progress = checklist.length
+    ? checklistProgress(checklist)!
+    : d.progress ?? 0;
   const item = await prisma.involvement.create({
     data: {
       ownerId: session.user.id,
       title: d.title.trim(),
       notes: d.notes?.trim() || null,
-      progress: d.progress ?? 0,
+      progress,
+      checklist: checklist.length > 0 ? JSON.stringify(checklist) : null,
       status: d.status ?? "active",
       shared: d.shared ?? false,
       pinned: d.pinned ?? false,

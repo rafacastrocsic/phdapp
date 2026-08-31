@@ -380,7 +380,8 @@ At the top of the **Team** page (visible to supervisors and the admin only — h
 
 The **My Work** module (💼 teal icon, senior team only) is *your own* running list of everything you're involved in — grants, service, a student's defense, organising an event — the things that don't fit the student-task board. Each entry ("item") holds:
 
-- **A completion %** (a slider) and a **status** — Active / Paused / Done. Pinned items sort to the top; Done items drop to the bottom.
+- **A completion %** and a **status** — Active / Paused / Done. Pinned items sort to the top; Done items drop to the bottom.
+- **A checklist** (optional): add steps and tick them off — the progress % is then **computed automatically** (done ÷ total) and the manual slider hides. You can tick items **straight on the card** without opening it. Remove all the steps and the manual slider comes back.
 - **Notes** (URLs auto-link) and a **Links** list — papers, repos, or any Drive file/folder.
 - An optional **Drive folder** (the usual picker).
 - Optional **live references** to a **student**, a **task**, and/or a **calendar event** — these render as chips showing the real title/status and click straight through to open them (not a stale pasted URL).

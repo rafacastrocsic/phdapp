@@ -9,11 +9,17 @@ import {
   resolveTaskRef,
   resolveEventRef,
 } from "@/lib/involvement-refs";
+import {
+  ChecklistInput,
+  sanitiseChecklist,
+  checklistProgress,
+} from "@/lib/involvement-checklist";
 
 const Patch = z.object({
   title: z.string().min(1).max(300).optional(),
   notes: z.string().max(20000).nullable().optional(),
   progress: z.number().int().min(0).max(100).optional(),
+  checklist: ChecklistInput.optional(),
   status: z.enum(["active", "paused", "done"]).optional(),
   shared: z.boolean().optional(),
   pinned: z.boolean().optional(),
@@ -59,7 +65,17 @@ export async function PATCH(
   const data: Record<string, unknown> = {};
   if (d.title !== undefined) data.title = d.title.trim();
   if (d.notes !== undefined) data.notes = d.notes?.trim() || null;
-  if (d.progress !== undefined) data.progress = d.progress;
+  // Checklist wins over a manual progress value: when a non-empty checklist
+  // is sent, derive progress from it; when cleared to empty, fall back to
+  // the manual value if one was provided.
+  if (d.checklist !== undefined) {
+    const cl = sanitiseChecklist(d.checklist);
+    data.checklist = cl.length > 0 ? JSON.stringify(cl) : null;
+    if (cl.length > 0) data.progress = checklistProgress(cl);
+    else if (d.progress !== undefined) data.progress = d.progress;
+  } else if (d.progress !== undefined) {
+    data.progress = d.progress;
+  }
   if (d.status !== undefined) data.status = d.status;
   if (d.shared !== undefined) data.shared = d.shared;
   if (d.pinned !== undefined) data.pinned = d.pinned;
