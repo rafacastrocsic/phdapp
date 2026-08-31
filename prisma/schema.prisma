@@ -80,6 +80,7 @@ model User {
   pollsCreated          Poll[]            @relation("PollAuthor")
   pollVotes             PollVote[]        @relation("PollVoter")
   topicsAuthored        Topic[]           @relation("TopicAuthor")
+  involvements          Involvement[]     @relation("InvolvementOwner")
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -167,6 +168,7 @@ model Student {
   checkIns        CheckIn[]
   taskGroups      TaskGroup[]
   topics          Topic[]
+  involvements    Involvement[]
 
   createdAt       DateTime  @default(now())
   updatedAt       DateTime  @updatedAt
@@ -456,6 +458,7 @@ model Ticket {
   // Dependencies: this task waits on `dependsOn`; `dependents` wait on it.
   dependsOn    TaskDependency[] @relation("Dependent")
   dependents   TaskDependency[] @relation("DependsOn")
+  involvements Involvement[]    @relation("InvolvementTask")
   order        Int       @default(0)
 
   createdAt    DateTime  @default(now())
@@ -577,6 +580,43 @@ model Topic {
   @@index([studentId])
 }
 
+// ───────── My Work (personal involvements) ─────────
+//
+// A senior-team member's personal portfolio of the things they're involved
+// in — grants, service, a student's defense, organising an event, … Each
+// item is OWNED by one user and PRIVATE by default; flipping `shared` makes
+// it visible (read-only) to the rest of the senior team. Items compose the
+// same building blocks used elsewhere: a labelled Links list, an optional
+// Drive folder, and optional live references to a student / task / event.
+model Involvement {
+  id             String    @id @default(cuid())
+  ownerId        String
+  owner          User      @relation("InvolvementOwner", fields: [ownerId], references: [id], onDelete: Cascade)
+  title          String
+  notes          String?
+  progress       Int       @default(0) // 0..100
+  status         String    @default("active") // active | paused | done
+  shared         Boolean   @default(false) // visible to the senior team when true
+  pinned         Boolean   @default(false)
+  order          Int       @default(0)
+  // JSON array of { id, label, url } — Drive files/folders + any URL.
+  links          String?
+  driveFolderUrl String?
+  // Optional live references. SetNull so deleting the target leaves the
+  // involvement intact (the chip just disappears).
+  studentId      String?
+  student        Student?  @relation(fields: [studentId], references: [id], onDelete: SetNull)
+  linkedTaskId   String?
+  linkedTask     Ticket?   @relation("InvolvementTask", fields: [linkedTaskId], references: [id], onDelete: SetNull)
+  linkedEventId  String?
+  linkedEvent    Event?    @relation("InvolvementEvent", fields: [linkedEventId], references: [id], onDelete: SetNull)
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+
+  @@index([ownerId])
+  @@index([shared])
+}
+
 // ───────── Calendar (mirrors Google Calendar) ─────────
 
 model Event {
@@ -640,6 +680,7 @@ model Event {
 
   attendees EventAttendee[]
   comments  Comment[]  @relation("EventComments")
+  involvements Involvement[] @relation("InvolvementEvent")
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 

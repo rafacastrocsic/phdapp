@@ -19,6 +19,7 @@ import {
   BookOpen,
   Megaphone,
   Lightbulb,
+  Briefcase,
   ChevronLeft,
   ChevronRight,
   X as XIcon,
@@ -46,18 +47,21 @@ const NAV: Nav[] = [
   { href: "/discussions", label: "Discussions", icon: Lightbulb, color: "var(--c-violet)" },
   { href: "/log", label: "Log book", icon: ScrollText, color: "var(--c-red)" },
   { href: "/team", label: "Team", icon: Users, color: "var(--c-yellow)", hideFor: ["student"] },
+  { href: "/my-work", label: "My Work", icon: Briefcase, color: "var(--c-teal)", hideFor: ["student"] },
   { href: "/feedback", label: "Feedback", icon: Megaphone, color: "var(--c-violet)" },
 ];
 
 export function Sidebar({
   role,
   showLog = true,
+  showMyWork = false,
   unreadChat: initialUnread = 0,
   unreadKanban: initialUnreadKanban = 0,
   unreadCalendar: initialUnreadCalendar = 0,
 }: {
   role?: string;
   showLog?: boolean;
+  showMyWork?: boolean;
   unreadChat?: number;
   unreadKanban?: number;
   unreadCalendar?: number;
@@ -162,6 +166,7 @@ export function Sidebar({
       <nav className="flex flex-col gap-0.5">
         {NAV.filter((item) => {
           if (item.href === "/log" && !showLog) return false;
+          if (item.href === "/my-work" && !showMyWork) return false;
           if (item.hideFor && role && (item.hideFor as string[]).includes(role))
             return false;
           return true;

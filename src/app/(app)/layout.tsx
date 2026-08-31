@@ -11,6 +11,7 @@ import {
   studentVisibilityWhereAllForAdmin,
   type Role,
 } from "@/lib/access";
+import { isSeniorTeam } from "@/lib/discussions-access";
 import { computeUnreadByChannel } from "@/lib/chat-access";
 import { getDismissedTicketIds } from "@/lib/kanban-dismissed";
 import { getDismissedEventIds } from "@/lib/calendar-dismissed";
@@ -97,6 +98,10 @@ export default async function AppLayout({
     session.user.role as Role,
   );
   const showLog = session.user.role === "student" || isSupervising;
+  // "My Work" is a senior-team-only personal workspace (admins + real
+  // supervisors + team advisors). Gate the sidebar entry so external
+  // advisors / committee / students don't see a link that would redirect.
+  const showMyWork = await isSeniorTeam(session.user.id, session.user.role as Role);
 
   return (
     // UnreadProvider wraps everything inside (app) so a single poller
@@ -110,6 +115,7 @@ export default async function AppLayout({
           <Sidebar
             role={session.user.role}
             showLog={showLog}
+            showMyWork={showMyWork}
             unreadChat={unreadChat}
             unreadKanban={unreadKanban}
             unreadCalendar={unreadCalendar}

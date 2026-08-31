@@ -376,6 +376,19 @@ The **Reading** module (book icon, sidebar) is the paper reading list across you
 
 At the top of the **Team** page (visible to supervisors and the admin only — hidden from students, external advisors, and committee members) is the **Supervisor team workspace**: a shared Drive-folder link (the admin sets it) plus an internal group-notes thread for the supervisory team — templates, group policy, inter-supervisor minutes. Anyone supervisor-level can post; the author or admin can delete a note. Team advisors do **not** see this workspace.
 
+## My Work
+
+The **My Work** module (💼 teal icon, senior team only) is *your own* running list of everything you're involved in — grants, service, a student's defense, organising an event — the things that don't fit the student-task board. Each entry ("item") holds:
+
+- **A completion %** (a slider) and a **status** — Active / Paused / Done. Pinned items sort to the top; Done items drop to the bottom.
+- **Notes** (URLs auto-link) and a **Links** list — papers, repos, or any Drive file/folder.
+- An optional **Drive folder** (the usual picker).
+- Optional **live references** to a **student**, a **task**, and/or a **calendar event** — these render as chips showing the real title/status and click straight through to open them (not a stale pasted URL).
+
+**Privacy.** Every item is **private to you by default**. Each item has a **"Share with the senior team"** toggle — flip it and that one item becomes visible (read-only) to the rest of the senior team under **"Shared by the team"** at the bottom of everyone's board, so you can surface what you're working on without exposing the rest. Only you can edit or delete your own items.
+
+**Who has it.** Admins, supervisors, and team advisors. External advisors, committee members, and students don't see the module.
+
 ## Team advisors & their suggestions
 
 A **team advisor** is a senior *internal* colleague — different from an *external advisor*, who is outside the institution. Team advisor is a **per-student** role (like external advisor/committee): an advisor is assigned to *specific* students and follows those **read-only** (they can even see private supervisor notes and wellbeing) but **cannot change anything** — their only action is sending you suggestions. Because it's per-student, the same person can be the supervisor of one student and a team advisor of another.
