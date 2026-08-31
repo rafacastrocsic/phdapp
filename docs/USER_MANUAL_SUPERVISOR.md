@@ -388,6 +388,10 @@ The **My Work** module (💼 teal icon, senior team only) is *your own* running 
 
 **Privacy.** Every item is **private to you by default**. Each item has a **"Share with the senior team"** toggle — flip it and that one item becomes visible (read-only) to the rest of the senior team under **"Shared by the team"** at the bottom of everyone's board, so you can surface what you're working on without exposing the rest. Only you can edit or delete your own items.
 
+**Comments.** On a shared item you can also switch on **"Let the team comment"** — then other senior members can post comments on it (a **Comments** toggle appears on the card, threaded like task/event comments; you get a 🔔 when someone comments). Leave it off and the item is shared read-only. As the owner you can always comment on and moderate your own item's thread.
+
+**Sorting.** The **Sort** selector (top right) orders both your list and the shared list by **recent** (pinned first, then most-recently-updated) or by **author**.
+
 **Who has it.** Admins, supervisors, and team advisors. External advisors, committee members, and students don't see the module.
 
 ## Team advisors & their suggestions

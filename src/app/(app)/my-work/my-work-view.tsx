@@ -29,6 +29,8 @@ import {
 } from "@/components/ui/dialog";
 import { LinksSection } from "@/components/links-section";
 import { DriveFolderPicker } from "@/components/drive-folder-picker";
+import { CommentsThread } from "@/components/comments-thread";
+import { MessageSquare } from "lucide-react";
 import { linkify } from "@/lib/linkify";
 import { cn } from "@/lib/utils";
 import { statusColor } from "@/lib/kanban-constants";
@@ -46,6 +48,8 @@ export type Involvement = {
   checklist: ChecklistItem[];
   status: "active" | "paused" | "done";
   shared: boolean;
+  allowComments: boolean;
+  commentCount: number;
   pinned: boolean;
   links: ExternalLink[];
   driveFolderUrl: string | null;
@@ -68,6 +72,23 @@ function newRowId(): string {
 }
 function clCount(list: ChecklistItem[]): { done: number; total: number } {
   return { done: list.filter((c) => c.done).length, total: list.length };
+}
+
+// Sort a list of involvements. "recent" keeps pinned on top (then active
+// before done, then most-recently-updated). "author" groups by owner name
+// (own items have no `owner` → sort under an empty key), then recency.
+function sortItems(list: Involvement[], mode: "recent" | "author"): Involvement[] {
+  if (mode === "author") {
+    return [...list].sort(
+      (a, b) =>
+        (a.owner?.name ?? "").localeCompare(b.owner?.name ?? "") ||
+        b.updatedAt.localeCompare(a.updatedAt),
+    );
+  }
+  const rank = (i: Involvement) => (i.pinned ? 0 : i.status === "done" ? 2 : 1);
+  return [...list].sort(
+    (a, b) => rank(a) - rank(b) || b.updatedAt.localeCompare(a.updatedAt),
+  );
 }
 
 const STATUS_META: Record<string, { label: string; chip: string; bar: string }> = {
@@ -94,15 +115,10 @@ export function MyWorkView({
   const [editing, setEditing] = useState<Involvement | null>(null);
   const [creating, setCreating] = useState(false);
   const [showShared, setShowShared] = useState(true);
+  const [sort, setSort] = useState<"recent" | "author">("recent");
 
-  // Pinned first, then active/paused, then done — each group by recency.
-  const sortedMine = useMemo(() => {
-    const rank = (i: Involvement) =>
-      i.pinned ? 0 : i.status === "done" ? 2 : 1;
-    return [...mine].sort(
-      (a, b) => rank(a) - rank(b) || b.updatedAt.localeCompare(a.updatedAt),
-    );
-  }, [mine]);
+  const sortedMine = useMemo(() => sortItems(mine, sort), [mine, sort]);
+  const sortedShared = useMemo(() => sortItems(shared, sort), [shared, sort]);
 
   return (
     <div className="mx-auto w-full max-w-4xl p-4 md:p-6">
@@ -120,9 +136,20 @@ export function MyWorkView({
             Private unless you share an item with the team.
           </p>
         </div>
-        <Button variant="brand" onClick={() => setCreating(true)}>
-          <Plus className="h-4 w-4" /> New item
-        </Button>
+        <div className="flex shrink-0 items-center gap-2">
+          <Select
+            value={sort}
+            onChange={(e) => setSort(e.target.value as "recent" | "author")}
+            className="!h-9 !w-auto text-sm"
+            title="Sort items"
+          >
+            <option value="recent">Sort: recent</option>
+            <option value="author">Sort: author</option>
+          </Select>
+          <Button variant="brand" onClick={() => setCreating(true)}>
+            <Plus className="h-4 w-4" /> New item
+          </Button>
+        </div>
       </div>
 
       {sortedMine.length === 0 ? (
@@ -167,7 +194,7 @@ export function MyWorkView({
           </button>
           {showShared && (
             <ul className="space-y-3">
-              {shared.map((i) => (
+              {sortedShared.map((i) => (
                 <li key={i.id}>
                   <InvolvementCard item={i} readOnly />
                 </li>
@@ -205,6 +232,7 @@ function InvolvementCard({
 }) {
   const router = useRouter();
   const [busy, setBusy] = useState(false);
+  const [showComments, setShowComments] = useState(false);
   const sm = STATUS_META[item.status] ?? STATUS_META.active;
 
   async function patch(payload: Record<string, unknown>) {
@@ -373,6 +401,35 @@ function InvolvementCard({
           )}
         </div>
       )}
+
+      {/* Comments — only on shared items with comments enabled (or existing). */}
+      {item.shared && (item.allowComments || item.commentCount > 0) && (
+        <div className="mt-3 border-t pt-2">
+          <button
+            type="button"
+            onClick={() => setShowComments((v) => !v)}
+            className="inline-flex items-center gap-1.5 text-xs font-semibold text-slate-500 hover:text-slate-800"
+          >
+            <MessageSquare className="h-3.5 w-3.5" />
+            {showComments ? "Hide comments" : `Comments (${item.commentCount})`}
+          </button>
+          {showComments && (
+            <div className="mt-2">
+              <CommentsThread
+                apiBase={`/api/involvements/${item.id}/comments`}
+                initialCount={item.commentCount}
+                readOnly={readOnly ? !item.allowComments : false}
+                emptyHint={
+                  item.allowComments
+                    ? "No comments yet."
+                    : "The owner has turned off new comments."
+                }
+                composerPlaceholder="Comment for the team…"
+              />
+            </div>
+          )}
+        </div>
+      )}
     </div>
   );
 }
@@ -468,6 +525,9 @@ function InvolvementDialog({
     setNewItem("");
   }
   const [shared, setShared] = useState(item?.shared ?? false);
+  const [allowComments, setAllowComments] = useState(
+    item?.allowComments ?? false,
+  );
   const [links, setLinks] = useState<ExternalLink[]>(item?.links ?? []);
   const [driveUrl, setDriveUrl] = useState<string | null>(
     item?.driveFolderUrl ?? null,
@@ -492,6 +552,7 @@ function InvolvementDialog({
       checklist,
       status,
       shared,
+      allowComments,
       links,
       driveFolderUrl: driveUrl,
       studentId: studentId || null,
@@ -744,22 +805,46 @@ function InvolvementDialog({
             />
           </div>
 
-          <label className="flex items-center gap-2 rounded-lg border bg-slate-50 px-3 py-2 text-sm">
-            <input
-              type="checkbox"
-              checked={shared}
-              onChange={(e) => setShared(e.target.checked)}
-              className="h-4 w-4 accent-[var(--c-teal)]"
-            />
-            <span>
-              <span className="font-medium text-slate-700">
-                Share with the senior team
+          <div className="rounded-lg border bg-slate-50 px-3 py-2">
+            <label className="flex items-center gap-2 text-sm">
+              <input
+                type="checkbox"
+                checked={shared}
+                onChange={(e) => setShared(e.target.checked)}
+                className="h-4 w-4 accent-[var(--c-teal)]"
+              />
+              <span>
+                <span className="font-medium text-slate-700">
+                  Share with the senior team
+                </span>
+                <span className="block text-xs text-slate-400">
+                  Others can see this item (read-only). Off = private to you.
+                </span>
               </span>
-              <span className="block text-xs text-slate-400">
-                Others can see this item (read-only). Off = private to you.
+            </label>
+            <label
+              className={cn(
+                "mt-2 flex items-center gap-2 border-t pt-2 text-sm",
+                !shared && "opacity-50",
+              )}
+            >
+              <input
+                type="checkbox"
+                checked={allowComments}
+                disabled={!shared}
+                onChange={(e) => setAllowComments(e.target.checked)}
+                className="h-4 w-4 accent-[var(--c-teal)]"
+              />
+              <span>
+                <span className="font-medium text-slate-700">
+                  Let the team comment
+                </span>
+                <span className="block text-xs text-slate-400">
+                  Other senior members can add comments. Only when shared.
+                </span>
               </span>
-            </span>
-          </label>
+            </label>
+          </div>
 
           {error && <p className="text-xs text-[var(--c-red)]">{error}</p>}
           <div className="flex justify-end gap-2 border-t pt-3">

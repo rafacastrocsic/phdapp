@@ -22,6 +22,7 @@ const Patch = z.object({
   checklist: ChecklistInput.optional(),
   status: z.enum(["active", "paused", "done"]).optional(),
   shared: z.boolean().optional(),
+  allowComments: z.boolean().optional(),
   pinned: z.boolean().optional(),
   links: z.array(LinkInput).optional(),
   driveFolderUrl: z.string().nullable().optional(),
@@ -78,6 +79,7 @@ export async function PATCH(
   }
   if (d.status !== undefined) data.status = d.status;
   if (d.shared !== undefined) data.shared = d.shared;
+  if (d.allowComments !== undefined) data.allowComments = d.allowComments;
   if (d.pinned !== undefined) data.pinned = d.pinned;
   if (d.links !== undefined) {
     const sane = sanitiseLinks(d.links);

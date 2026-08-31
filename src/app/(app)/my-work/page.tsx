@@ -19,6 +19,7 @@ const INV_INCLUDE = {
   student: { select: { id: true, fullName: true, alias: true, color: true } },
   linkedTask: { select: { id: true, title: true, status: true } },
   linkedEvent: { select: { id: true, title: true, startsAt: true } },
+  _count: { select: { comments: true } },
 } as const;
 
 export default async function MyWorkPage() {
@@ -146,6 +147,8 @@ export default async function MyWorkPage() {
     checklist: parseChecklist(r.checklist),
     status: r.status as "active" | "paused" | "done",
     shared: r.shared,
+    allowComments: r.allowComments,
+    commentCount: r._count.comments,
     pinned: r.pinned,
     links: parseLinks(r.links),
     driveFolderUrl: r.driveFolderUrl,

@@ -510,12 +510,14 @@ model Comment {
   eventId       String?
   readingItemId String?
   topicId       String?
+  involvementId String?
   parentId      String?
   authorId      String
   ticket        Ticket?      @relation(fields: [ticketId], references: [id], onDelete: Cascade)
   event         Event?       @relation("EventComments", fields: [eventId], references: [id], onDelete: Cascade)
   readingItem   ReadingItem? @relation("ReadingComments", fields: [readingItemId], references: [id], onDelete: Cascade)
   topic         Topic?       @relation("TopicComments", fields: [topicId], references: [id], onDelete: Cascade)
+  involvement   Involvement? @relation("InvolvementComments", fields: [involvementId], references: [id], onDelete: Cascade)
   parent        Comment?     @relation("CommentReplies", fields: [parentId], references: [id], onDelete: Cascade)
   replies       Comment[]    @relation("CommentReplies")
   author        User         @relation(fields: [authorId], references: [id])
@@ -538,6 +540,7 @@ model Comment {
   @@index([eventId])
   @@index([readingItemId])
   @@index([topicId])
+  @@index([involvementId])
   @@index([parentId])
 }
 
@@ -600,6 +603,8 @@ model Involvement {
   checklist      String?
   status         String    @default("active") // active | paused | done
   shared         Boolean   @default(false) // visible to the senior team when true
+  // When true (and shared), other senior members may comment on the item.
+  allowComments  Boolean   @default(false)
   pinned         Boolean   @default(false)
   order          Int       @default(0)
   // JSON array of { id, label, url } — Drive files/folders + any URL.
@@ -613,6 +618,7 @@ model Involvement {
   linkedTask     Ticket?   @relation("InvolvementTask", fields: [linkedTaskId], references: [id], onDelete: SetNull)
   linkedEventId  String?
   linkedEvent    Event?    @relation("InvolvementEvent", fields: [linkedEventId], references: [id], onDelete: SetNull)
+  comments       Comment[] @relation("InvolvementComments")
   createdAt      DateTime  @default(now())
   updatedAt      DateTime  @updatedAt
 
