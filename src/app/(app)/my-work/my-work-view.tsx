@@ -623,8 +623,7 @@ function InvolvementDialog({
 
   const driveId = driveUrl ? driveUrl.match(DRIVE_FOLDER_URL_RE)?.[1] ?? null : null;
 
-  async function submit(e: React.FormEvent) {
-    e.preventDefault();
+  async function submit() {
     if (!title.trim()) return;
     setSaving(true);
     setError(null);
@@ -667,7 +666,10 @@ function InvolvementDialog({
         <DialogHeader>
           <DialogTitle>{item ? "Edit item" : "New item"}</DialogTitle>
         </DialogHeader>
-        <form onSubmit={submit} className="max-h-[70vh] space-y-3 overflow-y-auto pr-1">
+        {/* NOT a <form>: LinksSection renders its own <form>, and nested
+            forms are invalid — the inner one gets dropped and its "Add link"
+            button would submit this dialog instead. Save via a button click. */}
+        <div className="max-h-[70vh] space-y-3 overflow-y-auto pr-1">
           <div>
             <label className="mb-1 block text-xs font-semibold text-slate-600">
               Title
@@ -950,11 +952,16 @@ function InvolvementDialog({
             <Button type="button" variant="ghost" onClick={onClose}>
               Cancel
             </Button>
-            <Button type="submit" variant="brand" disabled={saving || !title.trim()}>
+            <Button
+              type="button"
+              variant="brand"
+              disabled={saving || !title.trim()}
+              onClick={submit}
+            >
               {saving ? "Saving…" : item ? "Save changes" : "Create"}
             </Button>
           </div>
-        </form>
+        </div>
       </DialogContent>
     </Dialog>
   );
