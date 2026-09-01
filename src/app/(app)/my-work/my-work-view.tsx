@@ -403,7 +403,14 @@ function InvolvementCard({
         </span>
       </div>
 
-      {/* Checklist — tick items to move the % (own items only). */}
+      {item.notes && (
+        <p className="mt-2 whitespace-pre-wrap text-sm text-slate-600 [overflow-wrap:anywhere]">
+          {linkify(item.notes)}
+        </p>
+      )}
+
+      {/* Checklist — tick items to move the % (own items only). Shown
+          below the note so the write-up reads first, then the steps. */}
       {item.checklist.length > 0 && (
         <ul className="mt-2 space-y-0.5">
           {item.checklist.map((c) => (
@@ -431,12 +438,6 @@ function InvolvementCard({
             </li>
           ))}
         </ul>
-      )}
-
-      {item.notes && (
-        <p className="mt-2 whitespace-pre-wrap text-sm text-slate-600 [overflow-wrap:anywhere]">
-          {linkify(item.notes)}
-        </p>
       )}
 
       {/* Reference chips + links + drive */}
