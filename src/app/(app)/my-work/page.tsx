@@ -146,6 +146,7 @@ export default async function MyWorkPage() {
     progress: r.progress,
     checklist: parseChecklist(r.checklist),
     status: r.status as "active" | "paused" | "done",
+    priority: r.priority as "high" | "medium" | "low",
     shared: r.shared,
     allowComments: r.allowComments,
     commentCount: r._count.comments,

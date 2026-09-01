@@ -602,6 +602,7 @@ model Involvement {
   // computed from it (done/total) rather than set by hand.
   checklist      String?
   status         String    @default("active") // active | paused | done
+  priority       String    @default("medium") // high | medium | low
   shared         Boolean   @default(false) // visible to the senior team when true
   // When true (and shared), other senior members may comment on the item.
   allowComments  Boolean   @default(false)

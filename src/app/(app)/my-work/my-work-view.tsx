@@ -17,6 +17,7 @@ import {
   Briefcase,
   ChevronDown,
   ChevronRight,
+  ArrowUpDown,
 } from "lucide-react";
 import { Avatar } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
@@ -48,6 +49,7 @@ export type Involvement = {
   progress: number;
   checklist: ChecklistItem[];
   status: "active" | "paused" | "done";
+  priority: "high" | "medium" | "low";
   shared: boolean;
   allowComments: boolean;
   commentCount: number;
@@ -76,27 +78,75 @@ function clCount(list: ChecklistItem[]): { done: number; total: number } {
   return { done: list.filter((c) => c.done).length, total: list.length };
 }
 
-// Sort a list of involvements. "recent" keeps pinned on top (then active
-// before done, then most-recently-updated). "author" groups by owner name
-// (own items have no `owner` → sort under an empty key), then recency.
-function sortItems(list: Involvement[], mode: "recent" | "author"): Involvement[] {
-  if (mode === "author") {
-    return [...list].sort(
-      (a, b) =>
+type SortKey =
+  | "updated"
+  | "created"
+  | "priority"
+  | "progress"
+  | "author"
+  | "title";
+
+const SORT_OPTIONS: { key: SortKey; label: string }[] = [
+  { key: "updated", label: "Recently updated" },
+  { key: "created", label: "Recently created" },
+  { key: "priority", label: "Priority (high first)" },
+  { key: "progress", label: "Progress (high → low)" },
+  { key: "author", label: "Author (A–Z)" },
+  { key: "title", label: "Title (A–Z)" },
+];
+
+const PRIORITY_RANK: Record<string, number> = { high: 3, medium: 2, low: 1 };
+
+function compareBy(a: Involvement, b: Involvement, key: SortKey): number {
+  switch (key) {
+    case "created":
+      return b.createdAt.localeCompare(a.createdAt);
+    case "priority":
+      return (
+        (PRIORITY_RANK[b.priority] ?? 0) - (PRIORITY_RANK[a.priority] ?? 0) ||
+        b.updatedAt.localeCompare(a.updatedAt)
+      );
+    case "progress":
+      return b.progress - a.progress || b.updatedAt.localeCompare(a.updatedAt);
+    case "author":
+      return (
         (a.owner?.name ?? "").localeCompare(b.owner?.name ?? "") ||
-        b.updatedAt.localeCompare(a.updatedAt),
-    );
+        b.updatedAt.localeCompare(a.updatedAt)
+      );
+    case "title":
+      return a.title.localeCompare(b.title);
+    case "updated":
+    default:
+      return b.updatedAt.localeCompare(a.updatedAt);
   }
-  const rank = (i: Involvement) => (i.pinned ? 0 : i.status === "done" ? 2 : 1);
-  return [...list].sort(
-    (a, b) => rank(a) - rank(b) || b.updatedAt.localeCompare(a.updatedAt),
-  );
+}
+
+// Sort a list. Pinned items float to the top (own list only) regardless of
+// the chosen key; within each group the key applies.
+function sortItems(
+  list: Involvement[],
+  key: SortKey,
+  pinnedFirst: boolean,
+): Involvement[] {
+  return [...list].sort((a, b) => {
+    if (pinnedFirst && a.pinned !== b.pinned) return a.pinned ? -1 : 1;
+    return compareBy(a, b, key);
+  });
 }
 
 const STATUS_META: Record<string, { label: string; chip: string; bar: string }> = {
   active: { label: "Active", chip: "bg-violet-50 text-[var(--c-violet)]", bar: "var(--c-violet)" },
   paused: { label: "Paused", chip: "bg-amber-50 text-amber-600", bar: "#f59e0b" },
   done: { label: "Done", chip: "bg-emerald-50 text-emerald-600", bar: "var(--c-green)" },
+};
+
+const PRIORITY_META: Record<
+  string,
+  { label: string; chip: string; accent: string }
+> = {
+  high: { label: "High", chip: "bg-red-50 text-[var(--c-red)]", accent: "var(--c-red)" },
+  medium: { label: "Medium", chip: "bg-amber-50 text-amber-600", accent: "#f59e0b" },
+  low: { label: "Low", chip: "bg-slate-100 text-slate-500", accent: "#cbd5e1" },
 };
 
 export function MyWorkView({
@@ -117,10 +167,13 @@ export function MyWorkView({
   const [editing, setEditing] = useState<Involvement | null>(null);
   const [creating, setCreating] = useState(false);
   const [showShared, setShowShared] = useState(true);
-  const [sort, setSort] = useState<"recent" | "author">("recent");
+  const [sort, setSort] = useState<SortKey>("updated");
 
-  const sortedMine = useMemo(() => sortItems(mine, sort), [mine, sort]);
-  const sortedShared = useMemo(() => sortItems(shared, sort), [shared, sort]);
+  const sortedMine = useMemo(() => sortItems(mine, sort, true), [mine, sort]);
+  const sortedShared = useMemo(
+    () => sortItems(shared, sort, false),
+    [shared, sort],
+  );
 
   return (
     <div className="mx-auto w-full max-w-4xl p-4 md:p-6">
@@ -139,15 +192,22 @@ export function MyWorkView({
           </p>
         </div>
         <div className="flex shrink-0 items-center gap-2">
-          <Select
-            value={sort}
-            onChange={(e) => setSort(e.target.value as "recent" | "author")}
-            className="!h-9 !w-auto text-sm"
-            title="Sort items"
-          >
-            <option value="recent">Sort: recent</option>
-            <option value="author">Sort: author</option>
-          </Select>
+          <div className="flex items-center gap-1.5 rounded-lg border bg-white pl-2.5">
+            <ArrowUpDown className="h-3.5 w-3.5 text-slate-400" />
+            <span className="text-xs text-slate-500">Sort by</span>
+            <Select
+              value={sort}
+              onChange={(e) => setSort(e.target.value as SortKey)}
+              className="!h-9 !w-auto !border-0 !bg-transparent !pl-1 pr-2 text-sm font-medium focus:!ring-0"
+              title="Sort items"
+            >
+              {SORT_OPTIONS.map((o) => (
+                <option key={o.key} value={o.key}>
+                  {o.label}
+                </option>
+              ))}
+            </Select>
+          </div>
           <Button variant="brand" onClick={() => setCreating(true)}>
             <Plus className="h-4 w-4" /> New item
           </Button>
@@ -236,6 +296,7 @@ function InvolvementCard({
   const [busy, setBusy] = useState(false);
   const [showComments, setShowComments] = useState(false);
   const sm = STATUS_META[item.status] ?? STATUS_META.active;
+  const pm = PRIORITY_META[item.priority] ?? PRIORITY_META.medium;
 
   async function patch(payload: Record<string, unknown>) {
     setBusy(true);
@@ -258,10 +319,11 @@ function InvolvementCard({
   return (
     <div
       className={cn(
-        "rounded-xl border bg-white p-4",
+        "rounded-xl border border-l-4 bg-white p-4",
         item.pinned && !readOnly && "border-teal-200 bg-teal-50/30",
         item.status === "done" && "opacity-75",
       )}
+      style={{ borderLeftColor: pm.accent }}
     >
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
@@ -271,6 +333,9 @@ function InvolvementCard({
             )}
             <span className="font-semibold text-slate-900 [overflow-wrap:anywhere]">
               {item.title}
+            </span>
+            <span className={cn("rounded-full px-2 py-0.5 text-[10px] font-semibold", pm.chip)}>
+              {pm.label}
             </span>
             <span className={cn("rounded-full px-2 py-0.5 text-[10px] font-semibold", sm.chip)}>
               {sm.label}
@@ -526,6 +591,9 @@ function InvolvementDialog({
   const [status, setStatus] = useState<"active" | "paused" | "done">(
     item?.status ?? "active",
   );
+  const [priority, setPriority] = useState<"high" | "medium" | "low">(
+    item?.priority ?? "medium",
+  );
   const derived =
     checklist.length > 0
       ? Math.round(
@@ -566,6 +634,7 @@ function InvolvementDialog({
       progress,
       checklist,
       status,
+      priority,
       shared,
       allowComments,
       links,
@@ -696,7 +765,7 @@ function InvolvementDialog({
             </div>
           </div>
 
-          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
             <div>
               <label className="mb-1 block text-xs font-semibold text-slate-600">
                 Progress
@@ -734,6 +803,21 @@ function InvolvementDialog({
                   </span>
                 </div>
               )}
+            </div>
+            <div>
+              <label className="mb-1 block text-xs font-semibold text-slate-600">
+                Priority
+              </label>
+              <Select
+                value={priority}
+                onChange={(e) =>
+                  setPriority(e.target.value as "high" | "medium" | "low")
+                }
+              >
+                <option value="high">High</option>
+                <option value="medium">Medium</option>
+                <option value="low">Low</option>
+              </Select>
             </div>
             <div>
               <label className="mb-1 block text-xs font-semibold text-slate-600">

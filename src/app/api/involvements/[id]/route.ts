@@ -21,6 +21,7 @@ const Patch = z.object({
   progress: z.number().int().min(0).max(100).optional(),
   checklist: ChecklistInput.optional(),
   status: z.enum(["active", "paused", "done"]).optional(),
+  priority: z.enum(["high", "medium", "low"]).optional(),
   shared: z.boolean().optional(),
   allowComments: z.boolean().optional(),
   pinned: z.boolean().optional(),
@@ -78,6 +79,7 @@ export async function PATCH(
     data.progress = d.progress;
   }
   if (d.status !== undefined) data.status = d.status;
+  if (d.priority !== undefined) data.priority = d.priority;
   if (d.shared !== undefined) data.shared = d.shared;
   if (d.allowComments !== undefined) data.allowComments = d.allowComments;
   if (d.pinned !== undefined) data.pinned = d.pinned;
