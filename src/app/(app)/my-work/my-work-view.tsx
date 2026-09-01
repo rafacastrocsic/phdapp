@@ -15,6 +15,9 @@ import {
   ExternalLink as ExternalLinkIcon,
   Briefcase,
   ArrowUpDown,
+  ArrowUp,
+  ArrowDown,
+  Filter,
 } from "lucide-react";
 import { Avatar } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
@@ -163,13 +166,37 @@ export function MyWorkView({
   const [editing, setEditing] = useState<Involvement | null>(null);
   const [creating, setCreating] = useState(false);
   const [sort, setSort] = useState<SortKey>("updated");
+  const [authorFilter, setAuthorFilter] = useState<string>(""); // "" | "mine" | ownerId
+  const [priorityFilter, setPriorityFilter] = useState<string>(""); // "" | high | medium | low
 
-  // One flat list: my items + the team's shared items, sorted together.
-  // Ownership is shown per-card (owner name on others'; a 👥 on shared).
+  // Author options from the data: "Mine" (own items) + each distinct owner
+  // of a shared item.
+  const authorOptions = useMemo(() => {
+    const owners = new Map<string, string>();
+    for (const i of shared)
+      if (i.owner) owners.set(i.owner.id, i.owner.name ?? "Teammate");
+    return { hasMine: mine.length > 0, owners: [...owners.entries()] };
+  }, [mine, shared]);
+
+  // One flat list: my items + the team's shared items, sorted together, then
+  // filtered by author / priority. Ownership shown per-card (owner name on
+  // others'; a 👥 on shared).
   const allItems = useMemo(
     () => sortItems([...mine, ...shared], sort),
     [mine, shared, sort],
   );
+  const items = useMemo(
+    () =>
+      allItems.filter((i) => {
+        if (priorityFilter && i.priority !== priorityFilter) return false;
+        if (authorFilter === "mine" && i.owner) return false;
+        if (authorFilter && authorFilter !== "mine" && i.owner?.id !== authorFilter)
+          return false;
+        return true;
+      }),
+    [allItems, authorFilter, priorityFilter],
+  );
+  const filtersActive = !!authorFilter || !!priorityFilter;
 
   return (
     <div className="mx-auto w-full max-w-4xl p-4 md:p-6">
@@ -187,26 +214,72 @@ export function MyWorkView({
             Private unless you share an item with the team.
           </p>
         </div>
-        <div className="flex shrink-0 items-center gap-2">
-          <div className="flex items-center gap-1.5 rounded-lg border bg-white pl-2.5">
-            <ArrowUpDown className="h-3.5 w-3.5 text-slate-400" />
-            <span className="text-xs text-slate-500">Sort by</span>
-            <Select
-              value={sort}
-              onChange={(e) => setSort(e.target.value as SortKey)}
-              className="!h-9 !w-auto !border-0 !bg-transparent !pl-1 pr-2 text-sm font-medium focus:!ring-0"
-              title="Sort items"
-            >
-              {SORT_OPTIONS.map((o) => (
-                <option key={o.key} value={o.key}>
-                  {o.label}
-                </option>
-              ))}
-            </Select>
-          </div>
-          <Button variant="brand" onClick={() => setCreating(true)}>
-            <Plus className="h-4 w-4" /> New item
-          </Button>
+        <Button variant="brand" className="shrink-0" onClick={() => setCreating(true)}>
+          <Plus className="h-4 w-4" /> New item
+        </Button>
+      </div>
+
+      {/* Filter + sort controls */}
+      <div className="mb-4 flex flex-wrap items-center gap-2">
+        <div className="flex items-center gap-1.5 rounded-lg border bg-white pl-2.5">
+          <Filter className="h-3.5 w-3.5 text-slate-400" />
+          <span className="text-xs text-slate-500">Author</span>
+          <Select
+            value={authorFilter}
+            onChange={(e) => setAuthorFilter(e.target.value)}
+            className="!h-9 !w-auto !border-0 !bg-transparent !pl-1 pr-2 text-sm font-medium focus:!ring-0"
+            title="Filter by author"
+          >
+            <option value="">All authors</option>
+            {authorOptions.hasMine && <option value="mine">Mine</option>}
+            {authorOptions.owners.map(([id, name]) => (
+              <option key={id} value={id}>
+                {name}
+              </option>
+            ))}
+          </Select>
+        </div>
+        <div className="flex items-center gap-1.5 rounded-lg border bg-white pl-2.5">
+          <span className="text-xs text-slate-500">Priority</span>
+          <Select
+            value={priorityFilter}
+            onChange={(e) => setPriorityFilter(e.target.value)}
+            className="!h-9 !w-auto !border-0 !bg-transparent !pl-1 pr-2 text-sm font-medium focus:!ring-0"
+            title="Filter by priority"
+          >
+            <option value="">All priorities</option>
+            <option value="high">High</option>
+            <option value="medium">Medium</option>
+            <option value="low">Low</option>
+          </Select>
+        </div>
+        {filtersActive && (
+          <button
+            type="button"
+            onClick={() => {
+              setAuthorFilter("");
+              setPriorityFilter("");
+            }}
+            className="text-xs font-medium text-slate-400 hover:text-slate-700"
+          >
+            Clear
+          </button>
+        )}
+        <div className="ml-auto flex items-center gap-1.5 rounded-lg border bg-white pl-2.5">
+          <ArrowUpDown className="h-3.5 w-3.5 text-slate-400" />
+          <span className="text-xs text-slate-500">Sort by</span>
+          <Select
+            value={sort}
+            onChange={(e) => setSort(e.target.value as SortKey)}
+            className="!h-9 !w-auto !border-0 !bg-transparent !pl-1 pr-2 text-sm font-medium focus:!ring-0"
+            title="Sort items"
+          >
+            {SORT_OPTIONS.map((o) => (
+              <option key={o.key} value={o.key}>
+                {o.label}
+              </option>
+            ))}
+          </Select>
         </div>
       </div>
 
@@ -223,9 +296,25 @@ export function MyWorkView({
             <Plus className="h-4 w-4" /> New item
           </Button>
         </div>
+      ) : items.length === 0 ? (
+        <div className="rounded-xl border border-dashed bg-slate-50 p-8 text-center">
+          <p className="text-sm text-slate-500">
+            No items match these filters.
+          </p>
+          <button
+            type="button"
+            onClick={() => {
+              setAuthorFilter("");
+              setPriorityFilter("");
+            }}
+            className="mt-2 text-xs font-medium text-[var(--c-teal)] hover:underline"
+          >
+            Clear filters
+          </button>
+        </div>
       ) : (
         <ul className="space-y-3">
-          {allItems.map((i) => (
+          {items.map((i) => (
             <li key={i.id}>
               <InvolvementCard
                 item={i}
@@ -582,6 +671,15 @@ function InvolvementDialog({
     setChecklist((prev) => [...prev, { id: newRowId(), text: t, done: false }]);
     setNewItem("");
   }
+  function moveChecklistItem(index: number, dir: -1 | 1) {
+    setChecklist((prev) => {
+      const j = index + dir;
+      if (j < 0 || j >= prev.length) return prev;
+      const next = [...prev];
+      [next[index], next[j]] = [next[j], next[index]];
+      return next;
+    });
+  }
   const [shared, setShared] = useState(item?.shared ?? false);
   const [allowComments, setAllowComments] = useState(
     item?.allowComments ?? false,
@@ -678,7 +776,7 @@ function InvolvementDialog({
             </label>
             {checklist.length > 0 && (
               <ul className="mb-1.5 space-y-1">
-                {checklist.map((c) => (
+                {checklist.map((c, idx) => (
                   <li key={c.id} className="flex items-center gap-2">
                     <input
                       type="checkbox"
@@ -703,6 +801,26 @@ function InvolvementDialog({
                       }
                       className="!h-8 flex-1 !text-sm"
                     />
+                    <div className="flex shrink-0 items-center">
+                      <button
+                        type="button"
+                        onClick={() => moveChecklistItem(idx, -1)}
+                        disabled={idx === 0}
+                        className="text-slate-400 hover:text-slate-700 disabled:opacity-30"
+                        title="Move up"
+                      >
+                        <ArrowUp className="h-4 w-4" />
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => moveChecklistItem(idx, 1)}
+                        disabled={idx === checklist.length - 1}
+                        className="text-slate-400 hover:text-slate-700 disabled:opacity-30"
+                        title="Move down"
+                      >
+                        <ArrowDown className="h-4 w-4" />
+                      </button>
+                    </div>
                     <button
                       type="button"
                       onClick={() =>

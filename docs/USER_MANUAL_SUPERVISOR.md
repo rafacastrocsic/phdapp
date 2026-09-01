@@ -382,7 +382,7 @@ The **My Work** module (💼 teal icon, senior team only) is *your own* running 
 
 - **A priority** — High / Medium / Low, shown as a coloured chip and a left-edge stripe on the card (red / amber / grey) so the important ones stand out.
 - **A completion %** and a **status** — Active / Paused / Done. Pinned items always sort to the top.
-- **A checklist** (optional): add steps and tick them off — the progress % is then **computed automatically** (done ÷ total) and the manual slider hides. You can tick items **straight on the card** without opening it. Remove all the steps and the manual slider comes back.
+- **A checklist** (optional): add steps and tick them off — the progress % is then **computed automatically** (done ÷ total) and the manual slider hides. You can tick items **straight on the card** without opening it, and **reorder** them with the ▲/▼ buttons in the editor. Remove all the steps and the manual slider comes back.
 - **Notes** (URLs auto-link) and a **Links** list — papers, repos, or any Drive file/folder.
 - An optional **Drive folder** (the usual picker).
 - Optional **live references** to a **student**, a **task**, and/or a **calendar event** — these render as chips showing the real title/status and click straight through to open them (not a stale pasted URL).
@@ -391,7 +391,7 @@ The **My Work** module (💼 teal icon, senior team only) is *your own* running 
 
 **Comments.** On a shared item you can also switch on **"Let the team comment"** — then other senior members can post comments on it (a **Comments** toggle appears on the card, threaded like task/event comments; you get a 🔔 when someone comments). Leave it off and the item is shared read-only. As the owner you can always comment on and moderate your own item's thread.
 
-**Sorting.** The **Sort by** menu (top right) orders both your list and the shared list: *Recently updated*, *Recently created*, *Priority (high first)*, *Progress (high→low)*, *Author (A–Z)*, or *Title (A–Z)*. Pinned items always stay on top of your own list.
+**Sorting & filtering.** A controls row above the list lets you **filter** by **Author** (Mine, or a specific teammate) and by **Priority** (High / Medium / Low) — a **Clear** link resets them — and **Sort by** *Recently updated*, *Recently created*, *Priority (high first)*, *Progress (high→low)*, *Author (A–Z)*, or *Title (A–Z)*. Your own pinned items always stay on top.
 
 **Who has it.** Admins, supervisors, and team advisors. External advisors, committee members, and students don't see the module.
 
