@@ -8,15 +8,12 @@ import {
   PinOff,
   Pencil,
   Trash2,
-  Users,
   GraduationCap,
   KanbanSquare,
   CalendarDays,
   FolderOpen,
   ExternalLink as ExternalLinkIcon,
   Briefcase,
-  ChevronDown,
-  ChevronRight,
   ArrowUpDown,
 } from "lucide-react";
 import { Avatar } from "@/components/ui/avatar";
@@ -121,15 +118,14 @@ function compareBy(a: Involvement, b: Involvement, key: SortKey): number {
   }
 }
 
-// Sort a list. Pinned items float to the top (own list only) regardless of
-// the chosen key; within each group the key applies.
-function sortItems(
-  list: Involvement[],
-  key: SortKey,
-  pinnedFirst: boolean,
-): Involvement[] {
+// Sort a list. Your own pinned items float to the top regardless of the
+// chosen key (others' pins don't float in your list); within each group the
+// key applies. `owner` is set only on other people's shared items.
+function sortItems(list: Involvement[], key: SortKey): Involvement[] {
   return [...list].sort((a, b) => {
-    if (pinnedFirst && a.pinned !== b.pinned) return a.pinned ? -1 : 1;
+    const ap = a.pinned && !a.owner;
+    const bp = b.pinned && !b.owner;
+    if (ap !== bp) return ap ? -1 : 1;
     return compareBy(a, b, key);
   });
 }
@@ -166,13 +162,13 @@ export function MyWorkView({
 }) {
   const [editing, setEditing] = useState<Involvement | null>(null);
   const [creating, setCreating] = useState(false);
-  const [showShared, setShowShared] = useState(true);
   const [sort, setSort] = useState<SortKey>("updated");
 
-  const sortedMine = useMemo(() => sortItems(mine, sort, true), [mine, sort]);
-  const sortedShared = useMemo(
-    () => sortItems(shared, sort, false),
-    [shared, sort],
+  // One flat list: my items + the team's shared items, sorted together.
+  // Ownership is shown per-card (owner name on others'; a 👥 on shared).
+  const allItems = useMemo(
+    () => sortItems([...mine, ...shared], sort),
+    [mine, shared, sort],
   );
 
   return (
@@ -214,7 +210,7 @@ export function MyWorkView({
         </div>
       </div>
 
-      {sortedMine.length === 0 ? (
+      {allItems.length === 0 ? (
         <div className="rounded-xl border border-dashed bg-slate-50 p-10 text-center">
           <Briefcase className="mx-auto h-8 w-8 text-slate-300" />
           <p className="mt-3 text-sm font-medium text-slate-600">
@@ -229,41 +225,16 @@ export function MyWorkView({
         </div>
       ) : (
         <ul className="space-y-3">
-          {sortedMine.map((i) => (
+          {allItems.map((i) => (
             <li key={i.id}>
               <InvolvementCard
                 item={i}
-                onEdit={() => setEditing(i)}
+                readOnly={!!i.owner}
+                onEdit={i.owner ? undefined : () => setEditing(i)}
               />
             </li>
           ))}
         </ul>
-      )}
-
-      {shared.length > 0 && (
-        <div className="mt-8">
-          <button
-            type="button"
-            onClick={() => setShowShared((v) => !v)}
-            className="mb-3 flex items-center gap-1.5 text-sm font-semibold text-slate-600 hover:text-slate-900"
-          >
-            {showShared ? (
-              <ChevronDown className="h-4 w-4" />
-            ) : (
-              <ChevronRight className="h-4 w-4" />
-            )}
-            <Users className="h-4 w-4" /> Shared by the team ({shared.length})
-          </button>
-          {showShared && (
-            <ul className="space-y-3">
-              {sortedShared.map((i) => (
-                <li key={i.id}>
-                  <InvolvementCard item={i} readOnly />
-                </li>
-              ))}
-            </ul>
-          )}
-        </div>
       )}
 
       {(creating || editing) && (
@@ -340,9 +311,12 @@ function InvolvementCard({
             <span className={cn("rounded-full px-2 py-0.5 text-[10px] font-semibold", sm.chip)}>
               {sm.label}
             </span>
-            {item.shared && !readOnly && (
-              <span className="inline-flex items-center gap-1 rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-medium text-slate-500">
-                <Users className="h-3 w-3" /> Shared
+            {item.shared && (
+              <span
+                title="Shared with the senior team"
+                className="text-sm leading-none"
+              >
+                👥
               </span>
             )}
             {readOnly && item.owner && (

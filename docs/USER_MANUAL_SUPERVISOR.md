@@ -387,7 +387,7 @@ The **My Work** module (💼 teal icon, senior team only) is *your own* running 
 - An optional **Drive folder** (the usual picker).
 - Optional **live references** to a **student**, a **task**, and/or a **calendar event** — these render as chips showing the real title/status and click straight through to open them (not a stale pasted URL).
 
-**Privacy.** Every item is **private to you by default**. Each item has a **"Share with the senior team"** toggle — flip it and that one item becomes visible (read-only) to the rest of the senior team under **"Shared by the team"** at the bottom of everyone's board, so you can surface what you're working on without exposing the rest. Only you can edit or delete your own items.
+**Privacy.** Every item is **private to you by default**. Each item has a **"Share with the senior team"** toggle — flip it and that one item becomes visible (read-only) to the rest of the senior team, so you can surface what you're working on without exposing the rest. Shared items are marked with a **👥** next to the title (and other people's shared items show the owner's name); they appear in the same single list as your own — no separate section. Only you can edit or delete your own items.
 
 **Comments.** On a shared item you can also switch on **"Let the team comment"** — then other senior members can post comments on it (a **Comments** toggle appears on the card, threaded like task/event comments; you get a 🔔 when someone comments). Leave it off and the item is shared read-only. As the owner you can always comment on and moderate your own item's thread.
 
