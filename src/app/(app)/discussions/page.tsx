@@ -42,7 +42,8 @@ export default async function DiscussionsPage() {
 
   return (
     <DiscussionsView
-      canCreate={senior}
+      canCreate={true}
+      senior={senior}
       viewerId={session.user.id}
       students={students.map((s) => ({
         id: s.id,

@@ -46,7 +46,7 @@ A few different people may be attached to your record. You don't manage any of t
 - **Primary supervisor** — your main supervisor. Full access: creates tasks/events, edits your profile, chats with you.
 - **Supervisor (additional)** — a co-supervisor with the same access as the primary.
 - **Team advisor** — a **senior member of the group** assigned to follow you. They can **see everything about your work read-only** — including tasks, calendar, reading, thesis, *and* private supervisor notes and your wellbeing score — but they **cannot change anything**. Their only action is sending **suggestions to your supervisors** (you don't see those, and you don't interact with the advisor directly in the app). Think of them as a senior pair of eyes looking out for your progress.
-- **Project Researcher** — a postdoc or researcher working **alongside you on a project**. They can **see your tasks, calendar and files read-only** (and comment) but can't change them, and — unlike a team advisor — they **do not** see private supervisor notes or your wellbeing. They may share a Drive folder of their own with you.
+- **Project Researcher** — a postdoc or researcher working **alongside you on a project**. They can **see your tasks, calendar and files read-only** (and comment) but can't change them, and — unlike a team advisor — they **do not** see private supervisor notes or your wellbeing. You and the project researcher can also **see each other's Drive folder and calendar** (view-only — neither edits the other's).
 - **External advisor** — a collaborator from **outside the institution** attached to your record (read-only).
 - **Committee member** — someone on your assessment committee (read-only).
 
@@ -227,7 +227,7 @@ You can collapse the channels column to icons-only with the small chevron at the
 
 The **Discussions** module (💡 violet icon) holds **topic threads** your supervisors open up to the whole team — brainstorms, open questions, things to decide together. Unlike Chat, a topic is **persistent**: its title, links and documents don't expire, so you can always find that good idea again later.
 
-- You'll see a topic here when a supervisor sets its visibility to **Whole team** (topics marked *Supervisors only* stay hidden from students). You can't start a topic yourself, but you can fully **join the discussion**.
+- **You can start your own topic** (it's always **whole-team** visible) and join any discussion shared with you. Topics a supervisor marks *Supervisors only* stay hidden from students — you won't see or create those.
 - **Document-style comments** — build a comment like a short document, in any order: type a line, then **drop, paste (⌘V), or attach** an image right below it, type more, add another file. Each part is a block you can reorder (↑/↓) or remove (×). Images show inline, documents as download links, and — unlike chat — these files **stay permanently** (up to 25 MB each). You can post an image-only comment, **reply** to others, and **edit or delete** your own.
 - A **violet dot** on the Discussions sidebar entry means there's a new topic or comment you haven't read; opening the module clears it.
 

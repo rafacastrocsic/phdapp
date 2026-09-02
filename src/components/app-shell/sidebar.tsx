@@ -165,7 +165,7 @@ export function Sidebar({
         )}
       </Link>
 
-      <nav className="flex flex-col gap-0.5">
+      <nav className="flex min-h-0 flex-1 flex-col gap-0.5 overflow-y-auto overflow-x-hidden">
         {NAV.filter((item) => {
           if (item.href === "/log" && !showLog) return false;
           if (item.href === "/my-work" && !showMyWork) return false;

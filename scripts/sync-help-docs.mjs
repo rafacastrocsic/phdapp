@@ -13,11 +13,13 @@ const out = join(root, "public", "help");
 const REQUIRED = [
   "USER_MANUAL_STUDENT.md",
   "USER_MANUAL_SUPERVISOR.md",
+  "USER_MANUAL_PROJECT_RESEARCHER.md",
   "USER_MANUAL_ADMIN.md",
 ];
 const OPTIONAL = [
   "PhDapp_Student_Overview.pptx",
   "PhDapp_Supervisor_Overview.pptx",
+  "PhDapp_ProjectResearcher_Overview.pptx",
 ];
 
 await mkdir(out, { recursive: true });

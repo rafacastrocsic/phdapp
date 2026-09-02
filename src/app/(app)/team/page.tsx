@@ -16,7 +16,8 @@ import { TeamUserCard } from "./user-edit-dialog";
 import { ExternalProfileLinks } from "@/components/external-profile-links";
 import { TeamWorkspace } from "./team-workspace";
 import { AdvisorSuggestions } from "./advisor-suggestions";
-import { Shield, FolderOpen } from "lucide-react";
+import { Shield } from "lucide-react";
+import { ResearcherWorkspace } from "./researcher-workspace";
 
 const ROLE_COLOR: Record<string, string> = {
   supervisor: "#6f4cff",
@@ -492,6 +493,7 @@ export default async function TeamPage() {
                       u={u}
                       isMe={u.id === session.user.id}
                       rel={rel}
+                      canProvision={isAdmin || canWorkspace}
                     />
                   </TeamUserCard>
                 );
@@ -592,6 +594,7 @@ function MemberBody({
   u,
   isMe,
   rel,
+  canProvision,
 }: {
   u: {
     id: string;
@@ -605,9 +608,11 @@ function MemberBody({
     scholarUrl: string | null;
     alternateEmails: string | null;
     driveFolderId: string | null;
+    calendarId: string | null;
   };
   isMe: boolean;
   rel: Rel;
+  canProvision: boolean;
 }) {
   const none =
     rel.supervising.named.length === 0 &&
@@ -666,15 +671,14 @@ function MemberBody({
             </div>
           )}
         </div>
-        {u.driveFolderId && (
-          <a
-            href={`https://drive.google.com/drive/folders/${u.driveFolderId}`}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="mt-1.5 inline-flex items-center gap-1 text-[11px] font-medium text-[var(--c-blue)] hover:underline"
-          >
-            <FolderOpen className="h-3 w-3" /> Workspace folder
-          </a>
+        {(rel.projectResearching.named.length > 0 ||
+          rel.projectResearching.unknown > 0) && (
+          <ResearcherWorkspace
+            userId={u.id}
+            driveFolderId={u.driveFolderId}
+            calendarId={u.calendarId}
+            canProvision={canProvision}
+          />
         )}
       </div>
     </>

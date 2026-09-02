@@ -46,10 +46,13 @@ export function DiscussionsView({
   topics,
   students,
   canCreate,
+  senior,
 }: {
   topics: TopicRow[];
   students: StudentOpt[];
   canCreate: boolean;
+  /** Only the senior team may create "Supervisors only" topics. */
+  senior: boolean;
   viewerId: string;
 }) {
   const [creating, setCreating] = useState(false);
@@ -186,6 +189,7 @@ export function DiscussionsView({
       {creating && (
         <NewTopicDialog
           students={students}
+          senior={senior}
           onClose={() => setCreating(false)}
         />
       )}
@@ -207,16 +211,20 @@ function VisibilityChip({ visibility }: { visibility: "team" | "supervisors" }) 
 
 function NewTopicDialog({
   students,
+  senior,
   onClose,
 }: {
   students: StudentOpt[];
+  senior: boolean;
   onClose: () => void;
 }) {
   const router = useRouter();
   const [title, setTitle] = useState("");
   const [body, setBody] = useState("");
+  // Non-senior members (students, external advisors, committee) can only open
+  // whole-team topics; "Supervisors only" is reserved for the senior team.
   const [visibility, setVisibility] = useState<"supervisors" | "team">(
-    "supervisors",
+    senior ? "supervisors" : "team",
   );
   const [studentId, setStudentId] = useState("");
   const [saving, setSaving] = useState(false);
@@ -282,15 +290,21 @@ function NewTopicDialog({
               <label className="mb-1 block text-xs font-semibold text-slate-600">
                 Who can read it
               </label>
-              <Select
-                value={visibility}
-                onChange={(e) =>
-                  setVisibility(e.target.value as "supervisors" | "team")
-                }
-              >
-                <option value="supervisors">Supervisors only</option>
-                <option value="team">Whole team (incl. students)</option>
-              </Select>
+              {senior ? (
+                <Select
+                  value={visibility}
+                  onChange={(e) =>
+                    setVisibility(e.target.value as "supervisors" | "team")
+                  }
+                >
+                  <option value="supervisors">Supervisors only</option>
+                  <option value="team">Whole team (incl. students)</option>
+                </Select>
+              ) : (
+                <div className="flex h-9 items-center rounded-lg border bg-slate-50 px-3 text-sm text-slate-500">
+                  Whole team
+                </div>
+              )}
             </div>
             <div>
               <label className="mb-1 block text-xs font-semibold text-slate-600">

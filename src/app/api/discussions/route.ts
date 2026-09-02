@@ -25,16 +25,16 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "unauth" }, { status: 401 });
   const role = session.user.role as Role;
 
-  if (!(await isSeniorTeam(session.user.id, role)))
-    return NextResponse.json(
-      { error: "Only the supervising team can start a discussion topic." },
-      { status: 403 },
-    );
+  // Anyone can start a discussion topic. Only the senior team, however, may
+  // open a "supervisors only" topic — everyone else is coerced to a
+  // whole-team topic (they can't create something they couldn't even see).
+  const senior = await isSeniorTeam(session.user.id, role);
 
   const parsed = Body.safeParse(await req.json().catch(() => null));
   if (!parsed.success)
     return NextResponse.json({ error: "bad input" }, { status: 400 });
   const d = parsed.data;
+  const visibility = senior ? d.visibility : "team";
 
   // A tagged student must be one this user can see.
   let studentId: string | null = null;
@@ -60,7 +60,7 @@ export async function POST(req: Request) {
       title: d.title.trim(),
       body: d.body?.trim() || null,
       authorId: session.user.id,
-      visibility: d.visibility,
+      visibility,
       studentId,
       links: sane.length > 0 ? JSON.stringify(sane) : null,
       driveFolderUrl: d.driveFolderUrl || null,

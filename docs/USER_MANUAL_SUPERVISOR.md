@@ -84,7 +84,7 @@ Every student has a **primary supervisor** and optionally additional team member
 
 - **Supervisor** (additional, alongside the primary) — full read/write on that student.
 - **Team advisor** — a senior *internal* colleague who follows that student **read-only** (sees everything, including private supervisor notes and wellbeing) but **cannot change anything**; their only action is sending suggestions to the supervisors. See [Team advisors & their suggestions](#team-advisors--their-suggestions).
-- **Project Researcher** — a postdoc / researcher embedded on a project *with* the student. **Read-only** on the student (views tasks, events, files and calendar and can comment, but can't edit them) and — unlike a team advisor — **never sees private supervisor notes or wellbeing**. They get the student's shared Drive folder and supervision calendar **view-only**. They can also set up their **own** Drive folder + calendar from **Settings → My workspace** (folder shared view-only to the supervising team, and to their students if they choose). Not part of the senior team (no My Work, can't start Discussions).
+- **Project Researcher** — a postdoc / researcher embedded on a project *with* the student. **Read-only** on the student (views tasks, events, files and calendar and can comment, but can't edit them) and — unlike a team advisor — **never sees private supervisor notes or wellbeing**. They get the student's shared Drive folder and supervision calendar **view-only**. They also get **their own** Drive folder + calendar (you or the admin set these up from the **Team** page, like a student's) — shared **view-only** with the students they work with and each of those students' **supervisors and team advisors** (not external advisors / committee), so the student and researcher can see each other's folder/calendar without editing. Not part of the senior team (no My Work). See *Setting up a project researcher's workspace* below.
 - **External advisor** — someone *outside* the institution, attached to that student (read-only by default).
 - **Committee member** — sits on that student's committee (read-only).
 
@@ -101,6 +101,10 @@ Only the **primary supervisor** or **admin** can manage the team. To do so:
 To remove someone, click the **X** on their row. To promote a co-supervisor to primary, click the small **Crown** button on their row.
 
 **Note**: students cannot be added to a supervision team — only non-student accounts.
+
+### Setting up a project researcher's workspace
+
+A **Project Researcher** gets their own Drive folder and calendar, provisioned like a student's. On the **Team** page, find their card (it shows *Project Researcher of …*) and click **Create folder** / **Create calendar** — the resources are created in **your** Google account and shared **view-only** with the students they work with and each of those students' supervisors + team advisors. When the researcher is later assigned to a new student, click **Sync sharing** so that student and their team get access. (The admin can do this too. The researcher themselves can't create these — no self-service.)
 
 ## Tasks
 
@@ -321,8 +325,8 @@ You can collapse the channels column with the chevron at the top of that column.
 
 The **Discussions** module (💡 violet icon) is a **persistent, topic-first** space for the team — brainstorms, open questions, "let's decide X". Unlike Chat (which is organised around each student and whose attachments auto-delete after 7 days), a **Topic** has a title, an opening post, a threaded discussion, a Links list, and an optional Drive folder — **none of which expire**. It's where an idea and its documents live so you can still find them six months later.
 
-- **Start a topic** — **New topic** (top-right): a **title**, an optional **opening post**, **who can read it**, and an optional **student tag**.
-  - **Who can read it** — **Supervisors only** (the senior team: admins, supervisors, co-supervisors and team advisors — *not* students, external advisors or committee members) or **Whole team** (everyone, students included). Defaults to *Supervisors only*.
+- **Start a topic** — **New topic** (top-right): a **title**, an optional **opening post**, **who can read it**, and an optional **student tag**. **Anyone** can start a topic — students, external advisors and project researchers included — but only the **senior team** can choose *Supervisors only* visibility; everyone else's topics are **Whole team**.
+  - **Who can read it** — **Supervisors only** (the senior team: admins, supervisors, co-supervisors and team advisors — *not* students, external advisors, committee members or project researchers) or **Whole team** (everyone, students included). For the senior team it defaults to *Supervisors only*; for everyone else it's fixed to *Whole team*.
   - **Tag a student** (optional) — a label to say "this is about ‹student›" (and it can later surface on that student's context). It's **metadata only**: it does *not* change who can read the topic — visibility alone governs that.
 - **The topic page** has three parts:
   - **Opening post** — your framing text; any URL becomes a clickable link.
@@ -331,7 +335,7 @@ The **Discussions** module (💡 violet icon) is a **persistent, topic-first** s
 - **Document-style comments** — a comment is built like a short document, in the order you place things: type a paragraph, then **attach, paste (⌘V), or drag-and-drop** an image or file *right there*, type more below it, add another image, and so on. Each piece is a block you can **reorder (↑/↓)** or **remove (×)**; there's always a trailing line to keep typing on. Images render **inline** (click to enlarge), documents as **download chips**. Files are **permanent** (not the 7-day chat rule), up to 25 MB each. You can post an image-only comment, and it works the same for **replies** and when **editing**.
 - **Manage a topic** (author or admin): **✎ Edit** (title, opening post, visibility, student tag), **📌 Pin** to the top of the list, **🔒 Close** (thread goes read-only; **Unlock** to re-open), **🗑 Delete** (removes the topic and all its comments).
 - **Notifications & unread** — posting a comment notifies the topic author and everyone already in the thread (🔔 bell). A **violet dot / count** on the Discussions sidebar entry flags new topics or comments you haven't seen; opening the module clears it.
-- **Who can do what** — the **senior team** starts topics; **students** can read *Whole team* topics and join the discussion (attachments included), but can't start topics or see *Supervisors only* threads.
+- **Who can do what** — **anyone** can start a *Whole team* topic and join any discussion they can see (attachments included); only the **senior team** can start *Supervisors only* topics or see those threads. **Students** never see *Supervisors only* threads.
 
 ## Files
 
@@ -475,8 +479,8 @@ _"Team advisor" and "Project researcher" are per-student — the ticks below app
 | **Auto-included** on the student's shared Drive folder & Calendar | ✓ | ✓ | – | – | ✓ | ✓ (view-only) | n/a |
 | See the student's activity (profile / modules) | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
 | Send suggestions to the supervisors | – | – | – | – | ✓ | – | ✓ |
-| Start a Discussion topic | ✓ | ✓ | – | – | ✓ | – | ✓ |
-| Read *Supervisors-only* Discussion topics | ✓ | ✓ | – | – | ✓ | – | ✓ |
+| Start a *whole-team* Discussion topic | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
+| Start / read a *Supervisors-only* Discussion topic | ✓ | ✓ | – | – | ✓ | – | ✓ |
 | Comment on a Discussion you can see | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
 
 _**Task comments** are communication, not a task edit: anyone who can **see** a student (incl. team advisors, external advisors and committee members) can post comments on that student's tasks. The "read-only" limit on team advisors refers to changing data (tasks/events/profile), which they still cannot do._

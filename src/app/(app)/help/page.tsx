@@ -21,6 +21,13 @@ const SUPERVISOR: Manual = {
   desc: "For supervisors, co-supervisors, external advisors and committee members.",
   deck: "PhDapp_Supervisor_Overview.pptx",
 };
+const PROJECT_RESEARCHER: Manual = {
+  key: "project_researcher",
+  label: "Project Researcher guide",
+  file: "USER_MANUAL_PROJECT_RESEARCHER.md",
+  desc: "For a postdoc/researcher embedded on a project with a student.",
+  deck: "PhDapp_ProjectResearcher_Overview.pptx",
+};
 const ADMIN: Manual = {
   key: "admin",
   label: "Admin guide",
@@ -33,18 +40,21 @@ export default async function HelpPage() {
   const role = session.user.role as Role;
 
   // Visibility matrix (broadest audience each guide is offered to):
-  //   Admin guide      → admin only
-  //   Supervisor guide → supervisors + admin
-  //   Student guide    → students + supervisors + admin
+  //   Admin guide              → admin only
+  //   Supervisor guide         → supervisors + admin
+  //   Project Researcher guide → project researchers + supervisors + admin
+  //   Student guide            → students + supervisors + admin
   // (`role === "admin"` is canonical — the admin email is promoted to that
   // role in auth.ts, the same check /admin uses. Co-supervisors, external
-  // advisors and committee members all carry the global "supervisor" role.)
+  // advisors, committee members and project researchers all carry the global
+  // "supervisor" role, so the non-student/non-admin bucket is offered all of
+  // the non-admin guides.)
   const manuals =
     role === "admin"
-      ? [ADMIN, SUPERVISOR, STUDENT]
+      ? [ADMIN, SUPERVISOR, PROJECT_RESEARCHER, STUDENT]
       : role === "student"
         ? [STUDENT]
-        : [SUPERVISOR, STUDENT];
+        : [SUPERVISOR, PROJECT_RESEARCHER, STUDENT];
 
   return <HelpView manuals={manuals} />;
 }
