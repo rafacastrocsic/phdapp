@@ -1,6 +1,6 @@
 import { prisma } from "./prisma";
 import { calendarForUser } from "./google";
-import { SHARED_RESOURCE_COSUP_ROLES } from "./access";
+import { SHARED_RESOURCE_COSUP_ROLES, shareLevelForRole } from "./access";
 
 interface ProvisionResult {
   ok: boolean;
@@ -32,6 +32,8 @@ interface ProvisionResult {
 interface ShareTarget {
   email: string;
   userId: string | null;
+  // ACL level to grant: project researchers follow read-only, others writer.
+  level: "reader" | "writer";
 }
 async function getShareTargets(
   studentId: string,
@@ -48,36 +50,34 @@ async function getShareTargets(
         // Only close-working roles get calendar access — see
         // SHARED_RESOURCE_COSUP_ROLES for the rationale.
         where: { role: { in: Array.from(SHARED_RESOURCE_COSUP_ROLES) } },
-        include: { user: { select: { id: true, email: true } } },
+        select: { role: true, user: { select: { id: true, email: true } } },
       },
     },
   });
   if (!student) return [];
   const byEmail = new Map<string, ShareTarget>();
+  const put = (
+    email: string | null | undefined,
+    userId: string | null,
+    level: "reader" | "writer",
+  ) => {
+    if (!email) return;
+    const e = email.toLowerCase();
+    // writer wins over reader if the same person appears in two roles.
+    const existing = byEmail.get(e);
+    if (existing?.level === "writer") return;
+    byEmail.set(e, { email: e, userId, level });
+  };
   // Student themselves — may have a User row (student.userId) or be
   // a "shell" student with only an email on the Student row.
-  if (student.email) {
-    byEmail.set(student.email.toLowerCase(), {
-      email: student.email.toLowerCase(),
-      userId: student.userId ?? null,
-    });
-  }
+  put(student.email, student.userId ?? null, "writer");
   // Primary supervisor
-  if (student.supervisor?.email) {
-    byEmail.set(student.supervisor.email.toLowerCase(), {
-      email: student.supervisor.email.toLowerCase(),
-      userId: student.supervisor.id,
-    });
-  }
-  // Additional supervisors and team advisors (external advisors and
-  // committee members are filtered out above at the Prisma layer).
+  put(student.supervisor?.email, student.supervisor?.id ?? null, "writer");
+  // Additional supervisors, team advisors and project researchers (external
+  // advisors and committee members are filtered out above at the Prisma
+  // layer). Project researchers get read-only; the rest writer.
   for (const cs of student.coSupervisors) {
-    if (cs.user?.email) {
-      byEmail.set(cs.user.email.toLowerCase(), {
-        email: cs.user.email.toLowerCase(),
-        userId: cs.user.id,
-      });
-    }
+    put(cs.user?.email, cs.user?.id ?? null, shareLevelForRole(cs.role));
   }
   // Drop the calendar owner — they implicitly already see it.
   const owner = await prisma.user.findUnique({
@@ -173,7 +173,7 @@ export async function syncCalendarAcl(
         // combination is fine.
         sendNotifications: true,
         requestBody: {
-          role: "writer",
+          role: t.level,
           scope: { type: "user", value: t.email },
         },
       });

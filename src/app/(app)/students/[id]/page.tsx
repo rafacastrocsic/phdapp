@@ -892,6 +892,8 @@ function teamRoleLabel(role: string): string {
     {
       supervisor: "Supervisor",
       co_supervisor: "Supervisor", // legacy data
+      team_advisor: "Team advisor",
+      project_researcher: "Project Researcher",
       external_advisor: "External advisor",
       committee: "Committee member",
     } as Record<string, string>

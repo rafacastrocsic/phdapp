@@ -16,6 +16,7 @@ interface StudentOpt {
 const TEAM_ROLES = [
   { id: "supervisor", label: "Supervisor", color: "#6f4cff" },
   { id: "team_advisor", label: "Team advisor", color: "#0ea5e9" },
+  { id: "project_researcher", label: "Project Researcher", color: "#f59e0b" },
   { id: "external_advisor", label: "External advisor", color: "#00d1c1" },
   { id: "committee", label: "Committee member", color: "#a855f7" },
 ];
@@ -33,7 +34,8 @@ export function AddTeamMember({ students }: { students: StudentOpt[] }) {
   const needsStudent =
     teamRole === "external_advisor" ||
     teamRole === "committee" ||
-    teamRole === "team_advisor";
+    teamRole === "team_advisor" ||
+    teamRole === "project_researcher";
 
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -173,6 +175,15 @@ export function AddTeamMember({ students }: { students: StudentOpt[] }) {
                 send suggestions to the supervisors. Add the same person to
                 other students too; the same user can be a supervisor of one
                 and a team advisor of another.
+              </span>
+            )}
+            {teamRole === "project_researcher" && (
+              <span>
+                Read-only <em>project researcher</em> for the chosen student —
+                works alongside them: views their tasks, files (read-only Drive
+                share) and calendar, but can&apos;t edit their data and never
+                sees private notes or wellbeing. Add the same person to other
+                students too.
               </span>
             )}
             {teamRole === "external_advisor" && (

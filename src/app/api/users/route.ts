@@ -20,7 +20,13 @@ const Body = z.object({
   color: z.string().optional(),
   studentId: z.string().optional(),
   teamRole: z
-    .enum(["supervisor", "team_advisor", "external_advisor", "committee"])
+    .enum([
+      "supervisor",
+      "team_advisor",
+      "project_researcher",
+      "external_advisor",
+      "committee",
+    ])
     .default("supervisor"),
 });
 

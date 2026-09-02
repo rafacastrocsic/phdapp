@@ -52,7 +52,10 @@ export async function POST(
       userId: true,
       supervisorId: true,
       coSupervisors: {
-        where: { role: { not: "team_advisor" } },
+        // Candidate calendar owners for the ACL re-sync — must be able to
+        // manage the calendar, so exclude the read-only roles (team advisors
+        // and project researchers get reader access and can't call acl.insert).
+        where: { role: { notIn: ["team_advisor", "project_researcher"] } },
         select: { userId: true },
       },
     },

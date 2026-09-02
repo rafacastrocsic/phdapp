@@ -21,6 +21,7 @@ import { Shield } from "lucide-react";
 const ROLE_COLOR: Record<string, string> = {
   supervisor: "#6f4cff",
   team_advisor: "#0ea5e9",
+  project_researcher: "#f59e0b",
   external_advisor: "#00d1c1",
   committee: "#a855f7",
   student: "#ff7a45",
@@ -108,6 +109,9 @@ export default async function TeamPage() {
     const taIds = u.coSupervisedStudents
       .filter((c) => c.role === "team_advisor")
       .map((c) => c.studentId);
+    const prIds = u.coSupervisedStudents
+      .filter((c) => c.role === "project_researcher")
+      .map((c) => c.studentId);
     const extIds = u.coSupervisedStudents
       .filter((c) => c.role === "external_advisor")
       .map((c) => c.studentId);
@@ -118,11 +122,13 @@ export default async function TeamPage() {
       userId: u.id,
       supervising: resolveNames(supIds),
       teamAdvising: resolveNames(taIds),
+      projectResearching: resolveNames(prIds),
       externalAdvising: resolveNames(extIds),
       committee: resolveNames(commIds),
       counts: {
         supervising: new Set(supIds).size,
         teamAdvising: new Set(taIds).size,
+        projectResearching: new Set(prIds).size,
         externalAdvising: new Set(extIds).size,
         committee: new Set(commIds).size,
       },
@@ -550,6 +556,7 @@ type Rel = {
   userId: string;
   supervising: Resolved;
   teamAdvising: Resolved;
+  projectResearching: Resolved;
   externalAdvising: Resolved;
   committee: Resolved;
   counts: Record<string, number>;
@@ -606,6 +613,8 @@ function MemberBody({
     rel.supervising.unknown === 0 &&
     rel.teamAdvising.named.length === 0 &&
     rel.teamAdvising.unknown === 0 &&
+    rel.projectResearching.named.length === 0 &&
+    rel.projectResearching.unknown === 0 &&
     rel.externalAdvising.named.length === 0 &&
     rel.externalAdvising.unknown === 0 &&
     rel.committee.named.length === 0 &&
@@ -639,6 +648,11 @@ function MemberBody({
         <div className="mt-1 space-y-0.5">
           <RelLine label="Supervisor of" color="#6f4cff" r={rel.supervising} />
           <RelLine label="Team advisor of" color="#0ea5e9" r={rel.teamAdvising} />
+          <RelLine
+            label="Project Researcher of"
+            color="#f59e0b"
+            r={rel.projectResearching}
+          />
           <RelLine
             label="External advisor of"
             color="#00d1c1"

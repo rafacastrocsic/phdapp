@@ -11,19 +11,34 @@ export function isAdmin(role: string | undefined | null): boolean {
  * CoSupervisor.role values that warrant sharing the student's Google
  * resources (Drive folder, supervision calendar) with them. Mirrors
  * the "people who work closely with the student day-to-day" group:
- * the supervising team (supervisor / co_supervisor) plus team
- * advisors (who are read-only inside PhDapp but still need to follow
- * the student's files and schedule).
+ * the supervising team (supervisor / co_supervisor), team advisors
+ * (read-only inside PhDapp but still need to follow the student's
+ * files and schedule) and project researchers (read-only, embedded
+ * on a project with the student).
  *
  * External advisors and committee members are deliberately excluded
  * — they have a lighter relationship and shouldn't see every file or
  * 1:1 meeting on the student's calendar.
+ *
+ * Note: membership here only decides WHO is shared. The privilege
+ * LEVEL differs — project researchers are granted read-only (reader)
+ * access, everyone else writer — see `shareLevelForRole`.
  */
 export const SHARED_RESOURCE_COSUP_ROLES = new Set<string>([
   "supervisor",
   "co_supervisor",
   "team_advisor",
+  "project_researcher",
 ]);
+
+/**
+ * Google ACL level to grant a share target based on their CoSupervisor
+ * role. Project researchers follow the student read-only; everyone else
+ * in the shared set gets writer (the pre-existing behaviour).
+ */
+export function shareLevelForRole(role: string | null | undefined): "reader" | "writer" {
+  return role === "project_researcher" ? "reader" : "writer";
+}
 
 /**
  * Team Advisor is a PER-STUDENT relationship (a `CoSupervisor.role` value,
@@ -120,10 +135,17 @@ export async function accessForStudent(
       id: studentId,
       OR: [
         { supervisorId: userId },
-        // team_advisor links are READ-ONLY — they must NOT grant write access,
-        // so exclude them here (external_advisor / committee still do, which
-        // is the pre-existing behaviour).
-        { coSupervisors: { some: { userId, role: { not: "team_advisor" } } } },
+        // team_advisor and project_researcher links are READ-ONLY — they must
+        // NOT grant write access, so exclude them here (external_advisor /
+        // committee still do, which is the pre-existing behaviour).
+        {
+          coSupervisors: {
+            some: {
+              userId,
+              role: { notIn: ["team_advisor", "project_researcher"] },
+            },
+          },
+        },
       ],
     },
     select: { id: true },
@@ -166,6 +188,7 @@ export type TeamLevel =
   | "committee"
   | "self"
   | "observer" // Team Advisor: full read incl. private, zero write
+  | "researcher" // Project Researcher: read-only, NO private notes/wellbeing
   | null;
 
 /**
@@ -174,10 +197,12 @@ export type TeamLevel =
  * committee members differently from supervisors can do so.
  *
  *  admin / Student.supervisorId / CoSupervisor.role ∈ {supervisor, co_supervisor} → "supervisor"
- *  CoSupervisor.role === "external_advisor" → "advisor"
- *  CoSupervisor.role === "committee"        → "committee"
- *  Student.userId === userId                → "self"
- *  otherwise                                → null
+ *  CoSupervisor.role === "team_advisor"      → "observer"   (read incl. private)
+ *  CoSupervisor.role === "project_researcher"→ "researcher" (read, NO private)
+ *  CoSupervisor.role === "external_advisor"  → "advisor"
+ *  CoSupervisor.role === "committee"         → "committee"
+ *  Student.userId === userId                 → "self"
+ *  otherwise                                 → null
  *
  * A user has at most one CoSupervisor row per student (`@@unique`), and the
  * primary-supervisor check wins over it, so precedence is unambiguous.
@@ -211,6 +236,9 @@ export async function teamLevelForStudent(
   // private material is visible, but never "supervisor" so no write gate
   // (which all check for "supervisor"/"self") ever lets them through.
   if (coRoles.has("team_advisor")) return "observer";
+  // Project Researcher: read-only like an observer, but WITHOUT supervisor-
+  // private material (see canSeeSupervisorPrivate, which excludes "researcher").
+  if (coRoles.has("project_researcher")) return "researcher";
   if (coRoles.has("external_advisor")) return "advisor";
   if (coRoles.has("committee")) return "committee";
 

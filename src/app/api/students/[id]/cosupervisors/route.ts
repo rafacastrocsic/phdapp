@@ -13,6 +13,7 @@ const Body = z
         "external_advisor",
         "committee",
         "team_advisor",
+        "project_researcher",
       ])
       .default("supervisor"),
   })
@@ -32,9 +33,16 @@ async function loadOwned(id: string, userId: string, role: string) {
       id,
       OR: [
         { supervisorId: userId },
-        // team_advisor links are read-only and must NOT confer the right to
-        // manage this student's team.
-        { coSupervisors: { some: { userId, role: { not: "team_advisor" } } } },
+        // team_advisor and project_researcher links are read-only and must NOT
+        // confer the right to manage this student's team.
+        {
+          coSupervisors: {
+            some: {
+              userId,
+              role: { notIn: ["team_advisor", "project_researcher"] },
+            },
+          },
+        },
       ],
     },
     select: { id: true, supervisorId: true },

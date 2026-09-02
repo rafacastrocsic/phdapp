@@ -1,6 +1,8 @@
 import { prisma } from "./prisma";
 import { driveForUser } from "./google";
-import { SHARED_RESOURCE_COSUP_ROLES } from "./access";
+import { SHARED_RESOURCE_COSUP_ROLES, shareLevelForRole } from "./access";
+
+type ShareLevel = "reader" | "writer";
 
 interface ProvisionResult {
   ok: boolean;
@@ -15,7 +17,7 @@ const FOLDER_MIME = "application/vnd.google-apps.folder";
 async function getShareTargetEmails(
   studentId: string,
   ownerUserId: string,
-): Promise<string[]> {
+): Promise<{ email: string; level: ShareLevel }[]> {
   const student = await prisma.student.findUnique({
     where: { id: studentId },
     select: {
@@ -27,23 +29,30 @@ async function getShareTargetEmails(
         // they have a lighter relationship and shouldn't see every
         // file in the student's shared folder.
         where: { role: { in: Array.from(SHARED_RESOURCE_COSUP_ROLES) } },
-        include: { user: { select: { email: true } } },
+        select: { role: true, user: { select: { email: true } } },
       },
     },
   });
   if (!student) return [];
-  const emails = new Set<string>();
-  if (student.email) emails.add(student.email.toLowerCase());
-  if (student.supervisor?.email) emails.add(student.supervisor.email.toLowerCase());
+  const byEmail = new Map<string, ShareLevel>();
+  // writer always wins over reader when the same person appears twice.
+  const put = (email: string | null | undefined, level: ShareLevel) => {
+    if (!email) return;
+    const e = email.toLowerCase();
+    if (byEmail.get(e) === "writer") return;
+    byEmail.set(e, level);
+  };
+  put(student.email, "writer");
+  put(student.supervisor?.email, "writer");
   for (const cs of student.coSupervisors) {
-    if (cs.user?.email) emails.add(cs.user.email.toLowerCase());
+    put(cs.user?.email, shareLevelForRole(cs.role));
   }
   const owner = await prisma.user.findUnique({
     where: { id: ownerUserId },
     select: { email: true },
   });
-  if (owner?.email) emails.delete(owner.email.toLowerCase());
-  return Array.from(emails);
+  if (owner?.email) byEmail.delete(owner.email.toLowerCase());
+  return Array.from(byEmail, ([email, level]) => ({ email, level }));
 }
 
 /**
@@ -117,13 +126,13 @@ export async function syncDriveFolderAcl(
 
   let shared = 0;
   const failed: { email: string; error: string }[] = [];
-  for (const email of targets) {
+  for (const { email, level } of targets) {
     try {
       await drive.permissions.create({
         fileId: student.driveFolderId,
         sendNotificationEmail: false,
         requestBody: {
-          role: "writer",
+          role: level,
           type: "user",
           emailAddress: email,
         },
