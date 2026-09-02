@@ -9,6 +9,7 @@ A short guide to using PhDapp as a PhD student. Read top to bottom the first tim
 - [Tasks](#tasks)
 - [Calendar](#calendar)
 - [Chat](#chat)
+- [Discussions](#discussions)
 - [Files](#files)
 - [Thesis & publications](#thesis--publications)
 - [Reading](#reading)
@@ -18,6 +19,7 @@ A short guide to using PhDapp as a PhD student. Read top to bottom the first tim
 - [Notifications](#notifications)
 - [Feedback & suggestions](#feedback--suggestions)
 - [Tips](#tips)
+- [Help & guides](#help--guides)
 - [If something breaks](#if-something-breaks)
 
 ---

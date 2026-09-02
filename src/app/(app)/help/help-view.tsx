@@ -3,12 +3,15 @@ import { useEffect, useState } from "react";
 import { marked } from "marked";
 import {
   HelpCircle,
-  Download,
+  Presentation,
   ExternalLink,
   Loader2,
   ListTree,
   ArrowUp,
 } from "lucide-react";
+
+// "Supervisor guide" -> "Supervisor slides" for the deck download label.
+const deckLabel = (m: Manual) => m.label.replace(/\s*guide$/i, " slides");
 import { cn } from "@/lib/utils";
 
 export type Manual = {
@@ -35,12 +38,25 @@ function renderDoc(md: string): { html: string; toc: TocItem[] } {
   const html = raw.replace(
     /<h([23])>([\s\S]*?)<\/h\1>/g,
     (_m, lvl: string, inner: string) => {
-      const text = inner.replace(/<[^>]+>/g, "").trim();
+      // Strip tags, then decode the entities marked emits (& -> &amp; etc.)
+      // so the display text and slug see the real characters.
+      const text = inner
+        .replace(/<[^>]+>/g, "")
+        .replace(/&amp;/g, "&")
+        .replace(/&lt;/g, "<")
+        .replace(/&gt;/g, ">")
+        .replace(/&quot;/g, '"')
+        .replace(/&#(?:39|x27);/gi, "'")
+        .trim();
+      // GitHub-style slug so the ids match the anchor links the manuals
+      // author by hand (e.g. "Thesis & publications" -> "thesis--publications"):
+      // drop punctuation, keep word chars / spaces / hyphens, spaces -> hyphens.
       const base =
         text
           .toLowerCase()
-          .replace(/[^a-z0-9]+/g, "-")
-          .replace(/^-+|-+$/g, "") || "section";
+          .replace(/[^\w\s-]/g, "")
+          .trim()
+          .replace(/\s/g, "-") || "section";
       let id = base;
       let n = 2;
       while (used.has(id)) id = `${base}-${n++}`;
@@ -55,6 +71,10 @@ function renderDoc(md: string): { html: string; toc: TocItem[] } {
 export function HelpView({ manuals }: { manuals: Manual[] }) {
   const [active, setActive] = useState(manuals[0].key);
   const manual = manuals.find((m) => m.key === active) ?? manuals[0];
+  // Slide decks this profile may access — derived from the role-filtered
+  // manual list, so each profile only sees the decks it's entitled to
+  // (student -> student slides; supervisor/admin -> supervisor + student).
+  const decks = manuals.filter((m) => m.deck);
   const [status, setStatus] = useState<"loading" | "ready" | "error">(
     "loading",
   );
@@ -123,25 +143,28 @@ export function HelpView({ manuals }: { manuals: Manual[] }) {
           </h1>
           <p className="mt-1 max-w-2xl text-sm text-slate-500">
             The full PhDapp manual for your role, right inside the app. Use the
-            contents list to jump around, or open the slide overview for a
-            quick tour.
+            contents list to jump around, or download the slides for a quick
+            visual tour.
           </p>
         </div>
         <div className="flex shrink-0 flex-wrap items-center gap-2">
-          {manual.deck && (
+          {decks.map((d) => (
             <a
-              href={`/help/${manual.deck}`}
+              key={d.key}
+              href={`/help/${d.deck}`}
               download
+              title={`Download the ${deckLabel(d)} (PowerPoint)`}
               className="inline-flex items-center gap-1.5 rounded-lg border bg-white px-3 py-2 text-sm font-medium text-slate-700 shadow-sm hover:bg-slate-50"
             >
-              <Download className="h-4 w-4 text-[var(--c-violet)]" />
-              Slide overview
+              <Presentation className="h-4 w-4 text-[var(--c-violet)]" />
+              {deckLabel(d)}
             </a>
-          )}
+          ))}
           <a
             href={`/help/${manual.file}`}
             target="_blank"
             rel="noopener noreferrer"
+            title="Open this guide as raw Markdown"
             className="inline-flex items-center gap-1.5 rounded-lg border bg-white px-3 py-2 text-sm font-medium text-slate-700 shadow-sm hover:bg-slate-50"
           >
             <ExternalLink className="h-4 w-4 text-slate-400" />

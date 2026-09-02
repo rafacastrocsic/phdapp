@@ -10,12 +10,14 @@ This manual is for anyone supervising or advising a PhD student in PhDapp. The f
 - [Tasks](#tasks)
 - [Calendar](#calendar)
 - [Chat](#chat)
+- [Discussions](#discussions)
 - [Files](#files)
 - [Thesis & publications](#thesis--publications)
 - [Private supervisor notes](#private-supervisor-notes)
 - [Weekly check-ins](#weekly-check-ins)
 - [Reading](#reading)
 - [Supervisor team workspace](#supervisor-team-workspace)
+- [My Work](#my-work)
 - [Team advisors & their suggestions](#team-advisors--their-suggestions)
 - [Workload](#workload)
 - [Weekly email digest](#weekly-email-digest)
@@ -26,6 +28,7 @@ This manual is for anyone supervising or advising a PhD student in PhDapp. The f
 - [Your profile](#your-profile)
 - [Permissions cheat sheet](#permissions-cheat-sheet)
 - [Tips](#tips)
+- [Help & guides](#help--guides)
 - [If something breaks](#if-something-breaks)
 
 ---
