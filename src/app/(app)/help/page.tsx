@@ -32,13 +32,19 @@ export default async function HelpPage() {
   const session = (await auth())!;
   const role = session.user.role as Role;
 
+  // Visibility matrix (broadest audience each guide is offered to):
+  //   Admin guide      → admin only
+  //   Supervisor guide → supervisors + admin
+  //   Student guide    → students + supervisors + admin
+  // (`role === "admin"` is canonical — the admin email is promoted to that
+  // role in auth.ts, the same check /admin uses. Co-supervisors, external
+  // advisors and committee members all carry the global "supervisor" role.)
   const manuals =
     role === "admin"
       ? [ADMIN, SUPERVISOR, STUDENT]
       : role === "student"
         ? [STUDENT]
-        : // supervisor / co-supervisor / external advisor / committee
-          [SUPERVISOR, STUDENT];
+        : [SUPERVISOR, STUDENT];
 
   return <HelpView manuals={manuals} />;
 }

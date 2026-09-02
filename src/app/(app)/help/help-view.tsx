@@ -7,6 +7,7 @@ import {
   ExternalLink,
   Loader2,
   ListTree,
+  ArrowUp,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -59,6 +60,22 @@ export function HelpView({ manuals }: { manuals: Manual[] }) {
   );
   const [html, setHtml] = useState("");
   const [toc, setToc] = useState<TocItem[]>([]);
+  const [showTop, setShowTop] = useState(false);
+
+  // The scrollable region is the (app) layout's <main>, not the window — so
+  // the "back to the top / contents" control watches and scrolls that.
+  useEffect(() => {
+    const main = document.querySelector("main");
+    if (!main) return;
+    const onScroll = () => setShowTop(main.scrollTop > 500);
+    main.addEventListener("scroll", onScroll, { passive: true });
+    onScroll();
+    return () => main.removeEventListener("scroll", onScroll);
+  }, []);
+
+  function scrollToTop() {
+    document.querySelector("main")?.scrollTo({ top: 0, behavior: "smooth" });
+  }
 
   useEffect(() => {
     let cancelled = false;
@@ -185,20 +202,24 @@ export function HelpView({ manuals }: { manuals: Manual[] }) {
             <details className="rounded-xl border bg-white lg:hidden">
               <summary className="flex cursor-pointer items-center gap-2 p-3 text-sm font-semibold text-slate-700">
                 <ListTree className="h-4 w-4 text-slate-400" />
-                Contents
+                On this page
               </summary>
-              <TocList toc={toc} onJump={jump} className="px-3 pb-3" />
+              <TocList
+                toc={toc}
+                onJump={jump}
+                className="border-l border-slate-200 px-3 pb-3"
+              />
             </details>
             {/* Desktop: sticky */}
             <div className="hidden lg:block lg:sticky lg:top-4">
-              <div className="mb-2 flex items-center gap-2 px-2 text-xs font-semibold uppercase tracking-wide text-slate-400">
+              <div className="mb-2 flex items-center gap-2 px-2 text-[11px] font-semibold uppercase tracking-wide text-slate-400">
                 <ListTree className="h-3.5 w-3.5" />
-                Contents
+                On this page
               </div>
               <TocList
                 toc={toc}
                 onJump={jump}
-                className="max-h-[calc(100vh-8rem)] overflow-auto pr-1"
+                className="max-h-[calc(100vh-8rem)] overflow-y-auto overflow-x-hidden border-l border-slate-200 pr-1"
               />
             </div>
           </aside>
@@ -209,6 +230,19 @@ export function HelpView({ manuals }: { manuals: Manual[] }) {
             dangerouslySetInnerHTML={{ __html: html }}
           />
         </div>
+      )}
+
+      {/* Back to the top / table of contents */}
+      {showTop && (
+        <button
+          type="button"
+          onClick={scrollToTop}
+          title="Back to the top (table of contents)"
+          className="fixed bottom-6 right-6 z-30 inline-flex items-center gap-1.5 rounded-full border bg-white/95 px-4 py-2.5 text-sm font-medium text-slate-700 shadow-lg backdrop-blur transition hover:bg-white print:hidden"
+        >
+          <ArrowUp className="h-4 w-4 text-[var(--c-violet)]" />
+          <span className="hidden sm:inline">Contents</span>
+        </button>
       )}
     </div>
   );
@@ -224,15 +258,17 @@ function TocList({
   className?: string;
 }) {
   return (
-    <nav className={cn("flex flex-col gap-0.5 text-sm", className)}>
+    <nav className={cn("flex flex-col text-[13px]", className)}>
       {toc.map((item) => (
         <button
           key={item.id}
           type="button"
           onClick={() => onJump(item.id)}
           className={cn(
-            "truncate rounded-md px-2 py-1 text-left text-slate-600 hover:bg-slate-100 hover:text-slate-900",
-            item.level === 3 && "pl-5 text-[13px] text-slate-500",
+            // Wrap long titles cleanly inside the column (never clip or spill
+            // into the article), with a subtle left rail that lights up on hover.
+            "-ml-px block w-full whitespace-normal break-words rounded-md border-l-2 border-transparent px-2 py-1.5 text-left leading-snug text-slate-600 hover:border-violet-300 hover:bg-slate-100 hover:text-slate-900",
+            item.level === 3 && "pl-4 text-[12px] text-slate-500",
           )}
           title={item.text}
         >
