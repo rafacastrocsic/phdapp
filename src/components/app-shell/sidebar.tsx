@@ -20,6 +20,7 @@ import {
   Megaphone,
   Lightbulb,
   Briefcase,
+  HelpCircle,
   ChevronLeft,
   ChevronRight,
   X as XIcon,
@@ -49,6 +50,7 @@ const NAV: Nav[] = [
   { href: "/team", label: "Team", icon: Users, color: "var(--c-yellow)", hideFor: ["student"] },
   { href: "/my-work", label: "My Work", icon: Briefcase, color: "var(--c-teal)", hideFor: ["student"] },
   { href: "/feedback", label: "Feedback", icon: Megaphone, color: "var(--c-violet)" },
+  { href: "/help", label: "Help", icon: HelpCircle, color: "var(--c-violet)" },
 ];
 
 export function Sidebar({
