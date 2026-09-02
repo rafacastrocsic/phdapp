@@ -46,6 +46,7 @@ A few different people may be attached to your record. You don't manage any of t
 - **Primary supervisor** — your main supervisor. Full access: creates tasks/events, edits your profile, chats with you.
 - **Supervisor (additional)** — a co-supervisor with the same access as the primary.
 - **Team advisor** — a **senior member of the group** assigned to follow you. They can **see everything about your work read-only** — including tasks, calendar, reading, thesis, *and* private supervisor notes and your wellbeing score — but they **cannot change anything**. Their only action is sending **suggestions to your supervisors** (you don't see those, and you don't interact with the advisor directly in the app). Think of them as a senior pair of eyes looking out for your progress.
+- **Project Researcher** — a postdoc or researcher working **alongside you on a project**. They can **see your tasks, calendar and files read-only** (and comment) but can't change them, and — unlike a team advisor — they **do not** see private supervisor notes or your wellbeing. They may share a Drive folder of their own with you.
 - **External advisor** — a collaborator from **outside the institution** attached to your record (read-only).
 - **Committee member** — someone on your assessment committee (read-only).
 

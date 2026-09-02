@@ -84,6 +84,7 @@ Every student has a **primary supervisor** and optionally additional team member
 
 - **Supervisor** (additional, alongside the primary) — full read/write on that student.
 - **Team advisor** — a senior *internal* colleague who follows that student **read-only** (sees everything, including private supervisor notes and wellbeing) but **cannot change anything**; their only action is sending suggestions to the supervisors. See [Team advisors & their suggestions](#team-advisors--their-suggestions).
+- **Project Researcher** — a postdoc / researcher embedded on a project *with* the student. **Read-only** on the student (views tasks, events, files and calendar and can comment, but can't edit them) and — unlike a team advisor — **never sees private supervisor notes or wellbeing**. They get the student's shared Drive folder and supervision calendar **view-only**. They can also set up their **own** Drive folder + calendar from **Settings → My workspace** (folder shared view-only to the supervising team, and to their students if they choose). Not part of the senior team (no My Work, can't start Discussions).
 - **External advisor** — someone *outside* the institution, attached to that student (read-only by default).
 - **Committee member** — sits on that student's committee (read-only).
 
@@ -94,7 +95,7 @@ Only the **primary supervisor** or **admin** can manage the team. To do so:
 3. The dialog shows the current team. Add a person by:
    - Picking them from the **From existing users** dropdown (only non-student accounts appear), or
    - Typing their email in the **By email** field — they must have signed in once already.
-4. Pick their role on the right (**Supervisor / Team advisor / External advisor / Committee member**).
+4. Pick their role on the right (**Supervisor / Team advisor / Project Researcher / External advisor / Committee member**).
 5. Click **Add**.
 
 To remove someone, click the **X** on their row. To promote a co-supervisor to primary, click the small **Crown** button on their row.
@@ -459,24 +460,24 @@ For **students**, alternate emails exist in *two* independent places, mirroring 
 
 ## Permissions cheat sheet
 
-| Action | Primary supervisor | Co-supervisor | External advisor | Committee | Team advisor | Admin |
-|---|---|---|---|---|---|---|
-_"Team advisor" is per-student — the ticks below apply only to the students that person is assigned to advise._
+| Action | Primary supervisor | Co-supervisor | External advisor | Committee | Team advisor | Project researcher | Admin |
+|---|---|---|---|---|---|---|---|
+_"Team advisor" and "Project researcher" are per-student — the ticks below apply only to the students that person is assigned to._
 
-| View student profile | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ (all students) |
-| See private supervisor notes & wellbeing | ✓ | ✓ | – | – | ✓ | ✓ |
-| Edit student profile | ✓ | – | – | – | – | ✓ |
-| Create / edit / delete tasks for the student | ✓ | ✓ | ✓ | ✓ | – | ✓ |
-| Manage the supervision team | ✓ | – | – | – | – | ✓ |
-| Create calendar events for the student | ✓ | ✓ | ✓ | ✓ | – | ✓ |
-| Chat in the student's channels | ✓ | ✓ | ✓ | ✓ | – | ✓ |
-| Share / provision the student's Google Calendar | ✓ | – | – | – | – | ✓ |
-| **Auto-included** on the student's shared Drive folder & Calendar | ✓ | ✓ | – | – | ✓ | n/a |
-| See the student's activity (profile / modules) | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
-| Send suggestions to the supervisors | – | – | – | – | ✓ | ✓ |
-| Start a Discussion topic | ✓ | ✓ | – | – | ✓ | ✓ |
-| Read *Supervisors-only* Discussion topics | ✓ | ✓ | – | – | ✓ | ✓ |
-| Comment on a Discussion you can see | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
+| View student profile | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ (all students) |
+| See private supervisor notes & wellbeing | ✓ | ✓ | – | – | ✓ | – | ✓ |
+| Edit student profile | ✓ | – | – | – | – | – | ✓ |
+| Create / edit / delete tasks for the student | ✓ | ✓ | ✓ | ✓ | – | – | ✓ |
+| Manage the supervision team | ✓ | – | – | – | – | – | ✓ |
+| Create calendar events for the student | ✓ | ✓ | ✓ | ✓ | – | – | ✓ |
+| Chat in the student's channels | ✓ | ✓ | ✓ | ✓ | – | ✓ | ✓ |
+| Share / provision the student's Google Calendar | ✓ | – | – | – | – | – | ✓ |
+| **Auto-included** on the student's shared Drive folder & Calendar | ✓ | ✓ | – | – | ✓ | ✓ (view-only) | n/a |
+| See the student's activity (profile / modules) | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
+| Send suggestions to the supervisors | – | – | – | – | ✓ | – | ✓ |
+| Start a Discussion topic | ✓ | ✓ | – | – | ✓ | – | ✓ |
+| Read *Supervisors-only* Discussion topics | ✓ | ✓ | – | – | ✓ | – | ✓ |
+| Comment on a Discussion you can see | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
 
 _**Task comments** are communication, not a task edit: anyone who can **see** a student (incl. team advisors, external advisors and committee members) can post comments on that student's tasks. The "read-only" limit on team advisors refers to changing data (tasks/events/profile), which they still cannot do._
 

@@ -5,6 +5,8 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Check, AlertTriangle, LogOut } from "lucide-react";
 import { ProfileEditor } from "@/components/profile-editor";
 import { DigestToggle } from "./digest-toggle";
+import { WorkspaceCard } from "./workspace-card";
+import { isProjectResearcherAnywhere } from "@/lib/access";
 
 export default async function SettingsPage() {
   const session = (await auth())!;
@@ -23,8 +25,12 @@ export default async function SettingsPage() {
       orcidId: true,
       scholarUrl: true,
       alternateEmails: true,
+      driveFolderId: true,
+      calendarId: true,
+      workspaceShareStudents: true,
     },
   });
+  const isProjectResearcher = await isProjectResearcherAnywhere(session.user.id);
 
   const account = await prisma.account.findFirst({
     where: { userId: session.user.id, provider: "google" },
@@ -80,6 +86,23 @@ export default async function SettingsPage() {
           </CardHeader>
           <CardContent>
             <DigestToggle initial={me.emailDigest} />
+          </CardContent>
+        </Card>
+      )}
+
+      {me && isProjectResearcher && (
+        <Card>
+          <CardHeader>
+            <CardTitle>My workspace</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <WorkspaceCard
+              driveFolderId={me.driveFolderId}
+              calendarId={me.calendarId}
+              shareStudents={me.workspaceShareStudents}
+              hasDrive={hasDrive}
+              hasCal={hasCal}
+            />
           </CardContent>
         </Card>
       )}

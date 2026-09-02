@@ -16,7 +16,7 @@ import { TeamUserCard } from "./user-edit-dialog";
 import { ExternalProfileLinks } from "@/components/external-profile-links";
 import { TeamWorkspace } from "./team-workspace";
 import { AdvisorSuggestions } from "./advisor-suggestions";
-import { Shield } from "lucide-react";
+import { Shield, FolderOpen } from "lucide-react";
 
 const ROLE_COLOR: Record<string, string> = {
   supervisor: "#6f4cff",
@@ -604,6 +604,7 @@ function MemberBody({
     orcidId: string | null;
     scholarUrl: string | null;
     alternateEmails: string | null;
+    driveFolderId: string | null;
   };
   isMe: boolean;
   rel: Rel;
@@ -665,6 +666,16 @@ function MemberBody({
             </div>
           )}
         </div>
+        {u.driveFolderId && (
+          <a
+            href={`https://drive.google.com/drive/folders/${u.driveFolderId}`}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="mt-1.5 inline-flex items-center gap-1 text-[11px] font-medium text-[var(--c-blue)] hover:underline"
+          >
+            <FolderOpen className="h-3 w-3" /> Workspace folder
+          </a>
+        )}
       </div>
     </>
   );

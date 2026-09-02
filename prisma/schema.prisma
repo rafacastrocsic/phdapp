@@ -30,6 +30,14 @@ model User {
   feedbackLastSeenAt DateTime?
   discussionsLastSeenAt DateTime?
 
+  // Project Researcher personal workspace (self-service on Settings).
+  // Their own Google Drive folder + calendar, created in their own account.
+  // The folder is shared view-only to the supervising team, and to the
+  // researcher's assigned students when `workspaceShareStudents` is on.
+  driveFolderId          String?
+  calendarId             String?
+  workspaceShareStudents Boolean   @default(false)
+
   // Admin-only visibility: when did this user actually use the app?
   //   lastLoginAt  — bumped in the NextAuth signIn event
   //   lastActiveAt — bumped on each authenticated page render, throttled

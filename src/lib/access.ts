@@ -56,6 +56,19 @@ export async function isTeamAdvisorAnywhere(userId: string): Promise<boolean> {
   return !!link;
 }
 
+/**
+ * True if the user is a Project Researcher on at least one student. Like
+ * `isTeamAdvisorAnywhere`, this is a per-student relationship, not a global
+ * role. Used to gate the self-service "My workspace" surfaces.
+ */
+export async function isProjectResearcherAnywhere(userId: string): Promise<boolean> {
+  const link = await prisma.coSupervisor.findFirst({
+    where: { userId, role: "project_researcher" },
+    select: { id: true },
+  });
+  return !!link;
+}
+
 export async function requireSession() {
   const session = await auth();
   if (!session?.user) throw new Error("UNAUTHENTICATED");
