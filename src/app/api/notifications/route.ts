@@ -3,6 +3,7 @@ import { z } from "zod";
 import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
 import { studentVisibilityWhereAllForAdmin, type Role } from "@/lib/access";
+import { isSeniorTeam } from "@/lib/discussions-access";
 
 // Cross-user "someone did something" feed for the 🔔 bell, derived from the
 // ActivityLog (single source of truth) so it reliably reflects every change
@@ -39,49 +40,123 @@ export async function GET() {
   if (!session?.user)
     return NextResponse.json({ items: [], unread: 0 });
 
+  const userId = session.user.id;
+  const role = session.user.role as Role;
+
   const me = await prisma.user.findUnique({
-    where: { id: session.user.id },
+    where: { id: userId },
     select: { notificationsLastSeenAt: true },
   });
   const since = me?.notificationsLastSeenAt ?? new Date(0);
 
   const visible = await prisma.student.findMany({
-    where: studentVisibilityWhereAllForAdmin(
-      session.user.id,
-      session.user.role as Role,
-    ),
+    where: studentVisibilityWhereAllForAdmin(userId, role),
     select: { id: true },
   });
   const studentIds = visible.map((s) => s.id);
 
   const where = {
     OR: [{ studentId: { in: studentIds } }, { studentId: null }],
-    actorId: { not: session.user.id },
+    actorId: { not: userId },
     action: { in: ACTIONS },
   };
 
-  const [logs, unread] = await Promise.all([
-    prisma.activityLog.findMany({
-      where,
-      orderBy: { createdAt: "desc" },
-      take: 20,
-      include: { actor: { select: { name: true } } },
-    }),
-    prisma.activityLog.count({
-      where: { ...where, createdAt: { gt: since } },
-    }),
-  ]);
+  // My Work lives outside the ActivityLog and is senior-team-only + per-item
+  // private, so it can't ride the studentId-scoped query above. Instead we
+  // fold in its events directly here, gated by isSeniorTeam and limited to
+  // items the viewer can see (their own, or ones shared with the team).
+  const senior = await isSeniorTeam(userId, role);
+  const mwVisible = {
+    involvementId: { not: null },
+    authorId: { not: userId },
+    involvement: { OR: [{ ownerId: userId }, { shared: true }] },
+  };
 
-  return NextResponse.json({
-    items: logs.map((l) => ({
+  const [logs, logUnread, mwShared, mwComments, mwSharedUnread, mwCommentUnread] =
+    await Promise.all([
+      prisma.activityLog.findMany({
+        where,
+        orderBy: { createdAt: "desc" },
+        take: 20,
+        include: { actor: { select: { name: true } } },
+      }),
+      prisma.activityLog.count({ where: { ...where, createdAt: { gt: since } } }),
+      senior
+        ? prisma.involvement.findMany({
+            where: { shared: true, ownerId: { not: userId } },
+            orderBy: { createdAt: "desc" },
+            take: 20,
+            select: {
+              id: true,
+              title: true,
+              createdAt: true,
+              owner: { select: { name: true } },
+            },
+          })
+        : Promise.resolve([] as never[]),
+      senior
+        ? prisma.comment.findMany({
+            where: mwVisible,
+            orderBy: { createdAt: "desc" },
+            take: 20,
+            select: {
+              id: true,
+              createdAt: true,
+              author: { select: { name: true } },
+              involvement: { select: { title: true } },
+            },
+          })
+        : Promise.resolve([] as never[]),
+      senior
+        ? prisma.involvement.count({
+            where: {
+              shared: true,
+              ownerId: { not: userId },
+              createdAt: { gt: since },
+            },
+          })
+        : Promise.resolve(0),
+      senior
+        ? prisma.comment.count({ where: { ...mwVisible, createdAt: { gt: since } } })
+        : Promise.resolve(0),
+    ]);
+
+  const first = (n: string | null | undefined) => n?.split(" ")[0] ?? "Someone";
+
+  const items = [
+    ...logs.map((l) => ({
       id: l.id,
       type: l.action,
-      message: `${l.actor?.name?.split(" ")[0] ?? "Someone"} ${l.summary}`,
+      message: `${first(l.actor?.name)} ${l.summary}`,
       link: linkFor(l.action, l.entityId),
       read: l.createdAt <= since,
       createdAt: l.createdAt.toISOString(),
     })),
-    unread,
+    ...mwShared.map((i) => ({
+      id: `mw-item-${i.id}`,
+      type: "mywork.share",
+      message: `${first(i.owner?.name)} shared “${i.title}” in My Work`,
+      link: "/my-work",
+      read: i.createdAt <= since,
+      createdAt: i.createdAt.toISOString(),
+    })),
+    ...mwComments.map((c) => ({
+      id: `mw-comment-${c.id}`,
+      type: "mywork.comment",
+      message: `${first(c.author?.name)} commented on “${
+        c.involvement?.title ?? "an item"
+      }” in My Work`,
+      link: "/my-work",
+      read: c.createdAt <= since,
+      createdAt: c.createdAt.toISOString(),
+    })),
+  ]
+    .sort((a, b) => b.createdAt.localeCompare(a.createdAt))
+    .slice(0, 20);
+
+  return NextResponse.json({
+    items,
+    unread: logUnread + mwSharedUnread + mwCommentUnread,
   });
 }
 
