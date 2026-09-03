@@ -1,7 +1,7 @@
 "use client";
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { FolderOpen, CalendarDays, RefreshCw, Loader2, Plus } from "lucide-react";
+import { FolderOpen, CalendarDays, RefreshCw, Loader2, Plus, X } from "lucide-react";
 
 function calendarUrl(calendarId: string) {
   try {
@@ -45,8 +45,12 @@ export function ResearcherWorkspace({
       });
       const data = await r.json();
       if (!r.ok) throw new Error(data.error || data.warning || "Failed");
-      if (data.driveFolderId) setFolder(data.driveFolderId);
-      if (data.calendarId) setCal(data.calendarId);
+      if (action === "clear_drive") setFolder(null);
+      else if (action === "clear_calendar") setCal(null);
+      else {
+        if (data.driveFolderId) setFolder(data.driveFolderId);
+        if (data.calendarId) setCal(data.calendarId);
+      }
       router.refresh();
     } catch (e) {
       setErr((e as Error).message);
@@ -63,14 +67,34 @@ export function ResearcherWorkspace({
   return (
     <div className="mt-1.5 flex flex-wrap items-center gap-x-3 gap-y-1">
       {folder ? (
-        <a
-          href={`https://drive.google.com/drive/folders/${folder}`}
-          target="_blank"
-          rel="noopener noreferrer"
-          className={linkCls}
-        >
-          <FolderOpen className="h-3 w-3" /> Workspace folder
-        </a>
+        <span className="inline-flex items-center gap-1">
+          <a
+            href={`https://drive.google.com/drive/folders/${folder}`}
+            target="_blank"
+            rel="noopener noreferrer"
+            className={linkCls}
+          >
+            <FolderOpen className="h-3 w-3" /> Workspace folder
+          </a>
+          {canProvision && (
+            <button
+              type="button"
+              disabled={busy !== null}
+              title="Remove this folder link (a fresh one can then be created; the Google folder itself is left untouched)"
+              onClick={() => {
+                if (
+                  window.confirm(
+                    "Remove the workspace folder link? The Google folder itself stays in your Drive — delete it there if you want. A new folder can then be created.",
+                  )
+                )
+                  void act("clear_drive");
+              }}
+              className="text-slate-400 hover:text-[var(--c-red)] disabled:opacity-50"
+            >
+              <X className="h-3 w-3" />
+            </button>
+          )}
+        </span>
       ) : (
         canProvision && (
           <button
@@ -90,9 +114,25 @@ export function ResearcherWorkspace({
       )}
 
       {cal ? (
-        <a href={calendarUrl(cal)} target="_blank" rel="noopener noreferrer" className={linkCls}>
-          <CalendarDays className="h-3 w-3" /> Workspace calendar
-        </a>
+        <span className="inline-flex items-center gap-1">
+          <a href={calendarUrl(cal)} target="_blank" rel="noopener noreferrer" className={linkCls}>
+            <CalendarDays className="h-3 w-3" /> Workspace calendar
+          </a>
+          {canProvision && (
+            <button
+              type="button"
+              disabled={busy !== null}
+              title="Remove this calendar link (the Google calendar itself is left untouched)"
+              onClick={() => {
+                if (window.confirm("Remove the workspace calendar link?"))
+                  void act("clear_calendar");
+              }}
+              className="text-slate-400 hover:text-[var(--c-red)] disabled:opacity-50"
+            >
+              <X className="h-3 w-3" />
+            </button>
+          )}
+        </span>
       ) : (
         canProvision && (
           <button

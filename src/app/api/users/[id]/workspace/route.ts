@@ -21,6 +21,11 @@ const Body = z.object({
     "sync_drive",
     "create_calendar",
     "sync_calendar",
+    // "clear_*" forgets the link in PhDapp so a fresh one can be created;
+    // the underlying Google folder/calendar (in the owner's account) is left
+    // as-is and can be deleted by hand in Google if desired.
+    "clear_drive",
+    "clear_calendar",
   ]),
 });
 
@@ -51,6 +56,18 @@ export async function POST(
   const parsed = Body.safeParse(await req.json().catch(() => null));
   if (!parsed.success)
     return NextResponse.json({ error: "bad input" }, { status: 400 });
+
+  // Clear the app-side link so the folder/calendar can be re-created.
+  if (parsed.data.action === "clear_drive" || parsed.data.action === "clear_calendar") {
+    await prisma.user.update({
+      where: { id },
+      data:
+        parsed.data.action === "clear_drive"
+          ? { driveFolderId: null }
+          : { calendarId: null },
+    });
+    return NextResponse.json({ ok: true });
+  }
 
   const owner = session.user.id;
   const result =
