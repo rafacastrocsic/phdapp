@@ -12,17 +12,39 @@ import { AddTeamMember } from "./add-team-member";
 import { MaintenanceTools } from "./maintenance";
 import { GeneralCalendarSetting } from "./general-calendar-setting";
 
-const ROLE_GROUPS = ["admin", "supervisor", "student"] as const;
-const ROLE_LABEL: Record<string, string> = {
-  admin: "Administrators",
-  supervisor: "Supervisors",
-  student: "Students",
+// The "Senior team" (everyone with the global `supervisor` role) is split by
+// each person's actual per-student relationships. A person can wear several
+// hats across students; they're shown once, in their most senior bucket
+// (supervisor > team advisor > project researcher > external advisor >
+// committee). Change a person's per-student role from the student's Manage
+// team dialog — the global role menu below only sets admin/supervisor/student.
+const SENIOR_CATS = [
+  { key: "supervisor", label: "Supervisors", color: "#6f4cff" },
+  { key: "team_advisor", label: "Team advisors", color: "#0ea5e9" },
+  { key: "project_researcher", label: "Project researchers", color: "#f59e0b" },
+  { key: "external_advisor", label: "External advisors", color: "#00d1c1" },
+  { key: "committee", label: "Committee members", color: "#a855f7" },
+] as const;
+
+type AdminUser = {
+  supervisedStudents: { id: string }[];
+  coSupervisedStudents: { role: string }[];
 };
-const ROLE_COLOR: Record<string, string> = {
-  admin: "#e2445c",
-  supervisor: "#6f4cff",
-  student: "#ff7a45",
-};
+
+function seniorCategory(u: AdminUser): string {
+  const coRoles = new Set(u.coSupervisedStudents.map((c) => c.role));
+  if (
+    u.supervisedStudents.length > 0 ||
+    coRoles.has("supervisor") ||
+    coRoles.has("co_supervisor")
+  )
+    return "supervisor";
+  if (coRoles.has("team_advisor")) return "team_advisor";
+  if (coRoles.has("project_researcher")) return "project_researcher";
+  if (coRoles.has("external_advisor")) return "external_advisor";
+  if (coRoles.has("committee")) return "committee";
+  return "supervisor"; // bare global-supervisor with no links yet
+}
 
 export default async function AdminPage() {
   const session = (await auth())!;
@@ -47,6 +69,8 @@ export default async function AdminPage() {
       alternateEmails: true,
       lastLoginAt: true,
       lastActiveAt: true,
+      supervisedStudents: { select: { id: true } },
+      coSupervisedStudents: { select: { role: true } },
       _count: {
         select: {
           supervisedStudents: true,
@@ -58,12 +82,17 @@ export default async function AdminPage() {
     orderBy: [{ role: "asc" }, { name: "asc" }],
   });
 
-  const grouped: Record<string, typeof users> = {
-    admin: [],
+  const admins = users.filter((u) => u.role === "admin");
+  const students = users.filter((u) => u.role === "student");
+  const seniorBuckets: Record<string, typeof users> = {
     supervisor: [],
-    student: [],
+    team_advisor: [],
+    project_researcher: [],
+    external_advisor: [],
+    committee: [],
   };
-  for (const u of users) (grouped[u.role] ??= []).push(u);
+  for (const u of users)
+    if (u.role === "supervisor") seniorBuckets[seniorCategory(u)].push(u);
 
   return (
     <div className="p-6 lg:p-8 space-y-6 max-w-5xl">
@@ -117,71 +146,134 @@ export default async function AdminPage() {
         </div>
       </div>
 
-      {ROLE_GROUPS.map((role) => (
-        <Card key={role}>
-          <CardHeader className="flex flex-row items-center justify-between">
-            <CardTitle>{ROLE_LABEL[role]}</CardTitle>
-            <Badge color={ROLE_COLOR[role]} variant="solid">
-              {grouped[role].length}
-            </Badge>
-          </CardHeader>
-          <CardContent className="p-0">
-            {grouped[role].length === 0 ? (
-              <p className="p-6 text-sm text-slate-500">Nobody yet.</p>
-            ) : (
-              <ul className="divide-y">
-                {grouped[role].map((u) => (
-                  <li key={u.id} className="p-4">
-                    <details>
-                      <summary className="cursor-pointer flex items-center gap-3 list-none">
-                        <Avatar
-                          name={u.name}
-                          src={u.image}
-                          color={u.color}
-                          size="md"
-                        />
-                        <div className="flex-1 min-w-0">
-                          <div className="text-sm font-semibold text-slate-900 truncate">
-                            {u.name ?? u.email}
-                            {u.id === session.user.id && (
-                              <span className="ml-1 text-xs text-slate-400">(you)</span>
-                            )}
-                          </div>
-                          <div className="text-xs text-slate-500 truncate">{u.email}</div>
-                          <UserActivityLine
-                            lastLoginAt={u.lastLoginAt}
-                            lastActiveAt={u.lastActiveAt}
-                          />
-                        </div>
-                        <div className="hidden sm:flex items-center gap-3 text-xs text-slate-500">
-                          {u._count.supervisedStudents > 0 && (
-                            <span><strong className="text-slate-900">{u._count.supervisedStudents}</strong> sup</span>
-                          )}
-                          {u._count.coSupervisedStudents > 0 && (
-                            <span><strong className="text-slate-900">{u._count.coSupervisedStudents}</strong> shared</span>
-                          )}
-                          {u._count.assignedTickets > 0 && (
-                            <span><strong className="text-slate-900">{u._count.assignedTickets}</strong> tasks</span>
-                          )}
-                        </div>
-                        <span className="text-xs text-slate-400 ml-2">click to edit</span>
-                      </summary>
-                      <div className="mt-4 pt-4 border-t">
-                        <ProfileEditor
-                          user={u}
-                          canEditRole
-                          isSelf={u.id === session.user.id}
-                        />
-                      </div>
-                    </details>
-                  </li>
-                ))}
-              </ul>
-            )}
-          </CardContent>
-        </Card>
-      ))}
+      <MemberCard
+        title="Administrators"
+        color="#e2445c"
+        users={admins}
+        sessionUserId={session.user.id}
+      />
+
+      <div className="space-y-4">
+        <div className="flex flex-wrap items-baseline gap-x-2 gap-y-0.5">
+          <h2 className="text-lg font-bold text-slate-900">Senior team</h2>
+          <span className="text-xs text-slate-400">
+            Everyone with the supervisor sign-in role, grouped by what they do
+            per student. Change a person&apos;s per-student role from that
+            student&apos;s <em>Manage team</em> dialog.
+          </span>
+        </div>
+        {SENIOR_CATS.map((cat) => (
+          <MemberCard
+            key={cat.key}
+            title={cat.label}
+            color={cat.color}
+            users={seniorBuckets[cat.key]}
+            sessionUserId={session.user.id}
+          />
+        ))}
+      </div>
+
+      <MemberCard
+        title="Students"
+        color="#ff7a45"
+        users={students}
+        sessionUserId={session.user.id}
+      />
     </div>
+  );
+}
+
+type MemberUser = {
+  id: string;
+  name: string | null;
+  email: string;
+  image: string | null;
+  color: string;
+  role: string;
+  linkedinUrl: string | null;
+  orcidId: string | null;
+  scholarUrl: string | null;
+  alternateEmails: string | null;
+  lastLoginAt: Date | null;
+  lastActiveAt: Date | null;
+  _count: {
+    supervisedStudents: number;
+    coSupervisedStudents: number;
+    assignedTickets: number;
+  };
+};
+
+function MemberCard({
+  title,
+  color,
+  users,
+  sessionUserId,
+}: {
+  title: string;
+  color: string;
+  users: MemberUser[];
+  sessionUserId: string;
+}) {
+  return (
+    <Card>
+      <CardHeader className="flex flex-row items-center justify-between">
+        <CardTitle>{title}</CardTitle>
+        <Badge color={color} variant="solid">
+          {users.length}
+        </Badge>
+      </CardHeader>
+      <CardContent className="p-0">
+        {users.length === 0 ? (
+          <p className="p-6 text-sm text-slate-500">Nobody yet.</p>
+        ) : (
+          <ul className="divide-y">
+            {users.map((u) => (
+              <UserRow key={u.id} u={u} isSelf={u.id === sessionUserId} />
+            ))}
+          </ul>
+        )}
+      </CardContent>
+    </Card>
+  );
+}
+
+function UserRow({ u, isSelf }: { u: MemberUser; isSelf: boolean }) {
+  return (
+    <li className="p-4">
+      <details>
+        <summary className="cursor-pointer flex items-center gap-3 list-none">
+          <Avatar name={u.name} src={u.image} color={u.color} size="md" />
+          <div className="flex-1 min-w-0">
+            <div className="text-sm font-semibold text-slate-900 truncate">
+              {u.name ?? u.email}
+              {isSelf && (
+                <span className="ml-1 text-xs text-slate-400">(you)</span>
+              )}
+            </div>
+            <div className="text-xs text-slate-500 truncate">{u.email}</div>
+            <UserActivityLine
+              lastLoginAt={u.lastLoginAt}
+              lastActiveAt={u.lastActiveAt}
+            />
+          </div>
+          <div className="hidden sm:flex items-center gap-3 text-xs text-slate-500">
+            {u._count.supervisedStudents > 0 && (
+              <span><strong className="text-slate-900">{u._count.supervisedStudents}</strong> sup</span>
+            )}
+            {u._count.coSupervisedStudents > 0 && (
+              <span><strong className="text-slate-900">{u._count.coSupervisedStudents}</strong> shared</span>
+            )}
+            {u._count.assignedTickets > 0 && (
+              <span><strong className="text-slate-900">{u._count.assignedTickets}</strong> tasks</span>
+            )}
+          </div>
+          <span className="text-xs text-slate-400 ml-2">click to edit</span>
+        </summary>
+        <div className="mt-4 pt-4 border-t">
+          <ProfileEditor user={u} canEditRole isSelf={isSelf} />
+        </div>
+      </details>
+    </li>
   );
 }
 
