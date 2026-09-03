@@ -655,7 +655,7 @@ function MemberBody({
           <RelLine label="Supervisor of" color="#6f4cff" r={rel.supervising} />
           <RelLine label="Team advisor of" color="#0ea5e9" r={rel.teamAdvising} />
           <RelLine
-            label="Project Researcher of"
+            label="Project Researcher with"
             color="#f59e0b"
             r={rel.projectResearching}
           />

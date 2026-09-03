@@ -104,7 +104,7 @@ To remove someone, click the **X** on their row. To promote a co-supervisor to p
 
 ### Setting up a project researcher's workspace
 
-A **Project Researcher** gets their own Drive folder and calendar, provisioned like a student's. On the **Team** page, find their card (it shows *Project Researcher of …*) and click **Create folder** / **Create calendar** — the resources are created in **your** Google account and shared **view-only** with the students they work with and each of those students' supervisors + team advisors. When the researcher is later assigned to a new student, click **Sync sharing** so that student and their team get access. (The admin can do this too. The researcher themselves can't create these — no self-service.)
+A **Project Researcher** gets their own Drive folder and calendar, provisioned like a student's. On the **Team** page, find their card (it shows *Project Researcher with …*) and click **Create folder** / **Create calendar** — the resources are created in **your** Google account and shared **view-only** with the students they work with and each of those students' supervisors + team advisors. When the researcher is later assigned to a new student, click **Sync sharing** so that student and their team get access. (The admin can do this too. The researcher themselves can't create these — no self-service.)
 
 ## Tasks
 
