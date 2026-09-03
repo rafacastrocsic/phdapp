@@ -19,6 +19,7 @@ import {
   Layers,
   Lightbulb,
   TrendingUp,
+  Briefcase,
 } from "lucide-react";
 
 export const dynamic = "force-dynamic";
@@ -301,6 +302,21 @@ export default async function MetricsPage() {
             [
               "Comments with files",
               num(m.discussions.commentsWithFiles),
+            ],
+          ]}
+        />
+        <DetailCard
+          icon={<Briefcase className="h-4 w-4 text-[var(--c-teal)]" />}
+          title="My Work"
+          rows={[
+            ["Items (total)", num(m.myWork.totalItems)],
+            ["New items (30d)", num(m.myWork.items30)],
+            ["Shared with the team", num(m.myWork.sharedItems)],
+            ["Comments (30d)", num(m.myWork.comments30)],
+            ["People taking part (30d)", num(m.myWork.participants30)],
+            [
+              "Avg. progress (active)",
+              m.myWork.avgProgress === null ? "—" : `${m.myWork.avgProgress}%`,
             ],
           ]}
         />

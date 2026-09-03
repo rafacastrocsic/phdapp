@@ -89,6 +89,15 @@ export interface Metrics {
     commentsWithFiles: number; // comments carrying images/documents
     avgCommentsPerTopic: number | null;
   };
+  // 8c — My Work (senior-team personal boards)
+  myWork: {
+    totalItems: number;
+    items30: number; // new items in the last 30d
+    sharedItems: number; // items shared with the team
+    comments30: number; // comments on items in the last 30d
+    participants30: number; // distinct owners active + commenters (30d)
+    avgProgress: number | null; // avg completion % of active items
+  };
   // 9 — resources consolidated
   resources: {
     studentsWithDrive: number;
@@ -232,6 +241,8 @@ export async function computeMetrics(): Promise<Metrics> {
     checkinActors,
     topicActors,
     topicCommentActors,
+    involvementOwners,
+    involvementCommentActors,
   ] = await Promise.all([
     prisma.ticket.findMany({
       where: { createdAt: { gte: d30 } },
@@ -253,10 +264,11 @@ export async function computeMetrics(): Promise<Metrics> {
       select: { addedById: true },
       distinct: ["addedById"],
     }),
-    // Scoped to non-discussion comments (tasks / events / readings) so the
-    // Discussions module below isn't double-counted here.
+    // Scoped to task / event / reading comments so the Discussions and My
+    // Work modules below aren't double-counted here (both also live in the
+    // shared Comment table).
     prisma.comment.findMany({
-      where: { createdAt: { gte: d30 }, topicId: null },
+      where: { createdAt: { gte: d30 }, topicId: null, involvementId: null },
       select: { authorId: true },
       distinct: ["authorId"],
     }),
@@ -274,11 +286,26 @@ export async function computeMetrics(): Promise<Metrics> {
       select: { authorId: true },
       distinct: ["authorId"],
     }),
+    prisma.involvement.findMany({
+      where: { updatedAt: { gte: d30 } },
+      select: { ownerId: true },
+      distinct: ["ownerId"],
+    }),
+    prisma.comment.findMany({
+      where: { createdAt: { gte: d30 }, involvementId: { not: null } },
+      select: { authorId: true },
+      distinct: ["authorId"],
+    }),
   ]);
   // Someone "used Discussions" if they opened a topic or commented in one.
   const discussionParticipants = new Set<string>([
     ...topicActors.map((t) => t.authorId),
     ...topicCommentActors.map((c) => c.authorId),
+  ]);
+  // Someone "used My Work" if they created/updated an item or commented on one.
+  const myWorkParticipants = new Set<string>([
+    ...involvementOwners.map((i) => i.ownerId),
+    ...involvementCommentActors.map((c) => c.authorId),
   ]);
   const modules: Metrics["modules"] = [
     { key: "tasks", label: "Tasks", users: taskActors.length },
@@ -298,6 +325,7 @@ export async function computeMetrics(): Promise<Metrics> {
         checkinActors.map((c) => c.student?.userId).filter(Boolean),
       ).size,
     },
+    { key: "my_work", label: "My Work", users: myWorkParticipants.size },
   ];
 
   // ── Tasks ──
@@ -495,6 +523,30 @@ export async function computeMetrics(): Promise<Metrics> {
         : null,
   };
 
+  // ── My Work (senior-team personal boards) ──
+  const [mwTotalItems, mwItems30, mwSharedItems, mwComments30, mwAvgAgg] =
+    await Promise.all([
+      prisma.involvement.count(),
+      prisma.involvement.count({ where: { createdAt: { gte: d30 } } }),
+      prisma.involvement.count({ where: { shared: true } }),
+      prisma.comment.count({
+        where: { involvementId: { not: null }, createdAt: { gte: d30 } },
+      }),
+      prisma.involvement.aggregate({
+        _avg: { progress: true },
+        where: { status: "active" },
+      }),
+    ]);
+  const myWork: Metrics["myWork"] = {
+    totalItems: mwTotalItems,
+    items30: mwItems30,
+    sharedItems: mwSharedItems,
+    comments30: mwComments30,
+    participants30: myWorkParticipants.size,
+    avgProgress:
+      mwAvgAgg._avg.progress != null ? Math.round(mwAvgAgg._avg.progress) : null,
+  };
+
   // ── Resources consolidated ──
   const [studentsWithDrive, thesisChapters, publications, starredFiles] =
     await Promise.all([
@@ -536,6 +588,7 @@ export async function computeMetrics(): Promise<Metrics> {
     meetings,
     checkins,
     discussions,
+    myWork,
     resources,
     recency,
   };
