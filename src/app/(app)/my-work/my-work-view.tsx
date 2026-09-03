@@ -1,5 +1,5 @@
 "use client";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
@@ -612,6 +612,28 @@ function InvolvementCard({
   const sm = STATUS_META[item.status] ?? STATUS_META.active;
   const pm = PRIORITY_META[item.priority] ?? PRIORITY_META.medium;
 
+  // Optimistic local copies so ticking a checklist item updates the card
+  // instantly (the card may be a frozen snapshot in the board preview, and
+  // router.refresh() only lands later). Re-sync when the server item changes.
+  const [checklist, setChecklistLocal] = useState(item.checklist);
+  const [progress, setProgressLocal] = useState(item.progress);
+  useEffect(() => {
+    setChecklistLocal(item.checklist);
+    setProgressLocal(item.progress);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [item.updatedAt]);
+
+  function toggleChecklist(id: string) {
+    const next = checklist.map((x) =>
+      x.id === id ? { ...x, done: !x.done } : x,
+    );
+    setChecklistLocal(next);
+    const total = next.length;
+    const done = next.filter((x) => x.done).length;
+    if (total > 0) setProgressLocal(Math.round((done / total) * 100));
+    void patch({ checklist: next });
+  }
+
   async function patch(payload: Record<string, unknown>) {
     setBusy(true);
     await fetch(`/api/involvements/${item.id}`, {
@@ -707,16 +729,16 @@ function InvolvementCard({
         <div className="h-2 flex-1 overflow-hidden rounded-full bg-slate-100">
           <div
             className="h-full rounded-full transition-all"
-            style={{ width: `${item.progress}%`, background: sm.bar }}
+            style={{ width: `${progress}%`, background: sm.bar }}
           />
         </div>
         <span className="shrink-0 text-right text-xs font-semibold text-slate-500 tabular-nums">
-          {item.checklist.length > 0 && (
+          {checklist.length > 0 && (
             <span className="mr-1 font-normal text-slate-400">
-              {clCount(item.checklist).done}/{clCount(item.checklist).total}
+              {clCount(checklist).done}/{clCount(checklist).total}
             </span>
           )}
-          {item.progress}%
+          {progress}%
         </span>
       </div>
 
@@ -728,20 +750,15 @@ function InvolvementCard({
 
       {/* Checklist — tick items to move the % (own items only). Shown
           below the note so the write-up reads first, then the steps. */}
-      {item.checklist.length > 0 && (
+      {checklist.length > 0 && (
         <ul className="mt-2 space-y-0.5">
-          {item.checklist.map((c) => (
+          {checklist.map((c) => (
             <li key={c.id} className="flex items-start gap-2 text-sm">
               <input
                 type="checkbox"
                 checked={c.done}
                 disabled={readOnly || busy}
-                onChange={() => {
-                  const next = item.checklist.map((x) =>
-                    x.id === c.id ? { ...x, done: !x.done } : x,
-                  );
-                  void patch({ checklist: next });
-                }}
+                onChange={() => toggleChecklist(c.id)}
                 className="mt-0.5 h-3.5 w-3.5 shrink-0 accent-[var(--c-teal)] disabled:opacity-50"
               />
               <span
