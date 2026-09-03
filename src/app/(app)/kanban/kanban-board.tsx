@@ -599,12 +599,14 @@ export function KanbanBoard({
         />
       ) : (
       <div className="flex-1 min-w-0 overflow-x-auto">
-        <div className="flex gap-4 p-6 lg:p-8 min-w-max h-full">
+        <div className="flex gap-4 p-6 lg:p-8 h-full">
           {STATUSES.map((col) => (
             <div
               key={col.id}
               className={cn(
-                "flex flex-col w-80 shrink-0 rounded-2xl bg-slate-100/80 transition-colors",
+                // Stretch to fill wide windows; keep a min width so the board
+              // scrolls horizontally (rather than crushing columns) when narrow.
+              "flex flex-col flex-1 min-w-[20rem] rounded-2xl bg-slate-100/80 transition-colors",
                 hoverStatus === col.id && "ring-2 ring-offset-2",
               )}
               style={{

@@ -206,7 +206,13 @@ export function MyWorkView({
   const filtersActive = !!authorFilter || !!priorityFilter;
 
   return (
-    <div className="mx-auto w-full max-w-4xl p-4 md:p-6">
+    <div
+      className={cn(
+        "mx-auto w-full p-4 md:p-6",
+        // The board fills the window; the list stays a readable column.
+        viewMode === "board" ? "max-w-none" : "max-w-4xl",
+      )}
+    >
       <div className="mb-5 flex items-start justify-between gap-3">
         <div>
           <h1 className="flex items-center gap-2 text-xl font-bold text-slate-900">
@@ -486,7 +492,7 @@ function MyWorkBoard({
   return (
     <div className="flex gap-4 overflow-x-auto pb-3">
       {columns.map((col) => (
-        <div key={col.key} className="w-72 shrink-0">
+        <div key={col.key} className="flex-1 min-w-72">
           <div className="mb-2 flex items-center gap-2 px-1">
             {col.mine ? (
               <span
