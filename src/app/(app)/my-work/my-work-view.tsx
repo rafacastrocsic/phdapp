@@ -607,7 +607,8 @@ function InvolvementCard({
 }) {
   const router = useRouter();
   const [busy, setBusy] = useState(false);
-  const [showComments, setShowComments] = useState(false);
+  // Comments start unfolded when a note is shown; the toggle can hide them.
+  const [showComments, setShowComments] = useState(true);
   const sm = STATUS_META[item.status] ?? STATUS_META.active;
   const pm = PRIORITY_META[item.priority] ?? PRIORITY_META.medium;
 
