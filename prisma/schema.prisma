@@ -614,6 +614,10 @@ model Involvement {
   shared         Boolean   @default(false) // visible to the senior team when true
   // When true (and shared), other senior members may comment on the item.
   allowComments  Boolean   @default(false)
+  // When true (and shared), other senior members may edit the item's content
+  // (title, notes, checklist/tasks, priority, status, links, references) —
+  // but not delete it or change its sharing. Owner controls this toggle.
+  allowEdits     Boolean   @default(false)
   pinned         Boolean   @default(false)
   order          Int       @default(0)
   // JSON array of { id, label, url } — Drive files/folders + any URL.

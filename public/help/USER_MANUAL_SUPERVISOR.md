@@ -395,9 +395,11 @@ The **My Work** module (💼 teal icon, senior team only) is *your own* running 
 - An optional **Drive folder** (the usual picker).
 - Optional **live references** to a **student**, a **task**, and/or a **calendar event** — these render as chips showing the real title/status and click straight through to open them (not a stale pasted URL).
 
-**Privacy.** Every item is **private to you by default**. Each item has a **"Share with the senior team"** toggle — flip it and that one item becomes visible (read-only) to the rest of the senior team, so you can surface what you're working on without exposing the rest. Shared items are marked with a **👥** next to the title (and other people's shared items show the owner's name); they appear in the same single list as your own — no separate section. Only you can edit or delete your own items.
+**Privacy.** Every item is **private to you by default**. Each item has a **"Share with the senior team"** toggle — flip it and that one item becomes visible (read-only) to the rest of the senior team, so you can surface what you're working on without exposing the rest. Shared items are marked with a **👥** next to the title (and other people's shared items show the owner's name); they appear in the same single list as your own — no separate section. Only you can **delete** an item or change its **sharing**; editing is yours too unless you turn on **Let the team edit** (below).
 
 **Comments.** On a shared item you can also switch on **"Let the team comment"** — then other senior members can post comments on it (a **Comments** toggle appears on the card, threaded like task/event comments; you get a 🔔 when someone comments). Leave it off and the item is shared read-only. As the owner you can always comment on and moderate your own item's thread.
+
+**Editing.** On a shared item you can also switch on **"Let the team edit"** — then other senior members can **edit the note and add or tick tasks** (title, notes, checklist, priority, status, links and references). They still **can't delete it or change its sharing** — those stay with you. Off = the item is shared read-only.
 
 **Sorting & filtering.** A controls row above the list lets you **filter** by **Author** (Mine, or a specific teammate) and by **Priority** (High / Medium / Low) — a **Clear** link resets them — and **Sort by** *Recently updated*, *Recently created*, *Priority (high first)*, *Progress (high→low)*, *Author (A–Z)*, or *Title (A–Z)*. Your own pinned items always stay on top.
 

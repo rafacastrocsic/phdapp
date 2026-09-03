@@ -3,6 +3,7 @@ import { z } from "zod";
 import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
 import { type Role } from "@/lib/access";
+import { isSeniorTeam } from "@/lib/discussions-access";
 import { LinkInput, sanitiseLinks } from "@/lib/links";
 import {
   resolveStudentRef,
@@ -24,6 +25,7 @@ const Patch = z.object({
   priority: z.enum(["high", "medium", "low"]).optional(),
   shared: z.boolean().optional(),
   allowComments: z.boolean().optional(),
+  allowEdits: z.boolean().optional(),
   pinned: z.boolean().optional(),
   links: z.array(LinkInput).optional(),
   driveFolderUrl: z.string().nullable().optional(),
@@ -32,14 +34,11 @@ const Patch = z.object({
   linkedEventId: z.string().nullable().optional(),
 });
 
-// Only the owner may edit or delete their involvement.
-async function loadOwned(id: string, userId: string) {
-  const item = await prisma.involvement.findUnique({
+async function loadItem(id: string) {
+  return prisma.involvement.findUnique({
     where: { id },
-    select: { id: true, ownerId: true },
+    select: { id: true, ownerId: true, shared: true, allowEdits: true },
   });
-  if (!item) return { item: null, owned: false };
-  return { item, owned: item.ownerId === userId };
 }
 
 export async function PATCH(
@@ -51,11 +50,20 @@ export async function PATCH(
     return NextResponse.json({ error: "unauth" }, { status: 401 });
   const { id } = await params;
   const role = session.user.role as Role;
-  const { item, owned } = await loadOwned(id, session.user.id);
+  const item = await loadItem(id);
   if (!item) return NextResponse.json({ error: "not found" }, { status: 404 });
-  if (!owned)
+  const owned = item.ownerId === session.user.id;
+  // Non-owners may edit an item's CONTENT only when it's shared with the team,
+  // the owner enabled "Let the team edit", and the editor is on the senior
+  // team. Owner-only controls (sharing, toggles, pin, delete) are gated below.
+  const canEdit =
+    owned ||
+    (item.shared &&
+      item.allowEdits &&
+      (await isSeniorTeam(session.user.id, role)));
+  if (!canEdit)
     return NextResponse.json(
-      { error: "You can only edit your own involvements." },
+      { error: "You don't have edit access to this item." },
       { status: 403 },
     );
 
@@ -80,9 +88,11 @@ export async function PATCH(
   }
   if (d.status !== undefined) data.status = d.status;
   if (d.priority !== undefined) data.priority = d.priority;
-  if (d.shared !== undefined) data.shared = d.shared;
-  if (d.allowComments !== undefined) data.allowComments = d.allowComments;
-  if (d.pinned !== undefined) data.pinned = d.pinned;
+  // Owner-only controls — silently ignored for non-owner editors.
+  if (owned && d.shared !== undefined) data.shared = d.shared;
+  if (owned && d.allowComments !== undefined) data.allowComments = d.allowComments;
+  if (owned && d.allowEdits !== undefined) data.allowEdits = d.allowEdits;
+  if (owned && d.pinned !== undefined) data.pinned = d.pinned;
   if (d.links !== undefined) {
     const sane = sanitiseLinks(d.links);
     data.links = sane.length > 0 ? JSON.stringify(sane) : null;
@@ -130,9 +140,9 @@ export async function DELETE(
   if (!session?.user)
     return NextResponse.json({ error: "unauth" }, { status: 401 });
   const { id } = await params;
-  const { item, owned } = await loadOwned(id, session.user.id);
+  const item = await loadItem(id);
   if (!item) return NextResponse.json({ error: "not found" }, { status: 404 });
-  if (!owned)
+  if (item.ownerId !== session.user.id)
     return NextResponse.json(
       { error: "You can only delete your own involvements." },
       { status: 403 },

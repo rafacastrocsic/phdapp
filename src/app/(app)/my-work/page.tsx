@@ -156,6 +156,7 @@ export default async function MyWorkPage() {
     priority: r.priority as "high" | "medium" | "low",
     shared: r.shared,
     allowComments: r.allowComments,
+    allowEdits: r.allowEdits,
     commentCount: r._count.comments,
     pinned: r.pinned,
     links: parseLinks(r.links),

@@ -56,6 +56,7 @@ export type Involvement = {
   priority: "high" | "medium" | "low";
   shared: boolean;
   allowComments: boolean;
+  allowEdits: boolean;
   commentCount: number;
   pinned: boolean;
   links: ExternalLink[];
@@ -362,8 +363,8 @@ export function MyWorkView({
             <li key={i.id}>
               <InvolvementCard
                 item={i}
-                readOnly={!!i.owner}
-                onEdit={i.owner ? undefined : () => setEditing(i)}
+                readOnly={!(!i.owner || i.allowEdits)}
+                onEdit={!i.owner || i.allowEdits ? () => setEditing(i) : undefined}
               />
             </li>
           ))}
@@ -391,14 +392,14 @@ export function MyWorkView({
             </div>
             <InvolvementCard
               item={preview}
-              readOnly={!!preview.owner}
+              readOnly={!(!preview.owner || preview.allowEdits)}
               onEdit={
-                preview.owner
-                  ? undefined
-                  : () => {
+                !preview.owner || preview.allowEdits
+                  ? () => {
                       setEditing(preview);
                       setPreview(null);
                     }
+                  : undefined
               }
             />
           </div>
@@ -408,6 +409,7 @@ export function MyWorkView({
       {(creating || editing) && (
         <InvolvementDialog
           item={editing}
+          isOwner={!editing?.owner}
           students={students}
           tasks={tasks}
           events={events}
@@ -611,6 +613,8 @@ function InvolvementCard({
   const [showComments, setShowComments] = useState(true);
   const sm = STATUS_META[item.status] ?? STATUS_META.active;
   const pm = PRIORITY_META[item.priority] ?? PRIORITY_META.medium;
+  // Own items have owner === null (only others' shared items carry an owner).
+  const isOwner = !item.owner;
 
   // Optimistic local copies so ticking a checklist item updates the card
   // instantly (the card may be a frozen snapshot in the board preview, and
@@ -707,19 +711,26 @@ function InvolvementCard({
         </div>
         {!readOnly && (
           <div className="flex shrink-0 items-center gap-0.5">
-            <IconBtn
-              title={item.pinned ? "Unpin" : "Pin"}
-              onClick={() => patch({ pinned: !item.pinned })}
-              disabled={busy}
-            >
-              {item.pinned ? <PinOff className="h-4 w-4" /> : <Pin className="h-4 w-4" />}
-            </IconBtn>
-            <IconBtn title="Edit" onClick={onEdit} disabled={busy}>
-              <Pencil className="h-4 w-4" />
-            </IconBtn>
-            <IconBtn title="Delete" danger onClick={remove} disabled={busy}>
-              <Trash2 className="h-4 w-4" />
-            </IconBtn>
+            {/* Pin and Delete are owner-only; a non-owner editor gets Edit. */}
+            {isOwner && (
+              <IconBtn
+                title={item.pinned ? "Unpin" : "Pin"}
+                onClick={() => patch({ pinned: !item.pinned })}
+                disabled={busy}
+              >
+                {item.pinned ? <PinOff className="h-4 w-4" /> : <Pin className="h-4 w-4" />}
+              </IconBtn>
+            )}
+            {onEdit && (
+              <IconBtn title="Edit" onClick={onEdit} disabled={busy}>
+                <Pencil className="h-4 w-4" />
+              </IconBtn>
+            )}
+            {isOwner && (
+              <IconBtn title="Delete" danger onClick={remove} disabled={busy}>
+                <Trash2 className="h-4 w-4" />
+              </IconBtn>
+            )}
           </div>
         )}
       </div>
@@ -902,6 +913,7 @@ function IconBtn({
 
 function InvolvementDialog({
   item,
+  isOwner,
   students,
   tasks,
   events,
@@ -909,6 +921,8 @@ function InvolvementDialog({
   onClose,
 }: {
   item: Involvement | null;
+  /** false when editing someone else's shared item (via "Let the team edit"). */
+  isOwner: boolean;
   students: StudentOpt[];
   tasks: TaskOpt[];
   events: EventOpt[];
@@ -955,6 +969,7 @@ function InvolvementDialog({
   const [allowComments, setAllowComments] = useState(
     item?.allowComments ?? false,
   );
+  const [allowEdits, setAllowEdits] = useState(item?.allowEdits ?? false);
   const [links, setLinks] = useState<ExternalLink[]>(item?.links ?? []);
   const [driveUrl, setDriveUrl] = useState<string | null>(
     item?.driveFolderUrl ?? null,
@@ -980,6 +995,7 @@ function InvolvementDialog({
       priority,
       shared,
       allowComments,
+      allowEdits,
       links,
       driveFolderUrl: driveUrl,
       studentId: studentId || null,
@@ -1270,46 +1286,77 @@ function InvolvementDialog({
             />
           </div>
 
-          <div className="rounded-lg border bg-slate-50 px-3 py-2">
-            <label className="flex items-center gap-2 text-sm">
-              <input
-                type="checkbox"
-                checked={shared}
-                onChange={(e) => setShared(e.target.checked)}
-                className="h-4 w-4 accent-[var(--c-teal)]"
-              />
-              <span>
-                <span className="font-medium text-slate-700">
-                  Share with the senior team
+          {isOwner ? (
+            <div className="rounded-lg border bg-slate-50 px-3 py-2">
+              <label className="flex items-center gap-2 text-sm">
+                <input
+                  type="checkbox"
+                  checked={shared}
+                  onChange={(e) => setShared(e.target.checked)}
+                  className="h-4 w-4 accent-[var(--c-teal)]"
+                />
+                <span>
+                  <span className="font-medium text-slate-700">
+                    Share with the senior team
+                  </span>
+                  <span className="block text-xs text-slate-400">
+                    Others can see this item (read-only). Off = private to you.
+                  </span>
                 </span>
-                <span className="block text-xs text-slate-400">
-                  Others can see this item (read-only). Off = private to you.
+              </label>
+              <label
+                className={cn(
+                  "mt-2 flex items-center gap-2 border-t pt-2 text-sm",
+                  !shared && "opacity-50",
+                )}
+              >
+                <input
+                  type="checkbox"
+                  checked={allowComments}
+                  disabled={!shared}
+                  onChange={(e) => setAllowComments(e.target.checked)}
+                  className="h-4 w-4 accent-[var(--c-teal)]"
+                />
+                <span>
+                  <span className="font-medium text-slate-700">
+                    Let the team comment
+                  </span>
+                  <span className="block text-xs text-slate-400">
+                    Other senior members can add comments. Only when shared.
+                  </span>
                 </span>
-              </span>
-            </label>
-            <label
-              className={cn(
-                "mt-2 flex items-center gap-2 border-t pt-2 text-sm",
-                !shared && "opacity-50",
-              )}
-            >
-              <input
-                type="checkbox"
-                checked={allowComments}
-                disabled={!shared}
-                onChange={(e) => setAllowComments(e.target.checked)}
-                className="h-4 w-4 accent-[var(--c-teal)]"
-              />
-              <span>
-                <span className="font-medium text-slate-700">
-                  Let the team comment
+              </label>
+              <label
+                className={cn(
+                  "mt-2 flex items-center gap-2 border-t pt-2 text-sm",
+                  !shared && "opacity-50",
+                )}
+              >
+                <input
+                  type="checkbox"
+                  checked={allowEdits}
+                  disabled={!shared}
+                  onChange={(e) => setAllowEdits(e.target.checked)}
+                  className="h-4 w-4 accent-[var(--c-teal)]"
+                />
+                <span>
+                  <span className="font-medium text-slate-700">
+                    Let the team edit
+                  </span>
+                  <span className="block text-xs text-slate-400">
+                    Other senior members can edit this note and add tasks (they
+                    can&apos;t delete it or change sharing). Only when shared.
+                  </span>
                 </span>
-                <span className="block text-xs text-slate-400">
-                  Other senior members can add comments. Only when shared.
-                </span>
-              </span>
-            </label>
-          </div>
+              </label>
+            </div>
+          ) : (
+            <p className="rounded-lg border bg-slate-50 px-3 py-2 text-xs text-slate-500">
+              You&apos;re editing a note shared by its owner. Your changes are
+              saved for everyone; only the owner can delete it or change its
+              sharing.
+            </p>
+          )}
 
           {error && <p className="text-xs text-[var(--c-red)]">{error}</p>}
           <div className="flex justify-end gap-2 border-t pt-3">
