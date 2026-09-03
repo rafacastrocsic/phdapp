@@ -401,6 +401,10 @@ The **My Work** module (💼 teal icon, senior team only) is *your own* running 
 
 **Sorting & filtering.** A controls row above the list lets you **filter** by **Author** (Mine, or a specific teammate) and by **Priority** (High / Medium / Low) — a **Clear** link resets them — and **Sort by** *Recently updated*, *Recently created*, *Priority (high first)*, *Progress (high→low)*, *Author (A–Z)*, or *Title (A–Z)*. Your own pinned items always stay on top.
 
+**Two views — List or By author.** A toggle at the top switches between the **List** and a **By author** board: one **column per person** (*You* first, then each teammate who's shared something), each column's cards **priority-ordered**, so you see at a glance who's working on what. Cards on the board are compact — click one to open the full detail (your own items open straight into the editor). Columns only appear for people who've shared items, so the board is as complete as the team chooses to share.
+
+**Notifications.** The **My Work** sidebar entry shows a **teal dot / count** when a teammate has, since you last opened it, shared a new item, updated a shared item, or commented on something you can see; opening My Work clears it. (Comments on your own shared item also ping you via the 🔔 bell / email, as before.)
+
 **Who has it.** Admins, supervisors, and team advisors. External advisors, committee members, and students don't see the module.
 
 ## Team advisors & their suggestions

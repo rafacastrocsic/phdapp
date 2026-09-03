@@ -82,6 +82,7 @@ export function Sidebar({
   const unreadTeam = unread?.team?.count ?? 0;
   const unreadFeedback = unread?.feedback?.count ?? 0;
   const unreadDiscussions = unread?.discussions?.count ?? 0;
+  const unreadMyWork = unread?.myWork?.count ?? 0;
   const [collapsed, setCollapsed] = useState(false);
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -193,7 +194,9 @@ export function Sidebar({
                         ? unreadFeedback
                         : item.href === "/discussions"
                           ? unreadDiscussions
-                          : 0;
+                          : item.href === "/my-work"
+                            ? unreadMyWork
+                            : 0;
           const unreadColor =
             item.href === "/chat"
               ? "var(--c-pink)"
@@ -221,7 +224,9 @@ export function Sidebar({
                       ? `${unread} feedback update${unread === 1 ? "" : "s"}`
                       : item.href === "/discussions"
                         ? `${unread} discussion update${unread === 1 ? "" : "s"}`
-                        : `${unread} new event change${unread === 1 ? "" : "s"}`;
+                        : item.href === "/my-work"
+                          ? `${unread} My Work update${unread === 1 ? "" : "s"}`
+                          : `${unread} new event change${unread === 1 ? "" : "s"}`;
           return (
             <Link
               key={item.href}

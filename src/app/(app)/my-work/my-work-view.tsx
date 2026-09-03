@@ -18,6 +18,10 @@ import {
   ArrowUp,
   ArrowDown,
   Filter,
+  List,
+  Columns3,
+  CheckSquare,
+  X as XIcon,
 } from "lucide-react";
 import { Avatar } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
@@ -168,6 +172,9 @@ export function MyWorkView({
   const [sort, setSort] = useState<SortKey>("updated");
   const [authorFilter, setAuthorFilter] = useState<string>(""); // "" | "mine" | ownerId
   const [priorityFilter, setPriorityFilter] = useState<string>(""); // "" | high | medium | low
+  const [viewMode, setViewMode] = useState<"list" | "board">("list");
+  // Compact-card click opens the full item in a read-only preview overlay.
+  const [preview, setPreview] = useState<Involvement | null>(null);
 
   // Author options from the data: "Mine" (own items) + each distinct owner
   // of a shared item.
@@ -221,6 +228,35 @@ export function MyWorkView({
 
       {/* Filter + sort controls */}
       <div className="mb-4 flex flex-wrap items-center gap-2">
+        {/* View: list vs. per-author board */}
+        <div className="flex items-center rounded-lg border bg-white p-0.5">
+          <button
+            type="button"
+            onClick={() => setViewMode("list")}
+            className={cn(
+              "inline-flex items-center gap-1 rounded-md px-2.5 py-1 text-xs font-medium transition",
+              viewMode === "list"
+                ? "bg-slate-100 text-slate-900"
+                : "text-slate-500 hover:text-slate-700",
+            )}
+            title="List view"
+          >
+            <List className="h-3.5 w-3.5" /> List
+          </button>
+          <button
+            type="button"
+            onClick={() => setViewMode("board")}
+            className={cn(
+              "inline-flex items-center gap-1 rounded-md px-2.5 py-1 text-xs font-medium transition",
+              viewMode === "board"
+                ? "bg-slate-100 text-slate-900"
+                : "text-slate-500 hover:text-slate-700",
+            )}
+            title="Board grouped by author"
+          >
+            <Columns3 className="h-3.5 w-3.5" /> By author
+          </button>
+        </div>
         <div className="flex items-center gap-1.5 rounded-lg border bg-white pl-2.5">
           <Filter className="h-3.5 w-3.5 text-slate-400" />
           <span className="text-xs text-slate-500">Author</span>
@@ -312,6 +348,8 @@ export function MyWorkView({
             Clear filters
           </button>
         </div>
+      ) : viewMode === "board" ? (
+        <MyWorkBoard items={items} onOpen={setPreview} />
       ) : (
         <ul className="space-y-3">
           {items.map((i) => (
@@ -324,6 +362,41 @@ export function MyWorkView({
             </li>
           ))}
         </ul>
+      )}
+
+      {/* Board card → full read-only preview (own items get an Edit button). */}
+      {preview && (
+        <div
+          className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-slate-900/40 p-4 backdrop-blur-sm print:hidden"
+          onClick={() => setPreview(null)}
+        >
+          <div
+            className="mt-6 w-full max-w-2xl"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="mb-2 flex justify-end">
+              <button
+                type="button"
+                onClick={() => setPreview(null)}
+                className="inline-flex items-center gap-1 rounded-lg bg-white/90 px-2.5 py-1 text-xs font-medium text-slate-600 shadow hover:bg-white"
+              >
+                <XIcon className="h-3.5 w-3.5" /> Close
+              </button>
+            </div>
+            <InvolvementCard
+              item={preview}
+              readOnly={!!preview.owner}
+              onEdit={
+                preview.owner
+                  ? undefined
+                  : () => {
+                      setEditing(preview);
+                      setPreview(null);
+                    }
+              }
+            />
+          </div>
+        </div>
       )}
 
       {(creating || editing) && (
@@ -340,6 +413,180 @@ export function MyWorkView({
         />
       )}
     </div>
+  );
+}
+
+// Board grouped by author: one column per person (You first, then each
+// teammate who has shared items), each column priority-ordered.
+function MyWorkBoard({
+  items,
+  onOpen,
+}: {
+  items: Involvement[];
+  onOpen: (i: Involvement) => void;
+}) {
+  const columns = useMemo(() => {
+    // Pinned first, then priority (high→low), then most-recently updated.
+    const rank = (i: Involvement) =>
+      (i.pinned ? 1000 : 0) + (PRIORITY_RANK[i.priority] ?? 0);
+    const cmp = (a: Involvement, b: Involvement) =>
+      rank(b) - rank(a) || b.updatedAt.localeCompare(a.updatedAt);
+
+    const mine: Involvement[] = [];
+    const byOwner = new Map<
+      string,
+      { id: string; name: string; color: string; items: Involvement[] }
+    >();
+    for (const i of items) {
+      if (!i.owner) {
+        mine.push(i);
+      } else {
+        let c = byOwner.get(i.owner.id);
+        if (!c) {
+          c = {
+            id: i.owner.id,
+            name: i.owner.name ?? "Teammate",
+            color: i.owner.color,
+            items: [],
+          };
+          byOwner.set(i.owner.id, c);
+        }
+        c.items.push(i);
+      }
+    }
+
+    const cols: {
+      key: string;
+      name: string;
+      color: string;
+      mine: boolean;
+      items: Involvement[];
+    }[] = [];
+    if (mine.length)
+      cols.push({
+        key: "__mine__",
+        name: "You",
+        color: "var(--c-teal)",
+        mine: true,
+        items: [...mine].sort(cmp),
+      });
+    for (const c of [...byOwner.values()].sort((a, b) =>
+      a.name.localeCompare(b.name),
+    ))
+      cols.push({
+        key: c.id,
+        name: c.name,
+        color: c.color,
+        mine: false,
+        items: [...c.items].sort(cmp),
+      });
+    return cols;
+  }, [items]);
+
+  return (
+    <div className="flex gap-4 overflow-x-auto pb-3">
+      {columns.map((col) => (
+        <div key={col.key} className="w-72 shrink-0">
+          <div className="mb-2 flex items-center gap-2 px-1">
+            {col.mine ? (
+              <span
+                className="flex h-6 w-6 items-center justify-center rounded-full text-white"
+                style={{ background: col.color }}
+              >
+                <Briefcase className="h-3 w-3" />
+              </span>
+            ) : (
+              <Avatar name={col.name} src={null} color={col.color} size="xs" />
+            )}
+            <span className="truncate text-sm font-semibold text-slate-800">
+              {col.name}
+            </span>
+            <span className="ml-auto shrink-0 rounded-full bg-slate-100 px-1.5 text-[10px] font-semibold text-slate-500">
+              {col.items.length}
+            </span>
+          </div>
+          <div className="space-y-2">
+            {col.items.map((i) => (
+              <CompactCard key={i.id} i={i} onOpen={onOpen} />
+            ))}
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function CompactCard({
+  i,
+  onOpen,
+}: {
+  i: Involvement;
+  onOpen: (i: Involvement) => void;
+}) {
+  const pm = PRIORITY_META[i.priority] ?? PRIORITY_META.medium;
+  const sm = STATUS_META[i.status] ?? STATUS_META.active;
+  const done = i.checklist.filter((c) => c.done).length;
+  const total = i.checklist.length;
+  return (
+    <button
+      type="button"
+      onClick={() => onOpen(i)}
+      className="block w-full rounded-xl border bg-white p-3 text-left shadow-sm transition hover:shadow-md"
+      style={{ borderLeftWidth: 3, borderLeftColor: pm.accent }}
+    >
+      <div className="flex items-start justify-between gap-2">
+        <span className="line-clamp-2 text-sm font-semibold leading-snug text-slate-900">
+          {i.title}
+        </span>
+        <span className="flex shrink-0 items-center gap-1 pt-0.5">
+          {i.pinned && !i.owner && <Pin className="h-3 w-3 text-slate-400" />}
+          {i.shared && !i.owner && <span title="Shared with the team">👥</span>}
+        </span>
+      </div>
+      <div className="mt-2 flex flex-wrap items-center gap-1.5">
+        <span
+          className={cn(
+            "rounded-full px-1.5 py-0.5 text-[10px] font-semibold",
+            pm.chip,
+          )}
+        >
+          {pm.label}
+        </span>
+        {i.status !== "active" && (
+          <span
+            className={cn(
+              "rounded-full px-1.5 py-0.5 text-[10px] font-semibold",
+              sm.chip,
+            )}
+          >
+            {sm.label}
+          </span>
+        )}
+        {total > 0 && (
+          <span className="inline-flex items-center gap-0.5 text-[10px] text-slate-500">
+            <CheckSquare className="h-3 w-3" />
+            {done}/{total}
+          </span>
+        )}
+        {i.commentCount > 0 && (
+          <span className="inline-flex items-center gap-0.5 text-[10px] text-slate-500">
+            <MessageSquare className="h-3 w-3" />
+            {i.commentCount}
+          </span>
+        )}
+      </div>
+      <div className="mt-2 flex items-center gap-2">
+        <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-slate-100">
+          <div
+            className="h-full rounded-full"
+            style={{ width: `${i.progress}%`, background: sm.bar }}
+          />
+        </div>
+        <span className="text-[10px] font-medium text-slate-400">
+          {i.progress}%
+        </span>
+      </div>
+    </button>
   );
 }
 

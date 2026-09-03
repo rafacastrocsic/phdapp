@@ -29,6 +29,7 @@ model User {
   teamSuggestionsLastSeenAt DateTime?
   feedbackLastSeenAt DateTime?
   discussionsLastSeenAt DateTime?
+  myWorkLastSeenAt DateTime?
 
   // Project Researcher workspace — provisioned by an admin/supervisor, like a
   // student's. The folder + calendar are shared view-only with the circle of

@@ -48,6 +48,7 @@ export async function GET() {
       team: { count: 0, version: null },
       feedback: { count: 0, version: null },
       discussions: { count: 0, version: null },
+      myWork: { count: 0, version: null },
       serverNow: new Date().toISOString(),
     });
   }
@@ -62,6 +63,7 @@ export async function GET() {
     teamBlob,
     feedbackBlob,
     discussionsBlob,
+    myWorkBlob,
   ] = await Promise.all([
     computeChat(userId),
     computeKanban(userId, role),
@@ -70,6 +72,7 @@ export async function GET() {
     computeTeam(userId, role),
     computeFeedback(userId, role),
     computeDiscussions(userId, role),
+    computeMyWork(userId, role),
   ]);
 
   return NextResponse.json({
@@ -80,6 +83,7 @@ export async function GET() {
     team: teamBlob,
     feedback: feedbackBlob,
     discussions: discussionsBlob,
+    myWork: myWorkBlob,
     serverNow: new Date().toISOString(),
   });
 }
@@ -452,4 +456,48 @@ async function computeDiscussions(userId: string, role: Role) {
     commentAgg._max.createdAt ? commentAgg._max.createdAt.toISOString() : null,
   );
   return { count: newTopics + newComments, version };
+}
+
+// My Work: senior-team-only. Count, by OTHER people since this user last
+// opened My Work: shared items created/updated (updatedAt bumps on both),
+// and comments on items this user can see (their own, or shared). Private
+// items belonging to others are never counted (they're not visible).
+async function computeMyWork(userId: string, role: Role) {
+  const senior = await isSeniorTeam(userId, role);
+  if (!senior) return { count: 0, version: null };
+
+  const me = await prisma.user.findUnique({
+    where: { id: userId },
+    select: { myWorkLastSeenAt: true },
+  });
+  const since = me?.myWorkLastSeenAt ?? new Date(0);
+
+  const visibleCommentWhere = {
+    involvementId: { not: null },
+    authorId: { not: userId },
+    involvement: { OR: [{ ownerId: userId }, { shared: true }] },
+  };
+
+  const [sharedItems, newComments, itemAgg, commentAgg] = await Promise.all([
+    prisma.involvement.count({
+      where: { shared: true, ownerId: { not: userId }, updatedAt: { gt: since } },
+    }),
+    prisma.comment.count({
+      where: { ...visibleCommentWhere, createdAt: { gt: since } },
+    }),
+    prisma.involvement.aggregate({
+      where: { shared: true, ownerId: { not: userId } },
+      _max: { updatedAt: true },
+    }),
+    prisma.comment.aggregate({
+      where: visibleCommentWhere,
+      _max: { createdAt: true },
+    }),
+  ]);
+
+  const version = maxIso(
+    itemAgg._max?.updatedAt ? itemAgg._max.updatedAt.toISOString() : null,
+    commentAgg._max?.createdAt ? commentAgg._max.createdAt.toISOString() : null,
+  );
+  return { count: sharedItems + newComments, version };
 }

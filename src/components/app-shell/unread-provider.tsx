@@ -42,6 +42,7 @@ export interface UnreadData {
   team: { count: number; version: string | null };
   feedback: { count: number; version: string | null };
   discussions: { count: number; version: string | null };
+  myWork: { count: number; version: string | null };
   serverNow?: string;
 }
 
@@ -190,7 +191,8 @@ export function useSectionVersion(
     | "reading"
     | "team"
     | "feedback"
-    | "discussions",
+    | "discussions"
+    | "myWork",
 ): string | null {
   const { data } = useUnread();
   return data?.[section]?.version ?? null;

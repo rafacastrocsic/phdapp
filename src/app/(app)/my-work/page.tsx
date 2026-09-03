@@ -27,6 +27,13 @@ export default async function MyWorkPage() {
   const role = session.user.role as Role;
   if (!(await isSeniorTeam(session.user.id, role))) redirect("/");
 
+  // Opening My Work clears its unread badge (shared-item + comment activity
+  // by teammates since this timestamp is what /api/unread counts).
+  await prisma.user.update({
+    where: { id: session.user.id },
+    data: { myWorkLastSeenAt: new Date() },
+  });
+
   const [mineRows, sharedRows] = await Promise.all([
     prisma.involvement.findMany({
       where: { ownerId: session.user.id },
