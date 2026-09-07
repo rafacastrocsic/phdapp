@@ -8,7 +8,10 @@ import {
 import { clearDismissedEventIds } from "@/lib/calendar-dismissed";
 import { displayName } from "@/lib/utils";
 import { getTeamDriveFolder } from "@/lib/team-drive";
-import { getResearcherCalendarEvents } from "@/lib/researcher-calendars";
+import {
+  getResearcherCalendarEvents,
+  getVisibleResearcherCalendars,
+} from "@/lib/researcher-calendars";
 import { getHolidaysInRange } from "@/lib/holidays";
 import { CalendarView } from "./calendar-view";
 import { startOfMonth, endOfMonth, subMonths, addMonths } from "date-fns";
@@ -107,6 +110,11 @@ export default async function CalendarPage({
     role,
     from.toISOString(),
     to.toISOString(),
+  );
+  // Named researcher calendars for the "Calendars" list (shown even if empty).
+  const researcherCalendars = await getVisibleResearcherCalendars(
+    session.user.id,
+    role,
   );
 
   // Tasks the user may link an event to (visible, non-archived). Powers the
@@ -272,6 +280,7 @@ export default async function CalendarPage({
       students={students}
       teamDriveFolderId={teamDrive?.id ?? null}
       externalEvents={externalEvents}
+      researcherCalendars={researcherCalendars}
       events={events.map((e) => ({
         id: e.id,
         title: e.title,

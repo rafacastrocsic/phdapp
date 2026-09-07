@@ -668,13 +668,10 @@ function MemberBody({
             </div>
           )}
         </div>
-        {(rel.projectResearching.named.length > 0 ||
-          rel.projectResearching.unknown > 0) && (
-          <ResearcherWorkspace
-            driveFolderId={u.driveFolderId}
-            calendarId={u.calendarId}
-          />
-        )}
+        <ResearcherWorkspace
+          driveFolderId={u.driveFolderId}
+          calendarId={u.calendarId}
+        />
       </div>
     </>
   );

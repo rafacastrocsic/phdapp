@@ -30,15 +30,27 @@ export interface ExternalCalEvent {
   student: { id: string; fullName: string; alias: string | null; color: string };
 }
 
-export async function getResearcherCalendarEvents(
+type ResearcherRow = {
+  id: string;
+  name: string | null;
+  color: string;
+  calendarId: string | null;
+  driveFolderId?: string | null;
+  coSupervisedStudents: { studentId: string }[];
+};
+
+/**
+ * Project researchers whose workspace the given viewer may see: senior-team
+ * viewers see all; a student sees researchers assigned to them; nobody else.
+ * The viewer's own row is dropped.
+ */
+async function visibleResearchers(
   viewerId: string,
   role: Role,
-  fromIso: string,
-  toIso: string,
-): Promise<ExternalCalEvent[]> {
-  const researchers = await prisma.user.findMany({
+  extraSelect: { driveFolderId?: boolean } = {},
+): Promise<ResearcherRow[]> {
+  const researchers = (await prisma.user.findMany({
     where: {
-      calendarId: { not: null },
       coSupervisedStudents: { some: { role: "project_researcher" } },
     },
     select: {
@@ -46,15 +58,15 @@ export async function getResearcherCalendarEvents(
       name: true,
       color: true,
       calendarId: true,
+      ...(extraSelect.driveFolderId ? { driveFolderId: true } : {}),
       coSupervisedStudents: {
         where: { role: "project_researcher" },
         select: { studentId: true },
       },
     },
-  });
+  })) as ResearcherRow[];
   if (researchers.length === 0) return [];
 
-  // Which researchers' calendars may this viewer see?
   let visible = researchers;
   if (await isSeniorTeam(viewerId, role)) {
     // all
@@ -71,8 +83,34 @@ export async function getResearcherCalendarEvents(
   } else {
     visible = [];
   }
-  // Never surface the viewer's own calendar back to themselves here.
-  visible = visible.filter((r) => r.id !== viewerId);
+  return visible.filter((r) => r.id !== viewerId);
+}
+
+/** Visible researchers' workspace calendars (for the Calendars list). */
+export async function getVisibleResearcherCalendars(
+  viewerId: string,
+  role: Role,
+): Promise<{ id: string; name: string; color: string; calendarId: string }[]> {
+  const visible = await visibleResearchers(viewerId, role);
+  return visible
+    .filter((r) => r.calendarId)
+    .map((r) => ({
+      id: r.id,
+      name: r.name?.trim() || "Researcher",
+      color: r.color,
+      calendarId: r.calendarId!,
+    }));
+}
+
+export async function getResearcherCalendarEvents(
+  viewerId: string,
+  role: Role,
+  fromIso: string,
+  toIso: string,
+): Promise<ExternalCalEvent[]> {
+  const visible = (await visibleResearchers(viewerId, role)).filter(
+    (r) => r.calendarId,
+  );
   if (visible.length === 0) return [];
 
   const out: ExternalCalEvent[] = [];

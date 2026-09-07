@@ -163,6 +163,7 @@ export function CalendarView({
   teamDriveFolderId,
   events: initial,
   externalEvents = [],
+  researcherCalendars = [],
   tasks,
   availability,
   myAvailability,
@@ -181,6 +182,7 @@ export function CalendarView({
   teamDriveFolderId?: string | null;
   events: Event[];
   externalEvents?: ExternalEvent[];
+  researcherCalendars?: { id: string; name: string; color: string; calendarId: string }[];
   tasks: LinkableTask[];
   availability: {
     id: string;
@@ -1385,7 +1387,28 @@ export function CalendarView({
                     </a>
                   </li>
                 ))}
-              {students.filter((s) => s.calendarId).length === 0 && (
+              {researcherCalendars.map((r) => (
+                <li key={r.id}>
+                  <a
+                    href={openCalendarUrl(r.calendarId)}
+                    target="_blank"
+                    rel="noopener"
+                    className="flex items-center gap-2 text-xs hover:text-slate-900"
+                  >
+                    <span
+                      className="h-2 w-2 rounded-full"
+                      style={{ background: r.color }}
+                    />
+                    <span className="flex-1 truncate">
+                      {r.name}{" "}
+                      <span className="text-slate-400">· researcher</span>
+                    </span>
+                    <ExternalLink className="h-3 w-3 text-slate-400" />
+                  </a>
+                </li>
+              ))}
+              {students.filter((s) => s.calendarId).length === 0 &&
+                researcherCalendars.length === 0 && (
                 <p className="text-xs text-slate-400">
                   No shared calendars yet. Add a Google Calendar ID on a
                   student&apos;s profile.
