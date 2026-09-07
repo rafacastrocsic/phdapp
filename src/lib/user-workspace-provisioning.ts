@@ -92,6 +92,50 @@ async function getResearcherShareTargets(
   return Array.from(byEmail.values());
 }
 
+/**
+ * Calendar share list: the WHOLE senior team (admins + supervisors /
+ * co-supervisors + team advisors) so everyone can see the researcher's
+ * schedule, plus the students they work with. All view-only; the researcher
+ * owns their own. (The folder stays narrower — see getResearcherShareTargets.)
+ */
+async function getSeniorTeamCalendarTargets(
+  userId: string,
+  ownerUserId: string,
+): Promise<ShareTarget[]> {
+  const [seniors, students, owner] = await Promise.all([
+    prisma.user.findMany({
+      where: {
+        OR: [
+          { role: "admin" },
+          { supervisedStudents: { some: {} } },
+          {
+            coSupervisedStudents: {
+              some: { role: { in: ["supervisor", "co_supervisor", "team_advisor"] } },
+            },
+          },
+        ],
+      },
+      select: { id: true, email: true },
+    }),
+    prisma.student.findMany({
+      where: { coSupervisors: { some: { userId, role: "project_researcher" } } },
+      select: { email: true, userId: true },
+    }),
+    prisma.user.findUnique({ where: { id: ownerUserId }, select: { email: true } }),
+  ]);
+
+  const byEmail = new Map<string, ShareTarget>();
+  const put = (email: string | null | undefined, uid: string | null) => {
+    if (!email) return;
+    const e = email.toLowerCase();
+    if (!byEmail.has(e)) byEmail.set(e, { email: e, userId: uid, level: "reader" });
+  };
+  for (const s of seniors) put(s.email, s.id);
+  for (const st of students) put(st.email, st.userId ?? null);
+  if (owner?.email) byEmail.delete(owner.email.toLowerCase());
+  return Array.from(byEmail.values());
+}
+
 /** Create the researcher's Drive folder (in the owner's account) and share it. */
 export async function createResearcherDriveFolder(
   userId: string,
@@ -215,7 +259,8 @@ export async function syncResearcherCalendarAcl(
   });
   if (!user?.calendarId) return { ok: false, warning: "No workspace calendar yet" };
 
-  const targets = await getResearcherShareTargets(userId, ownerUserId);
+  // Calendar is visible to the whole senior team (+ the researcher's students).
+  const targets = await getSeniorTeamCalendarTargets(userId, ownerUserId);
   let shared = 0;
   let autoAdded = 0;
   const failed: { email: string; error: string }[] = [];
