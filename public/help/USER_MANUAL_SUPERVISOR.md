@@ -84,7 +84,7 @@ Every student has a **primary supervisor** and optionally additional team member
 
 - **Supervisor** (additional, alongside the primary) — full read/write on that student.
 - **Team advisor** — a senior *internal* colleague who follows that student **read-only** (sees everything, including private supervisor notes and wellbeing) but **cannot change anything**; their only action is sending suggestions to the supervisors. See [Team advisors & their suggestions](#team-advisors--their-suggestions).
-- **Project Researcher** — a postdoc / researcher embedded on a project *with* the student. **Read-only** on the student (views tasks, events, files and calendar and can comment, but can't edit them) and — unlike a team advisor — **never sees private supervisor notes or wellbeing**. They get the student's shared Drive folder and supervision calendar **view-only**. They also get **their own** Drive folder + calendar (you or the admin set these up from the **Team** page, like a student's) — shared **view-only** with the students they work with and each of those students' **supervisors and team advisors** (not external advisors / committee), so the student and researcher can see each other's folder/calendar without editing. Not part of the senior team (no My Work). See *Setting up a project researcher's workspace* below.
+- **Project Researcher** — a postdoc / researcher embedded on a project *with* the student. **Read-only** on the student (views tasks, events, files and calendar and can comment, but can't edit them) and — unlike a team advisor — **never sees private supervisor notes or wellbeing**. They get the student's shared Drive folder and supervision calendar **view-only**. They also set up **their own** Drive folder + calendar themselves (from **Settings → My workspace**, in their own Google account) — shared **view-only** with the students they work with and each of those students' **supervisors and team advisors** (not external advisors / committee), so the student and researcher can see each other's folder/calendar without editing. Not part of the senior team (no My Work).
 - **External advisor** — someone *outside* the institution, attached to that student (read-only by default).
 - **Committee member** — sits on that student's committee (read-only).
 
@@ -102,9 +102,9 @@ To remove someone, click the **X** on their row. To promote a co-supervisor to p
 
 **Note**: students cannot be added to a supervision team — only non-student accounts.
 
-### Setting up a project researcher's workspace
+### A project researcher's workspace
 
-A **Project Researcher** gets their own Drive folder and calendar, provisioned like a student's. On the **Team** page, find their card (it shows *Project Researcher with …*) and click **Create folder** / **Create calendar** — the resources are created in **your** Google account and shared **view-only** with the students they work with and each of those students' supervisors + team advisors. When the researcher is later assigned to a new student, click **Sync sharing** so that student and their team get access. (The admin can do this too. The researcher themselves can't create these — no self-service.)
+A **Project Researcher** sets up their **own** Drive folder and calendar themselves, from **Settings → My workspace** — created in *their* Google account and shared view-only with the students they work with and each of those students' supervisors + team advisors. You don't create these for them; if a researcher can't (e.g. their Google isn't linked), point them to Settings → My workspace. Their folder/calendar links show on their **Team** card. When you assign a researcher to a new student, remind them to click **Sync sharing** there, and re-sync that **student's** own folder/calendar so the researcher is added to it.
 
 ## Tasks
 

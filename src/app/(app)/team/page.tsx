@@ -493,7 +493,6 @@ export default async function TeamPage() {
                       u={u}
                       isMe={u.id === session.user.id}
                       rel={rel}
-                      canProvision={isAdmin || canWorkspace}
                     />
                   </TeamUserCard>
                 );
@@ -594,7 +593,6 @@ function MemberBody({
   u,
   isMe,
   rel,
-  canProvision,
 }: {
   u: {
     id: string;
@@ -612,7 +610,6 @@ function MemberBody({
   };
   isMe: boolean;
   rel: Rel;
-  canProvision: boolean;
 }) {
   const none =
     rel.supervising.named.length === 0 &&
@@ -674,10 +671,8 @@ function MemberBody({
         {(rel.projectResearching.named.length > 0 ||
           rel.projectResearching.unknown > 0) && (
           <ResearcherWorkspace
-            userId={u.id}
             driveFolderId={u.driveFolderId}
             calendarId={u.calendarId}
-            canProvision={canProvision}
           />
         )}
       </div>

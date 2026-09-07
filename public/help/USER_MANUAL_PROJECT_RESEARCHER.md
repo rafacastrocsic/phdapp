@@ -51,14 +51,14 @@ You appear on the **Team** page under each student as their *Project Researcher*
 
 ## Your workspace — folder & calendar
 
-You get your **own** Drive folder and calendar, set up for you by a supervisor or the admin (you don't create them yourself). Once they're ready, the links appear under **Settings → My workspace** and on your **Team** card. Note: your role badge (top-right) reads **Project researcher** — even though you sign in with the same access level as the supervising team, that's your actual role.
+You set up your **own** Drive folder and calendar yourself, from **Settings → My workspace**. They're created in **your own** Google account, so first make sure your Google is linked (Drive + Calendar — the same Settings page tells you if a scope is missing). Note: your role badge (top-right) reads **Project researcher** — even though you sign in with the same access level as the supervising team, that's your actual role.
 
-- **Drive folder** — your working folder for the project. It's shared **view-only** with the students you work with and each of their **supervisors and team advisors**. They can open and read it; only you edit it. In turn, you can open **their** shared folder view-only — so you and the student can see each other's files but neither edits the other's.
-- **Calendar** — your own calendar, shared **view-only** with the same people, so your supervisors and students can see your schedule. You also see each assigned student's supervision calendar and the General calendar.
+- **Drive folder** — click **Create my Drive folder**. It's created in your Google Drive and shared **view-only** with the students you work with and each of their **supervisors and team advisors**. They can open and read it; only you edit it. In turn, you can open **their** shared folder view-only — so you and the student can see each other's files but neither edits the other's.
+- **Calendar** — click **Create my calendar**. It's your own Google calendar, shared **view-only** with the same people, so your supervisors and students can see your schedule. You also see each assigned student's supervision calendar and the General calendar.
 
 External advisors and committee members are **not** given access to your folder or calendar.
 
-> If a folder/calendar link isn't there yet, a supervisor or admin just needs to click **Create folder / Create calendar** on your Team card. When you're later assigned to a new student, they click **Sync sharing** so the new student and their team get access.
+> When you're later assigned to a **new student**, come back to Settings → My workspace and click **Sync sharing** so that student and their team get access. The links also appear on your **Team** card for the seniors you work with.
 
 ## Tasks
 
