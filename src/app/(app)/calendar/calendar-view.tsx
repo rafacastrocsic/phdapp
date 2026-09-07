@@ -262,6 +262,13 @@ export function CalendarView({
   }
   const [cursor, setCursor] = useState(new Date());
   const [studentFilter, setStudentFilter] = useState(initialStudent ?? "");
+  // The dropdown can also select a Project Researcher's read-only calendar,
+  // whose value is the synthetic `ext-<userId>` id (matching the external
+  // events' student id). It is NOT a real student, so DB-scoped uses of the
+  // filter (fetch/sync params, create-form default) must treat it as "no
+  // student scope"; only the client-side `filtered` memo acts on it.
+  const isResearcherFilter = studentFilter.startsWith("ext-");
+  const studentScopeFilter = isResearcherFilter ? "" : studentFilter;
   const [events, setEvents] = useState<Event[]>(initial);
   const [newOpen, setNewOpen] = useState(false);
   const [availOpen, setAvailOpen] = useState(false);
@@ -335,7 +342,7 @@ export function CalendarView({
   // Active student in this view: students see themselves implicitly; everyone
   // else uses the filter dropdown. The banner / sync-disable triggers only
   // when a specific student is in scope and has no shared calendar.
-  const activeStudentId = isStudent ? viewerStudentId ?? null : studentFilter || null;
+  const activeStudentId = isStudent ? viewerStudentId ?? null : studentScopeFilter || null;
   const activeStudent = activeStudentId
     ? students.find((s) => s.id === activeStudentId) ?? null
     : null;
@@ -376,6 +383,9 @@ export function CalendarView({
     const base = events.filter((e) => {
       if (studentFilter === "__general__")
         return e.student === null && e.isGeneral;
+      // A researcher calendar is selected: hide all DB (student) events —
+      // only that researcher's external events (appended below) should show.
+      if (isResearcherFilter) return false;
       return !studentFilter || e.student?.id === studentFilter;
     });
     const span = view === "year" ? 13 : 3;
@@ -403,10 +413,12 @@ export function CalendarView({
         });
       }
     }
-    // Researcher-calendar events (read-only). Not student-scoped, so they show
-    // regardless of the student filter — except the "general only" filter.
-    if (studentFilter !== "__general__") {
+    // Researcher-calendar events (read-only). Shown when the filter is "All"
+    // (studentFilter === "") or when this researcher's own calendar is the
+    // selected filter; hidden for "general only" and for a specific student.
+    if (studentFilter === "" || isResearcherFilter) {
       for (const x of externalEvents) {
+        if (isResearcherFilter && x.student.id !== studentFilter) continue;
         out.push({
           id: x.id,
           title: x.title,
@@ -437,7 +449,7 @@ export function CalendarView({
       }
     }
     return out;
-  }, [events, externalEvents, studentFilter, cursor, view]);
+  }, [events, externalEvents, studentFilter, isResearcherFilter, cursor, view]);
 
   const dayEvents = useMemo(() => {
     const map: Record<string, Event[]> = {};
@@ -545,7 +557,7 @@ export function CalendarView({
       : addMonths(endOfMonth(cursor), 1)
     ).toISOString();
     const params = new URLSearchParams({ from, to });
-    if (studentFilter) params.set("student", studentFilter);
+    if (studentScopeFilter) params.set("student", studentScopeFilter);
     const pollKey = `${from}|${to}|${studentFilter}|${view}`;
     try {
       const r = await fetch(
@@ -632,7 +644,7 @@ export function CalendarView({
   async function syncFromGoogle() {
     setSyncing(true);
     const r = await fetch(
-      `/api/calendar/sync?from=${encodeURIComponent(startOfMonth(cursor).toISOString())}&to=${encodeURIComponent(endOfMonth(cursor).toISOString())}${studentFilter ? `&student=${studentFilter}` : ""}`,
+      `/api/calendar/sync?from=${encodeURIComponent(startOfMonth(cursor).toISOString())}&to=${encodeURIComponent(endOfMonth(cursor).toISOString())}${studentScopeFilter ? `&student=${studentScopeFilter}` : ""}`,
       { method: "POST" },
     );
     setSyncing(false);
@@ -734,6 +746,11 @@ export function CalendarView({
               <option value="__general__">— General only —</option>
               {students.map((s) => (
                 <option key={s.id} value={s.id}>{displayName(s)}</option>
+              ))}
+              {researcherCalendars.map((r) => (
+                <option key={`ext-${r.id}`} value={`ext-${r.id}`}>
+                  {r.name} · researcher
+                </option>
               ))}
             </Select>
           )}
@@ -1435,7 +1452,7 @@ export function CalendarView({
         defaultStudentId={
           isStudent && viewerStudentId
             ? viewerStudentId
-            : studentFilter || null
+            : studentScopeFilter || null
         }
         isStudent={isStudent}
         invitablePeople={invitablePeople}
