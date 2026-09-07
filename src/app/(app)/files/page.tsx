@@ -1,6 +1,10 @@
 import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
-import { studentVisibilityWhere, type Role } from "@/lib/access";
+import {
+  studentVisibilityWhere,
+  isProjectResearcherAnywhere,
+  type Role,
+} from "@/lib/access";
 import { getTeamDriveFolder } from "@/lib/team-drive";
 import { getVisibleResearcherFolders } from "@/lib/researcher-calendars";
 import { FilesBrowser } from "./files-browser";
@@ -45,6 +49,12 @@ export default async function FilesPage({
     role,
   );
 
+  // A researcher who hasn't set up their own workspace folder yet: point them
+  // to Settings → My workspace instead of showing an empty Files page.
+  const researcherNeedsWorkspace =
+    (await isProjectResearcherAnywhere(session.user.id)) &&
+    !researcherFolders.some((f) => f.mine);
+
   return (
     <FilesBrowser
       students={students}
@@ -53,6 +63,7 @@ export default async function FilesPage({
       viewerStudentId={viewerStudent?.id ?? null}
       teamDrive={teamDrive}
       researcherFolders={researcherFolders}
+      researcherNeedsWorkspace={researcherNeedsWorkspace}
     />
   );
 }

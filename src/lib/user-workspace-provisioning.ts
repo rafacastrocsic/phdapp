@@ -1,5 +1,14 @@
 import { prisma } from "./prisma";
-import { driveForUser, calendarForUser } from "./google";
+import { driveForUser, calendarForUser, hasGoogleScope } from "./google";
+
+// Actionable message when the Google grant is missing a scope. The most
+// common cause of "I created my folder but nothing shows" is a token that
+// has Calendar but not Drive (the user unticked Drive on the consent screen,
+// or authorised before Drive was requested).
+const scopeHelp = (what: "Drive" | "Calendar") =>
+  `Google ${what} access wasn't granted for your account. Sign out and sign ` +
+  `in again, and on Google's consent screen APPROVE ${what} (don't untick ` +
+  `it), then try again.`;
 
 /**
  * Provisioning for a Project Researcher's own Drive folder and calendar —
@@ -143,6 +152,8 @@ export async function createResearcherDriveFolder(
 ): Promise<ProvisionResult> {
   const drive = await driveForUser(ownerUserId);
   if (!drive) return { ok: false, warning: "Your Google account isn't linked" };
+  if (!(await hasGoogleScope(ownerUserId, "drive")))
+    return { ok: false, warning: scopeHelp("Drive") };
 
   const user = await prisma.user.findUnique({
     where: { id: userId },
@@ -156,14 +167,26 @@ export async function createResearcherDriveFolder(
       warning: "A folder is already linked. Use Sync to refresh sharing.",
     };
 
-  const created = await drive.files.create({
-    requestBody: {
-      name: `${user.name?.trim() || "Researcher"} · PhDapp workspace`,
-      mimeType: FOLDER_MIME,
-    },
-    fields: "id",
-  });
-  const driveFolderId = created.data.id;
+  let driveFolderId: string | null | undefined;
+  try {
+    const created = await drive.files.create({
+      requestBody: {
+        name: `${user.name?.trim() || "Researcher"} · PhDapp workspace`,
+        mimeType: FOLDER_MIME,
+      },
+      fields: "id",
+    });
+    driveFolderId = created.data.id;
+  } catch (err) {
+    const e = err as { message?: string; code?: number };
+    const msg = (e.message ?? "").toLowerCase();
+    if (e.code === 403 || msg.includes("scope") || msg.includes("permission"))
+      return { ok: false, warning: scopeHelp("Drive") };
+    return {
+      ok: false,
+      warning: `Couldn't create your Drive folder (${e.code ?? "?"}): ${e.message ?? "unknown"}.`,
+    };
+  }
   if (!driveFolderId)
     return { ok: false, warning: "Drive did not return a folder id" };
 
@@ -179,6 +202,8 @@ export async function syncResearcherDriveAcl(
 ): Promise<ProvisionResult> {
   const drive = await driveForUser(ownerUserId);
   if (!drive) return { ok: false, warning: "Your Google account isn't linked" };
+  if (!(await hasGoogleScope(ownerUserId, "drive")))
+    return { ok: false, warning: scopeHelp("Drive") };
 
   const user = await prisma.user.findUnique({
     where: { id: userId },
@@ -217,6 +242,8 @@ export async function createResearcherCalendar(
 ): Promise<ProvisionResult> {
   const cal = await calendarForUser(ownerUserId);
   if (!cal) return { ok: false, warning: "Your Google account isn't linked" };
+  if (!(await hasGoogleScope(ownerUserId, "calendar")))
+    return { ok: false, warning: scopeHelp("Calendar") };
 
   const user = await prisma.user.findUnique({
     where: { id: userId },
@@ -252,6 +279,8 @@ export async function syncResearcherCalendarAcl(
 ): Promise<ProvisionResult> {
   const cal = await calendarForUser(ownerUserId);
   if (!cal) return { ok: false, warning: "Your Google account isn't linked" };
+  if (!(await hasGoogleScope(ownerUserId, "calendar")))
+    return { ok: false, warning: scopeHelp("Calendar") };
 
   const user = await prisma.user.findUnique({
     where: { id: userId },

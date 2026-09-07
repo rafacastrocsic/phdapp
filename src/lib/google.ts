@@ -49,3 +49,26 @@ export async function calendarForUser(userId: string) {
   if (!auth) return null;
   return google.calendar({ version: "v3", auth });
 }
+
+/**
+ * The OAuth scope string stored for a user's Google account (space-separated),
+ * or null if no account is linked. Used to check whether Drive / Calendar
+ * access was actually granted (a user can untick a scope on the consent
+ * screen, leaving e.g. Calendar but not Drive).
+ */
+export async function googleAccountScope(userId: string): Promise<string | null> {
+  const account = await prisma.account.findFirst({
+    where: { userId, provider: "google" },
+    select: { scope: true },
+  });
+  return account?.scope ?? null;
+}
+
+/** True if the user's stored Google grant includes the given scope keyword. */
+export async function hasGoogleScope(
+  userId: string,
+  needle: "drive" | "calendar",
+): Promise<boolean> {
+  const s = await googleAccountScope(userId);
+  return !!s && s.includes(needle);
+}

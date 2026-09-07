@@ -67,11 +67,15 @@ export function FilesBrowser({
   viewerStudentId,
   teamDrive = null,
   researcherFolders = [],
+  researcherNeedsWorkspace = false,
 }: {
   students: Student[];
   initialStudentId: string | null;
   initialFolderId: string | null;
   viewerStudentId?: string | null;
+  /** Viewer is a Project Researcher who hasn't set up their workspace folder
+   *  yet — show a hint pointing to Settings → My workspace. */
+  researcherNeedsWorkspace?: boolean;
   /** Admin-configured supervising-team Drive folder. Null when no
    *  setting has been saved or when the viewer is a student. */
   teamDrive?: { id: string; url: string } | null;
@@ -427,6 +431,23 @@ export function FilesBrowser({
                 ))}
               </ul>
             </>
+          )}
+          {researcherNeedsWorkspace && !sidebarCollapsed && (
+            <div className="mx-1 mt-3 rounded-lg border border-dashed border-amber-300 bg-amber-50 p-3 text-[11px] leading-snug text-amber-800">
+              <div className="font-semibold">Set up your workspace folder</div>
+              <p className="mt-1">
+                Your own Drive folder isn&apos;t created yet, so it doesn&apos;t
+                show here. Create it in{" "}
+                <Link
+                  href="/settings"
+                  className="font-medium text-[var(--c-blue)] hover:underline"
+                >
+                  Settings → My workspace
+                </Link>
+                . If the button is disabled, sign out and sign in again and
+                approve Google <strong>Drive</strong> access.
+              </p>
+            </div>
           )}
         </aside>
       )}
