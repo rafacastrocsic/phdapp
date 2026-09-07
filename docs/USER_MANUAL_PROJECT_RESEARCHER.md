@@ -66,11 +66,18 @@ Open **Tasks** to follow the board for your students (Board, List and Gantt view
 
 ## Calendar
 
-The **Calendar** shows your assigned students' events, the General calendar, and your own workspace calendar. You can see 1:1 meetings, deadlines and availability. You view the students' calendars read-only; use your **own** calendar (in Google Calendar) for your project scheduling.
+The **Calendar** shows your assigned students' events, the General calendar, and your own workspace calendar. You can see 1:1 meetings, deadlines and availability. You view the students' calendars **read-only** — you can open any event to read its details and comment, but you can't create, move, edit or delete a student's event.
+
+You **can** create events yourself in two places, chosen in the **+ New event** dialog's *Calendar* dropdown:
+
+- **General (visible to all)** — a team-wide event everyone sees.
+- **My workspace calendar** — added straight to your own Google workspace calendar; it shows here (and for the senior team) read-only in your colour. Edit or delete these from Google Calendar (the event detail links straight to it).
+
+Your own workspace calendar events also appear in the **Calendars** list and in the filter dropdown below the month, so you can view just your own schedule.
 
 ## Files
 
-**Files** shows the Drive folder shared with each student you work with — click through to open in Drive (view-only for you). Your own workspace folder is linked from your **Team** card.
+**Files** shows the Drive folder shared with each student you work with — click through to open in Drive (view-only for you). Under **Drives → Researchers** you'll also find **your own workspace folder** (labelled *your workspace*). Add your files to *that exact folder* — it's the one PhDapp created and shares with your team, so use **Open in Drive** to open it and drop files in. If it looks empty but you have files in Google Drive, they're in a different folder; if you recreated your folder, re-link it from **Settings → My workspace**.
 
 ## Reading, thesis & publications
 

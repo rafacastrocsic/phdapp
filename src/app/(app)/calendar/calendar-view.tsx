@@ -179,6 +179,8 @@ export function CalendarView({
   holidays = [],
   invitablePeople = [],
   viewerUserId,
+  researcherMode = false,
+  hasWorkspaceCalendar = false,
 }: {
   viewerRole: string;
   viewerStudentId: string | null;
@@ -225,6 +227,13 @@ export function CalendarView({
   // People who can be invited to a meeting (team + visible students'
   // user accounts). Empty for students / when nobody is invitable.
   invitablePeople?: InvitablePerson[];
+  // Viewer is a read-only Project Researcher (not senior team): they may
+  // create General events and events on their own workspace calendar, but
+  // never student-tied events.
+  researcherMode?: boolean;
+  // Viewer has their own workspace calendar (offers the "My workspace
+  // calendar" target in the New-event dialog).
+  hasWorkspaceCalendar?: boolean;
 }) {
   // Lookup: dateKey "yyyy-MM-dd" → holiday name (first wins if a date
   // somehow has two entries). Used by month/week/day/mini views to
@@ -1471,6 +1480,8 @@ export function CalendarView({
             : studentScopeFilter || null
         }
         isStudent={isStudent}
+        researcherMode={researcherMode}
+        hasWorkspaceCalendar={hasWorkspaceCalendar}
         invitablePeople={invitablePeople}
         prefill={duplicateSource}
         onCreated={(e) => {
@@ -1491,6 +1502,9 @@ export function CalendarView({
       <EventDetailDialog
         event={openEvent?.external ? null : openEvent}
         open={!!openEvent && !openEvent.external}
+        // A read-only researcher can't edit a student-tied event — hide the
+        // write controls so they aren't offered an action that 403s.
+        canWrite={!(researcherMode && !!openEvent?.student)}
         tasks={tasks}
         students={students}
         teamDriveFolderId={teamDriveFolderId ?? null}
@@ -1537,6 +1551,7 @@ export function CalendarView({
 function EventDetailDialog({
   event,
   open,
+  canWrite = true,
   tasks,
   students,
   teamDriveFolderId,
@@ -1550,6 +1565,7 @@ function EventDetailDialog({
   onDuplicate,
 }: {
   event: Event | null;
+  canWrite?: boolean;
   open: boolean;
   tasks: LinkableTask[];
   students: Student[];
@@ -1580,7 +1596,7 @@ function EventDetailDialog({
   const myAttendee = attendees.find((a) => a.userId === viewerUserId);
   // Whether the viewer can edit the guest list — the organizer or a
   // non-student (supervisors/admin). Students can only RSVP.
-  const canEditInvitees = invitablePeople.length > 0 && canAssignStudent;
+  const canEditInvitees = invitablePeople.length > 0 && canAssignStudent && canWrite;
 
   async function saveInvitees(next: Set<string>) {
     if (!event) return;
@@ -1897,7 +1913,7 @@ function EventDetailDialog({
 
           {event.isMeeting ? (
             <MeetingPanel event={event} onUpdated={onUpdated} />
-          ) : (
+          ) : !canWrite ? null : (
             // Lets the user upgrade a regular event into a 1:1 meeting
             // after the fact — flips isMeeting=true via PATCH so the
             // MeetingPanel (agenda · notes · action items) appears.
@@ -1922,13 +1938,15 @@ function EventDetailDialog({
           {recSummary && (
             <div className="flex items-center justify-between gap-2 rounded-lg bg-violet-50 px-3 py-2 text-xs text-[var(--c-violet)]">
               <span>↻ Repeats: {recSummary}</span>
-              <button
-                type="button"
-                onClick={stopRepeating}
-                className="font-semibold hover:underline"
-              >
-                Stop repeating
-              </button>
+              {canWrite && (
+                <button
+                  type="button"
+                  onClick={stopRepeating}
+                  className="font-semibold hover:underline"
+                >
+                  Stop repeating
+                </button>
+              )}
             </div>
           )}
 
@@ -1984,17 +2002,19 @@ function EventDetailDialog({
 
         <div className="flex flex-wrap justify-between gap-2 pt-3 mt-3 border-t">
           <div className="flex flex-wrap gap-2">
-            <Button
-              type="button"
-              variant="danger"
-              size="sm"
-              onClick={() => del(false)}
-              disabled={deleting}
-            >
-              <Trash2 className="h-4 w-4" />
-              Delete locally
-            </Button>
-            {linkedToGoogle && (
+            {canWrite && (
+              <Button
+                type="button"
+                variant="danger"
+                size="sm"
+                onClick={() => del(false)}
+                disabled={deleting}
+              >
+                <Trash2 className="h-4 w-4" />
+                Delete locally
+              </Button>
+            )}
+            {canWrite && linkedToGoogle && (
               <Button
                 type="button"
                 variant="danger"
@@ -2008,7 +2028,7 @@ function EventDetailDialog({
             )}
           </div>
           <div className="flex gap-2">
-            {onDuplicate && event && (
+            {canWrite && onDuplicate && event && (
               <Button
                 type="button"
                 variant="outline"
@@ -2019,6 +2039,7 @@ function EventDetailDialog({
                 Duplicate
               </Button>
             )}
+            {canWrite && (
             <Button
               type="button"
               variant="brand"
@@ -2027,6 +2048,7 @@ function EventDetailDialog({
             >
               Edit
             </Button>
+            )}
             <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
               Close
             </Button>
@@ -2337,6 +2359,8 @@ function NewEventDialog({
   defaultDate,
   defaultStudentId,
   isStudent,
+  researcherMode = false,
+  hasWorkspaceCalendar = false,
   invitablePeople,
   prefill,
   onCreated,
@@ -2349,6 +2373,10 @@ function NewEventDialog({
   defaultDate: Date | null;
   defaultStudentId: string | null;
   isStudent: boolean;
+  // Read-only Project Researcher: no student targets, only "General" and
+  // "My workspace calendar".
+  researcherMode?: boolean;
+  hasWorkspaceCalendar?: boolean;
   invitablePeople: InvitablePerson[];
   // When set, the form opens pre-populated with this event's
   // fields — title, date, time, location, meetingUrl, description,
@@ -2357,6 +2385,7 @@ function NewEventDialog({
   prefill?: Event | null;
   onCreated: (e: Event) => void;
 }) {
+  const router = useRouter();
   const [submitting, setSubmitting] = useState(false);
   const [pushGoogle, setPushGoogle] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -2373,12 +2402,17 @@ function NewEventDialog({
   // "General" — events without a student are visible to everyone.
   // Initial student selection — prefill wins, then explicit prop,
   // then "general" for non-students / "" for students.
-  const initialStudentId = prefill
-    ? prefill.isGeneral
-      ? "__general__"
-      : prefill.student?.id ?? "__general__"
-    : (defaultStudentId ?? (isStudent ? "" : "__general__"));
+  const initialStudentId = researcherMode
+    ? "__general__" // researchers never target a student
+    : prefill
+      ? prefill.isGeneral
+        ? "__general__"
+        : prefill.student?.id ?? "__general__"
+      : (defaultStudentId ?? (isStudent ? "" : "__general__"));
   const [studentId, setStudentId] = useState(initialStudentId);
+  // "My workspace calendar" target — writes to the viewer's own Google
+  // calendar via /api/calendar/my-event (no PhDapp Event row).
+  const isMine = studentId === "__mine__";
   const [linkedTaskId, setLinkedTaskId] = useState(prefill?.linkedTaskId ?? "");
   // Optional Drive folder attached at creation (will be sent in payload).
   const [driveFolderUrl, setDriveFolderUrl] = useState<string | null>(
@@ -2469,6 +2503,35 @@ function NewEventDialog({
     } catch {
       payload.timeZone = "UTC";
     }
+
+    // "My workspace calendar" target: write directly to the viewer's own
+    // Google calendar (no PhDapp Event row). The event is mirrored back into
+    // the module read-only on refresh.
+    if (isMine) {
+      const rMine = await fetch("/api/calendar/my-event", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          title: payload.title,
+          startsAt: payload.startsAt,
+          endsAt: payload.endsAt,
+          location: payload.location || null,
+          description: payload.description || null,
+          recurrenceRule: payload.recurrenceRule || null,
+          timeZone: payload.timeZone,
+        }),
+      });
+      setSubmitting(false);
+      if (!rMine.ok) {
+        const j = await rMine.json().catch(() => ({}));
+        setError(j.error ?? "Could not add the event to your calendar");
+        return;
+      }
+      onOpenChange(false);
+      router.refresh();
+      return;
+    }
+
     const r = await fetch("/api/calendar/events", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -2514,7 +2577,7 @@ function NewEventDialog({
             />
           </Field>
           {!isStudent && (
-            <Field label="Visibility / student">
+            <Field label={researcherMode ? "Calendar" : "Visibility / student"}>
               <Select
                 name="studentId"
                 value={studentId}
@@ -2525,11 +2588,17 @@ function NewEventDialog({
               >
                 {/* Events are either tied to a specific student or
                     'General' (visible to everyone). Team-only events
-                    are not supported (per product decision). */}
+                    are not supported (per product decision). A read-only
+                    Project Researcher gets no student targets — only
+                    General and their own workspace calendar. */}
                 <option value="__general__">— General (visible to all) —</option>
-                {students.map((s) => (
-                  <option key={s.id} value={s.id}>{displayName(s)}</option>
-                ))}
+                {researcherMode
+                  ? hasWorkspaceCalendar && (
+                      <option value="__mine__">My workspace calendar</option>
+                    )
+                  : students.map((s) => (
+                      <option key={s.id} value={s.id}>{displayName(s)}</option>
+                    ))}
               </Select>
             </Field>
           )}
@@ -2568,6 +2637,7 @@ function NewEventDialog({
               defaultValue={prefill?.meetingUrl ?? ""}
             />
           </Field>
+          {!isMine && (
           <Field label="Drive folder (optional)">
             {(() => {
               const stu = effectiveStudentId
@@ -2618,6 +2688,7 @@ function NewEventDialog({
               );
             })()}
           </Field>
+          )}
           <Field label="Description (optional)">
             <Textarea
               name="description"
@@ -2625,6 +2696,7 @@ function NewEventDialog({
               defaultValue={prefill?.description ?? ""}
             />
           </Field>
+          {!isMine && (
           <Field label="Related task (optional)">
             <Select
               value={linkedTaskId}
@@ -2644,6 +2716,7 @@ function NewEventDialog({
               This is separate from the task’s own due-date entry.
             </p>
           </Field>
+          )}
           <Field label="Repeats">
             <div className="flex flex-wrap items-center gap-2">
               <Select
@@ -2691,6 +2764,7 @@ function NewEventDialog({
               </p>
             )}
           </Field>
+          {!isMine && (
           <label className="flex items-center gap-2 text-sm text-slate-700">
             <input
               type="checkbox"
@@ -2700,7 +2774,8 @@ function NewEventDialog({
             />
             This is a 1:1 meeting (agenda, notes & action items)
           </label>
-          {invitablePeople.length > 0 && (
+          )}
+          {!isMine && invitablePeople.length > 0 && (
             <Field label="Invite people (optional)">
               <InviteePicker
                 people={invitablePeople}
@@ -2713,15 +2788,22 @@ function NewEventDialog({
               </p>
             </Field>
           )}
-          <label className="flex items-center gap-2 text-sm text-slate-700">
-            <input
-              type="checkbox"
-              checked={pushGoogle}
-              onChange={(e) => setPushGoogle(e.target.checked)}
-              className="h-4 w-4 rounded"
-            />
-            Also push to Google Calendar
-          </label>
+          {isMine ? (
+            <p className="text-[11px] text-slate-500">
+              This event is added to your own workspace calendar in Google
+              Calendar, and shows here read-only in your colour.
+            </p>
+          ) : (
+            <label className="flex items-center gap-2 text-sm text-slate-700">
+              <input
+                type="checkbox"
+                checked={pushGoogle}
+                onChange={(e) => setPushGoogle(e.target.checked)}
+                className="h-4 w-4 rounded"
+              />
+              Also push to Google Calendar
+            </label>
+          )}
           {error && (
             <div className="text-sm text-[var(--c-red)] bg-red-50 rounded-lg p-3">{error}</div>
           )}

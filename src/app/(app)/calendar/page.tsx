@@ -3,8 +3,10 @@ import { prisma } from "@/lib/prisma";
 import {
   studentVisibilityWhere,
   studentVisibilityWhereAllForAdmin,
+  isProjectResearcherAnywhere,
   type Role,
 } from "@/lib/access";
+import { isSeniorTeam } from "@/lib/discussions-access";
 import { clearDismissedEventIds } from "@/lib/calendar-dismissed";
 import { displayName } from "@/lib/utils";
 import { getTeamDriveFolder } from "@/lib/team-drive";
@@ -262,11 +264,21 @@ export default async function CalendarPage({
       highlightByEvent[l.entityId] = "updated";
   }
 
-  await prisma.user.update({
+  const meUser = await prisma.user.update({
     where: { id: session.user.id },
     data: { calendarLastSeenAt: new Date() },
+    select: { calendarId: true },
   });
   await clearDismissedEventIds(session.user.id);
+
+  // A read-only Project Researcher (a researcher who isn't also part of the
+  // senior team) can't create/edit student events, but CAN create General
+  // events and events on their own workspace calendar. Drives the New-event
+  // dialog's target options and hides student-event edit controls.
+  const researcherMode =
+    (await isProjectResearcherAnywhere(session.user.id)) &&
+    !(await isSeniorTeam(session.user.id, role));
+  const hasWorkspaceCalendar = !!meUser.calendarId;
 
   // Admin-configured team Drive folder — exposed to non-students so they
   // can pick it as one of the roots for unassigned events.
@@ -346,6 +358,8 @@ export default async function CalendarPage({
         name: h.name,
       }))}
       invitablePeople={invitablePeople}
+      researcherMode={researcherMode}
+      hasWorkspaceCalendar={hasWorkspaceCalendar}
     />
   );
 }

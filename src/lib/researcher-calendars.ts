@@ -99,7 +99,9 @@ async function visibleResearchers(
 export async function getVisibleResearcherFolders(
   viewerId: string,
   role: Role,
-): Promise<{ id: string; name: string; color: string; driveFolderId: string }[]> {
+): Promise<
+  { id: string; name: string; color: string; driveFolderId: string; mine: boolean }[]
+> {
   const visible = await visibleResearchers(viewerId, role, { driveFolderId: true });
   return visible
     .filter((r) => r.driveFolderId)
@@ -108,6 +110,7 @@ export async function getVisibleResearcherFolders(
       name: r.name?.trim() || "Researcher",
       color: r.color,
       driveFolderId: r.driveFolderId!,
+      mine: r.id === viewerId,
     }));
 }
 

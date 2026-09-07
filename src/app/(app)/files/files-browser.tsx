@@ -75,8 +75,15 @@ export function FilesBrowser({
   /** Admin-configured supervising-team Drive folder. Null when no
    *  setting has been saved or when the viewer is a student. */
   teamDrive?: { id: string; url: string } | null;
-  /** Project researchers' own folders the viewer may see (read-only). */
-  researcherFolders?: { id: string; name: string; color: string; driveFolderId: string }[];
+  /** Project researchers' own folders the viewer may see (read-only, except
+   *  the viewer's own folder — `mine` — which is theirs to manage in Drive). */
+  researcherFolders?: {
+    id: string;
+    name: string;
+    color: string;
+    driveFolderId: string;
+    mine: boolean;
+  }[];
 }) {
   const studentsWithDrive = students.filter((s) => s.driveFolderId);
   // Two mutually-exclusive "what's selected" states. Setting one
@@ -411,7 +418,7 @@ export function FilesBrowser({
                             {r.name}
                           </div>
                           <div className="text-[10px] text-slate-500 truncate">
-                            researcher · read-only
+                            {r.mine ? "your workspace" : "researcher · read-only"}
                           </div>
                         </div>
                       )}
@@ -621,7 +628,29 @@ export function FilesBrowser({
               </p>
             </div>
           ) : files.length === 0 && !loading ? (
-            <EmptyHint title="Empty folder" text="No files here yet." />
+            selectedResearcher?.mine && path.length === 0 ? (
+              <EmptyHint
+                title="This is your workspace folder"
+                text={
+                  <>
+                    This is the exact folder PhDapp created and shares for you.
+                    If your files aren&apos;t here, they&apos;re in a different
+                    Drive folder — add them to this one (use{" "}
+                    <strong>Open in Drive</strong> above) and they&apos;ll appear
+                    here and for your team. If you recreated your folder, open{" "}
+                    <Link
+                      href="/settings"
+                      className="text-[var(--c-blue)] hover:underline"
+                    >
+                      Settings → My workspace
+                    </Link>{" "}
+                    to re-link it.
+                  </>
+                }
+              />
+            ) : (
+              <EmptyHint title="Empty folder" text="No files here yet." />
+            )
           ) : view === "icons" ? (
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3">
               {loading
