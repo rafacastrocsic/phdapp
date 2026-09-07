@@ -5,6 +5,7 @@ import {
   isProjectResearcherAnywhere,
   type Role,
 } from "@/lib/access";
+import { isSeniorTeam } from "@/lib/discussions-access";
 import { getTeamDriveFolder } from "@/lib/team-drive";
 import { getVisibleResearcherFolders } from "@/lib/researcher-calendars";
 import { FilesBrowser } from "./files-browser";
@@ -35,12 +36,13 @@ export default async function FilesPage({
       : null;
 
   // Supervising team's shared Drive folder (admin-configured Setting).
-  // Surfaced as a "Team Drive" entry in the sidebar — visible to the
-  // senior team (admin / supervisors / co-supervisors / team advisors),
-  // hidden from students. Same shape as a student folder so the
-  // browser navigation logic doesn't fork.
-  const teamDrive =
-    role === "student" ? null : await getTeamDriveFolder();
+  // Surfaced as a "Team Drive" entry in the sidebar — visible ONLY to the
+  // senior team (admin / supervisors / co-supervisors / team advisors), the
+  // people it's actually shared with. Hidden from students AND from a
+  // read-only Project Researcher (not senior team): the folder isn't shared
+  // with them, so listing it would just be a dead entry.
+  const senior = await isSeniorTeam(session.user.id, role);
+  const teamDrive = senior ? await getTeamDriveFolder() : null;
 
   // Project researchers' own folders the viewer may see (senior team, or a
   // student the researcher works with) — shown as read-only "Drives".

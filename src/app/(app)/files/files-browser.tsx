@@ -595,12 +595,12 @@ export function FilesBrowser({
         </div>
 
         <div className="p-6">
-          {!selectedStudent && !teamSelected ? (
+          {!selectedStudent && !teamSelected && !selectedResearcher ? (
             <EmptyHint
               title="Pick a student"
               text="Use the list on the left to start browsing."
             />
-          ) : !teamSelected && !selectedStudent?.driveFolderId ? (
+          ) : !teamSelected && !selectedResearcher && !selectedStudent?.driveFolderId ? (
             // Branch only relevant in student view — team view always
             // has a folder id and should fall through to the
             // error/empty/grid render below. Without `!teamSelected`
