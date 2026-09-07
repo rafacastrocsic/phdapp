@@ -102,6 +102,23 @@ interface Event {
   subtaskParentId?: string | null;
   // In-app invitees (guest list). Empty for events with no invitees.
   attendees?: Attendee[];
+  // Read-only event pulled from a Project Researcher's own Google calendar
+  // (not a PhDapp event). Rendered in the owner's colour; not editable.
+  external?: boolean;
+  ownerName?: string;
+}
+
+// Shape passed from the server for researcher-calendar events.
+interface ExternalEvent {
+  id: string;
+  title: string;
+  description: string | null;
+  location: string | null;
+  startsAt: string;
+  endsAt: string;
+  allDay: boolean;
+  ownerName: string;
+  student: { id: string; fullName: string; alias: string | null; color: string };
 }
 
 interface Attendee {
@@ -145,6 +162,7 @@ export function CalendarView({
   students,
   teamDriveFolderId,
   events: initial,
+  externalEvents = [],
   tasks,
   availability,
   myAvailability,
@@ -162,6 +180,7 @@ export function CalendarView({
   students: Student[];
   teamDriveFolderId?: string | null;
   events: Event[];
+  externalEvents?: ExternalEvent[];
   tasks: LinkableTask[];
   availability: {
     id: string;
@@ -382,8 +401,41 @@ export function CalendarView({
         });
       }
     }
+    // Researcher-calendar events (read-only). Not student-scoped, so they show
+    // regardless of the student filter — except the "general only" filter.
+    if (studentFilter !== "__general__") {
+      for (const x of externalEvents) {
+        out.push({
+          id: x.id,
+          title: x.title,
+          description: x.description,
+          location: x.location,
+          startsAt: x.startsAt,
+          endsAt: x.endsAt,
+          meetingUrl: null,
+          recurrenceRule: null,
+          isMeeting: false,
+          agenda: null,
+          meetingNotes: null,
+          student: x.student,
+          googleEventId: null,
+          googleCalendarId: null,
+          ticketId: null,
+          taskPriority: null,
+          linkedTaskId: null,
+          linkedTaskTitle: null,
+          links: null,
+          driveFolderUrl: null,
+          isGeneral: false,
+          allDay: x.allDay,
+          external: true,
+          ownerName: x.ownerName,
+          attendees: [],
+        });
+      }
+    }
     return out;
-  }, [events, studentFilter, cursor, view]);
+  }, [events, externalEvents, studentFilter, cursor, view]);
 
   const dayEvents = useMemo(() => {
     const map: Record<string, Event[]> = {};

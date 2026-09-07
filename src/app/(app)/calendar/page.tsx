@@ -8,6 +8,7 @@ import {
 import { clearDismissedEventIds } from "@/lib/calendar-dismissed";
 import { displayName } from "@/lib/utils";
 import { getTeamDriveFolder } from "@/lib/team-drive";
+import { getResearcherCalendarEvents } from "@/lib/researcher-calendars";
 import { getHolidaysInRange } from "@/lib/holidays";
 import { CalendarView } from "./calendar-view";
 import { startOfMonth, endOfMonth, subMonths, addMonths } from "date-fns";
@@ -98,6 +99,15 @@ export default async function CalendarPage({
     },
     orderBy: { startsAt: "asc" },
   });
+
+  // Read-only events pulled from Project Researchers' own workspace calendars,
+  // shown in the module for the senior team (and the students they work with).
+  const externalEvents = await getResearcherCalendarEvents(
+    session.user.id,
+    role,
+    from.toISOString(),
+    to.toISOString(),
+  );
 
   // Tasks the user may link an event to (visible, non-archived). Powers the
   // task picker in the new/edit-event dialogs.
@@ -261,6 +271,7 @@ export default async function CalendarPage({
       viewerUserId={session.user.id}
       students={students}
       teamDriveFolderId={teamDrive?.id ?? null}
+      externalEvents={externalEvents}
       events={events.map((e) => ({
         id: e.id,
         title: e.title,
