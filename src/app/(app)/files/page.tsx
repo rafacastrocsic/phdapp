@@ -2,6 +2,7 @@ import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
 import { studentVisibilityWhere, type Role } from "@/lib/access";
 import { getTeamDriveFolder } from "@/lib/team-drive";
+import { getVisibleResearcherFolders } from "@/lib/researcher-calendars";
 import { FilesBrowser } from "./files-browser";
 
 export default async function FilesPage({
@@ -37,6 +38,13 @@ export default async function FilesPage({
   const teamDrive =
     role === "student" ? null : await getTeamDriveFolder();
 
+  // Project researchers' own folders the viewer may see (senior team, or a
+  // student the researcher works with) — shown as read-only "Drives".
+  const researcherFolders = await getVisibleResearcherFolders(
+    session.user.id,
+    role,
+  );
+
   return (
     <FilesBrowser
       students={students}
@@ -44,6 +52,7 @@ export default async function FilesPage({
       initialFolderId={sp.folder ?? null}
       viewerStudentId={viewerStudent?.id ?? null}
       teamDrive={teamDrive}
+      researcherFolders={researcherFolders}
     />
   );
 }

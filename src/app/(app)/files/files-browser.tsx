@@ -66,6 +66,7 @@ export function FilesBrowser({
   initialStudentId,
   viewerStudentId,
   teamDrive = null,
+  researcherFolders = [],
 }: {
   students: Student[];
   initialStudentId: string | null;
@@ -74,6 +75,8 @@ export function FilesBrowser({
   /** Admin-configured supervising-team Drive folder. Null when no
    *  setting has been saved or when the viewer is a student. */
   teamDrive?: { id: string; url: string } | null;
+  /** Project researchers' own folders the viewer may see (read-only). */
+  researcherFolders?: { id: string; name: string; color: string; driveFolderId: string }[];
 }) {
   const studentsWithDrive = students.filter((s) => s.driveFolderId);
   // Two mutually-exclusive "what's selected" states. Setting one
@@ -84,6 +87,13 @@ export function FilesBrowser({
     students.find((s) => s.id === initialStudentId) ?? studentsWithDrive[0] ?? null,
   );
   const [teamSelected, setTeamSelected] = useState<boolean>(false);
+  // A researcher's own folder can also be selected (read-only, no favorites),
+  // handled like the team drive. Holds the researcher user id, or null.
+  const [selectedResearcherId, setSelectedResearcherId] = useState<string | null>(
+    null,
+  );
+  const selectedResearcher =
+    researcherFolders.find((r) => r.id === selectedResearcherId) ?? null;
   // If the page loads without a student in scope and a team drive is
   // configured, default to showing the team drive so the pane isn't
   // empty. Doesn't override an explicit student selection.
@@ -125,7 +135,11 @@ export function FilesBrowser({
   // user has navigated deeper in.
   const currentFolderId =
     path[path.length - 1]?.id ??
-    (teamSelected ? teamDrive?.id ?? null : selectedStudent?.driveFolderId ?? null);
+    (selectedResearcher
+      ? selectedResearcher.driveFolderId
+      : teamSelected
+        ? teamDrive?.id ?? null
+        : selectedStudent?.driveFolderId ?? null);
 
   useEffect(() => {
     setPath([]);
@@ -150,11 +164,11 @@ export function FilesBrowser({
   // Also clear path when toggling INTO the team view so the user
   // lands at its root.
   useEffect(() => {
-    if (teamSelected) {
+    if (teamSelected || selectedResearcherId) {
       setPath([]);
       setFavorites(new Set());
     }
-  }, [teamSelected]);
+  }, [teamSelected, selectedResearcherId]);
 
   async function toggleFavorite(file: DriveFile) {
     if (!selectedStudent) return;
@@ -257,7 +271,7 @@ export function FilesBrowser({
                     the supervising-team folder shortcut — labels
                     the whole column (Team + Students) rather than
                     just the student list under it. */}
-                {teamDrive ? "Drives" : "Students"}
+                {teamDrive || researcherFolders.length > 0 ? "Drives" : "Students"}
               </h2>
             )}
             <button
@@ -286,6 +300,7 @@ export function FilesBrowser({
                   onClick={() => {
                     setTeamSelected(true);
                     setSelectedStudent(null);
+                    setSelectedResearcherId(null);
                   }}
                   title={
                     sidebarCollapsed
@@ -337,6 +352,7 @@ export function FilesBrowser({
                     onClick={() => {
                       setSelectedStudent(s);
                       setTeamSelected(false);
+                      setSelectedResearcherId(null);
                     }}
                     title={sidebarCollapsed ? displayName(s) : undefined}
                     className={cn(
@@ -363,13 +379,79 @@ export function FilesBrowser({
               ))}
             </ul>
           )}
+          {researcherFolders.length > 0 && (
+            <>
+              {!sidebarCollapsed && (
+                <div className="px-2 mb-1 mt-2 text-[10px] uppercase tracking-wide text-slate-400 font-semibold">
+                  Researchers
+                </div>
+              )}
+              <ul className={cn(sidebarCollapsed ? "space-y-1" : "space-y-0.5")}>
+                {researcherFolders.map((r) => (
+                  <li key={r.id}>
+                    <button
+                      onClick={() => {
+                        setSelectedResearcherId(r.id);
+                        setSelectedStudent(null);
+                        setTeamSelected(false);
+                      }}
+                      title={sidebarCollapsed ? `${r.name} · researcher` : undefined}
+                      className={cn(
+                        "w-full rounded-lg hover:bg-slate-50",
+                        selectedResearcherId === r.id && "bg-slate-100",
+                        sidebarCollapsed
+                          ? "flex justify-center p-1.5"
+                          : "flex items-center gap-2 px-2 py-2 text-sm text-left",
+                      )}
+                    >
+                      <Avatar name={r.name} color={r.color} size="sm" />
+                      {!sidebarCollapsed && (
+                        <div className="flex-1 min-w-0">
+                          <div className="font-medium text-slate-900 truncate">
+                            {r.name}
+                          </div>
+                          <div className="text-[10px] text-slate-500 truncate">
+                            researcher · read-only
+                          </div>
+                        </div>
+                      )}
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            </>
+          )}
         </aside>
       )}
 
       <main className="flex-1 overflow-y-auto bg-slate-50">
         <div className="px-6 lg:px-8 py-4 border-b bg-white flex items-center justify-between gap-4 flex-wrap">
           <div className="flex items-center gap-1 text-sm flex-wrap">
-            {teamSelected ? (
+            {selectedResearcher ? (
+              <>
+                <button
+                  onClick={() => setPath([])}
+                  className="flex items-center gap-2 font-semibold text-slate-700 hover:text-[var(--c-blue)]"
+                >
+                  <Home
+                    className="h-4 w-4"
+                    style={{ color: selectedResearcher.color }}
+                  />
+                  {selectedResearcher.name}&apos;s Drive
+                </button>
+                {path.map((p, i) => (
+                  <span key={p.id} className="flex items-center gap-1">
+                    <ChevronRight className="h-3 w-3 text-slate-400" />
+                    <button
+                      onClick={() => jumpTo(i)}
+                      className="text-slate-700 hover:text-[var(--c-blue)] truncate max-w-[180px]"
+                    >
+                      {p.name}
+                    </button>
+                  </span>
+                ))}
+              </>
+            ) : teamSelected ? (
               <>
                 <button
                   onClick={() => setPath([])}
@@ -453,13 +535,16 @@ export function FilesBrowser({
               </button>
             </div>
             {(teamSelected && teamDrive) ||
+            selectedResearcher ||
             selectedStudent?.driveFolderId ? (
               <a
                 href={`https://drive.google.com/drive/folders/${
                   currentFolderId ??
-                  (teamSelected
-                    ? teamDrive?.id
-                    : selectedStudent?.driveFolderId)
+                  (selectedResearcher
+                    ? selectedResearcher.driveFolderId
+                    : teamSelected
+                      ? teamDrive?.id
+                      : selectedStudent?.driveFolderId)
                 }`}
                 target="_blank"
                 rel="noopener"

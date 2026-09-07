@@ -86,6 +86,22 @@ async function visibleResearchers(
   return visible.filter((r) => r.id !== viewerId);
 }
 
+/** Visible researchers' workspace Drive folders (for the Files module). */
+export async function getVisibleResearcherFolders(
+  viewerId: string,
+  role: Role,
+): Promise<{ id: string; name: string; color: string; driveFolderId: string }[]> {
+  const visible = await visibleResearchers(viewerId, role, { driveFolderId: true });
+  return visible
+    .filter((r) => r.driveFolderId)
+    .map((r) => ({
+      id: r.id,
+      name: r.name?.trim() || "Researcher",
+      color: r.color,
+      driveFolderId: r.driveFolderId!,
+    }));
+}
+
 /** Visible researchers' workspace calendars (for the Calendars list). */
 export async function getVisibleResearcherCalendars(
   viewerId: string,
