@@ -18,6 +18,9 @@ interface TopbarProps {
     color?: string;
   };
   studentId?: string | null;
+  // Accurate per-student standing for the badge (e.g. "Project researcher"),
+  // since the global role is just "supervisor" for every non-student.
+  roleBadge?: { label: string; color: string } | null;
 }
 
 const roleStyle: Record<string, { label: string; color: string }> = {
@@ -26,8 +29,8 @@ const roleStyle: Record<string, { label: string; color: string }> = {
   student: { label: "PhD student", color: "#ff7a45" },
 };
 
-export function Topbar({ user, studentId = null }: TopbarProps) {
-  const role = roleStyle[user.role ?? "student"];
+export function Topbar({ user, studentId = null, roleBadge = null }: TopbarProps) {
+  const role = roleBadge ?? roleStyle[user.role ?? "student"];
   const isStudent = user.role === "student";
   const profileHref = isStudent && studentId ? `/students/${studentId}` : "/settings";
 

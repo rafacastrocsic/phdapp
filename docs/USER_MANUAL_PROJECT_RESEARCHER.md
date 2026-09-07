@@ -51,7 +51,7 @@ You appear on the **Team** page under each student as their *Project Researcher*
 
 ## Your workspace — folder & calendar
 
-You get your **own** Drive folder and calendar, set up for you by a supervisor or the admin (you don't create them yourself — look for the links on your **Team** card, or ask your supervisor to set them up).
+You get your **own** Drive folder and calendar, set up for you by a supervisor or the admin (you don't create them yourself). Once they're ready, the links appear under **Settings → My workspace** and on your **Team** card. Note: your role badge (top-right) reads **Project researcher** — even though you sign in with the same access level as the supervising team, that's your actual role.
 
 - **Drive folder** — your working folder for the project. It's shared **view-only** with the students you work with and each of their **supervisors and team advisors**. They can open and read it; only you edit it. In turn, you can open **their** shared folder view-only — so you and the student can see each other's files but neither edits the other's.
 - **Calendar** — your own calendar, shared **view-only** with the same people, so your supervisors and students can see your schedule. You also see each assigned student's supervision calendar and the General calendar.

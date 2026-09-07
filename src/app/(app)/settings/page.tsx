@@ -1,10 +1,20 @@
+import type { ReactNode } from "react";
 import { auth, signOut } from "@/auth";
 import { prisma } from "@/lib/prisma";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Check, AlertTriangle, LogOut } from "lucide-react";
+import {
+  Check,
+  AlertTriangle,
+  LogOut,
+  FolderOpen,
+  CalendarDays,
+  ExternalLink,
+  Info,
+} from "lucide-react";
 import { ProfileEditor } from "@/components/profile-editor";
 import { DigestToggle } from "./digest-toggle";
+import { isProjectResearcherAnywhere } from "@/lib/access";
 
 export default async function SettingsPage() {
   const session = (await auth())!;
@@ -23,8 +33,11 @@ export default async function SettingsPage() {
       orcidId: true,
       scholarUrl: true,
       alternateEmails: true,
+      driveFolderId: true,
+      calendarId: true,
     },
   });
+  const isProjectResearcher = await isProjectResearcherAnywhere(session.user.id);
 
   const account = await prisma.account.findFirst({
     where: { userId: session.user.id, provider: "google" },
@@ -84,6 +97,47 @@ export default async function SettingsPage() {
         </Card>
       )}
 
+      {me && isProjectResearcher && (
+        <Card>
+          <CardHeader>
+            <CardTitle>My workspace</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            <div className="flex items-start gap-2 rounded-lg bg-blue-50 p-3 text-sm text-blue-900">
+              <Info className="mt-0.5 h-4 w-4 shrink-0 text-blue-700" />
+              <span>
+                Your project <strong>Drive folder</strong> and{" "}
+                <strong>calendar</strong> are set up for you by a supervisor or
+                the admin (from the <strong>Team</strong> page) and shared
+                view-only with the students you work with and their teams. You
+                don&apos;t create them here — ask your supervisor if a link is
+                missing.
+              </span>
+            </div>
+            <WorkspaceLink
+              icon={<FolderOpen className="h-4 w-4 text-[var(--c-blue)]" />}
+              label="Drive folder"
+              href={
+                me.driveFolderId
+                  ? `https://drive.google.com/drive/folders/${me.driveFolderId}`
+                  : null
+              }
+            />
+            <WorkspaceLink
+              icon={<CalendarDays className="h-4 w-4 text-[var(--c-teal)]" />}
+              label="Calendar"
+              href={
+                me.calendarId
+                  ? `https://calendar.google.com/calendar/u/0/r?cid=${Buffer.from(
+                      me.calendarId,
+                    ).toString("base64")}`
+                  : null
+              }
+            />
+          </CardContent>
+        </Card>
+      )}
+
       <Card>
         <CardHeader>
           <CardTitle>Google integration</CardTitle>
@@ -97,6 +151,37 @@ export default async function SettingsPage() {
           </p>
         </CardContent>
       </Card>
+    </div>
+  );
+}
+
+function WorkspaceLink({
+  icon,
+  label,
+  href,
+}: {
+  icon: ReactNode;
+  label: string;
+  href: string | null;
+}) {
+  return (
+    <div className="flex items-center justify-between gap-3 rounded-lg border px-3 py-2">
+      <span className="flex items-center gap-2 text-sm text-slate-700">
+        {icon}
+        {label}
+      </span>
+      {href ? (
+        <a
+          href={href}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="inline-flex items-center gap-1 text-sm font-medium text-[var(--c-violet)] hover:underline"
+        >
+          <ExternalLink className="h-3.5 w-3.5" /> Open
+        </a>
+      ) : (
+        <span className="text-xs text-slate-400">Not set up yet</span>
+      )}
     </div>
   );
 }

@@ -8,6 +8,7 @@ import { UnreadProvider } from "@/components/app-shell/unread-provider";
 import { MobileNavProvider } from "@/components/app-shell/mobile-nav-context";
 import {
   isSupervisingUser,
+  seniorRoleKey,
   studentVisibilityWhereAllForAdmin,
   type Role,
 } from "@/lib/access";
@@ -103,6 +104,22 @@ export default async function AppLayout({
   // advisors / committee / students don't see a link that would redirect.
   const showMyWork = await isSeniorTeam(session.user.id, session.user.role as Role);
 
+  // Topbar badge: show a non-student, non-admin their real per-student
+  // standing (Project researcher / Team advisor / …) rather than the generic
+  // "Supervisor" that the global sign-in role would otherwise display.
+  const TOPBAR_ROLE_META: Record<string, { label: string; color: string }> = {
+    supervisor: { label: "Supervisor", color: "#6f4cff" },
+    team_advisor: { label: "Team advisor", color: "#0ea5e9" },
+    project_researcher: { label: "Project researcher", color: "#f59e0b" },
+    external_advisor: { label: "External advisor", color: "#00d1c1" },
+    committee: { label: "Committee", color: "#a855f7" },
+  };
+  let roleBadge: { label: string; color: string } | null = null;
+  if (session.user.role === "supervisor") {
+    const key = await seniorRoleKey(session.user.id);
+    roleBadge = TOPBAR_ROLE_META[key] ?? TOPBAR_ROLE_META.supervisor;
+  }
+
   return (
     // UnreadProvider wraps everything inside (app) so a single poller
     // drives every consumer's unread state — sidebar badges, tab-title
@@ -121,7 +138,7 @@ export default async function AppLayout({
             unreadCalendar={unreadCalendar}
           />
           <div className="flex flex-1 min-w-0 flex-col print:block print:min-w-0">
-            <Topbar user={session.user} studentId={studentId} />
+            <Topbar user={session.user} studentId={studentId} roleBadge={roleBadge} />
             <main className="flex-1 min-w-0 overflow-auto print:overflow-visible">
               {children}
             </main>

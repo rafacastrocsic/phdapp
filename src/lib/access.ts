@@ -69,6 +69,29 @@ export async function isProjectResearcherAnywhere(userId: string): Promise<boole
   return !!link;
 }
 
+/**
+ * The user's most-senior per-student role, for display (e.g. the topbar
+ * badge). Everyone non-student non-admin carries the global "supervisor"
+ * sign-in role, so a plain "Supervisor" badge is misleading for team
+ * advisors / project researchers / external advisors / committee members —
+ * this returns their actual standing (highest first). Bare global-supervisors
+ * with no links yet fall back to "supervisor".
+ */
+export async function seniorRoleKey(userId: string): Promise<string> {
+  const [primary, coRows] = await Promise.all([
+    prisma.student.findFirst({ where: { supervisorId: userId }, select: { id: true } }),
+    prisma.coSupervisor.findMany({ where: { userId }, select: { role: true } }),
+  ]);
+  const roles = new Set(coRows.map((c) => c.role));
+  if (primary || roles.has("supervisor") || roles.has("co_supervisor"))
+    return "supervisor";
+  if (roles.has("team_advisor")) return "team_advisor";
+  if (roles.has("project_researcher")) return "project_researcher";
+  if (roles.has("external_advisor")) return "external_advisor";
+  if (roles.has("committee")) return "committee";
+  return "supervisor";
+}
+
 export async function requireSession() {
   const session = await auth();
   if (!session?.user) throw new Error("UNAUTHENTICATED");
