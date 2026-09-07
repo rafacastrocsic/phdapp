@@ -27,6 +27,11 @@ export interface ExternalCalEvent {
   allDay: boolean;
   external: true;
   ownerName: string;
+  // Direct link to the event in Google Calendar (for "open / edit in Google").
+  htmlLink: string | null;
+  // True when the viewer is the researcher who owns this calendar — only they
+  // can edit it (in Google Calendar); everyone else sees it read-only.
+  mine: boolean;
   student: { id: string; fullName: string; alias: string | null; color: string };
 }
 
@@ -67,9 +72,9 @@ async function visibleResearchers(
   })) as ResearcherRow[];
   if (researchers.length === 0) return [];
 
-  let visible = researchers;
+  let visible: ResearcherRow[] = [];
   if (await isSeniorTeam(viewerId, role)) {
-    // all
+    visible = researchers; // all
   } else if (role === "student") {
     const me = await prisma.student.findFirst({
       where: { userId: viewerId },
@@ -80,10 +85,14 @@ async function visibleResearchers(
           r.coSupervisedStudents.some((c) => c.studentId === me.id),
         )
       : [];
-  } else {
-    visible = [];
   }
-  return visible.filter((r) => r.id !== viewerId);
+  // A Project Researcher always sees their OWN workspace (calendar + folder)
+  // in their own app — even though they're not part of the senior team — so
+  // it appears in the Calendar module and Files just as the seniors see it.
+  // Own row goes first; everyone else has their own row dropped.
+  const others = visible.filter((r) => r.id !== viewerId);
+  const self = researchers.find((r) => r.id === viewerId);
+  return self ? [self, ...others] : others;
 }
 
 /** Visible researchers' workspace Drive folders (for the Files module). */
@@ -162,6 +171,8 @@ export async function getResearcherCalendarEvents(
             allDay: !!startDate,
             external: true,
             ownerName: name,
+            htmlLink: ev.htmlLink ?? null,
+            mine: r.id === viewerId,
             student: {
               id: `ext-${r.id}`,
               fullName: `${name} · calendar`,

@@ -103,9 +103,12 @@ interface Event {
   // In-app invitees (guest list). Empty for events with no invitees.
   attendees?: Attendee[];
   // Read-only event pulled from a Project Researcher's own Google calendar
-  // (not a PhDapp event). Rendered in the owner's colour; not editable.
+  // (not a PhDapp event). Rendered in the owner's colour; editable only by
+  // its owner, and only in Google Calendar (via htmlLink).
   external?: boolean;
   ownerName?: string;
+  htmlLink?: string | null;
+  mine?: boolean; // viewer owns this researcher calendar
 }
 
 // Shape passed from the server for researcher-calendar events.
@@ -118,6 +121,8 @@ interface ExternalEvent {
   endsAt: string;
   allDay: boolean;
   ownerName: string;
+  htmlLink: string | null;
+  mine: boolean;
   student: { id: string; fullName: string; alias: string | null; color: string };
 }
 
@@ -337,7 +342,8 @@ export function CalendarView({
       });
     }
   }
-  const openEvent = events.find((e) => e.id === openEventId) ?? null;
+  // `openEvent` is resolved after the `filtered` memo below (external
+  // researcher events live there, not in `events`).
 
   // Active student in this view: students see themselves implicitly; everyone
   // else uses the filter dropdown. The banner / sync-disable triggers only
@@ -444,12 +450,22 @@ export function CalendarView({
           allDay: x.allDay,
           external: true,
           ownerName: x.ownerName,
+          htmlLink: x.htmlLink,
+          mine: x.mine,
           attendees: [],
         });
       }
     }
     return out;
   }, [events, externalEvents, studentFilter, isResearcherFilter, cursor, view]);
+
+  // Detail lookup: DB events live in `events`; read-only researcher-calendar
+  // events aren't there, so fall back to the rendered `filtered` list (which
+  // carries them in Event shape).
+  const openEvent =
+    events.find((e) => e.id === openEventId) ??
+    filtered.find((e) => e.id === openEventId) ??
+    null;
 
   const dayEvents = useMemo(() => {
     const map: Record<string, Event[]> = {};
@@ -1464,9 +1480,17 @@ export function CalendarView({
         }}
       />
 
+      {/* Read-only researcher-calendar events open a lightweight detail
+          dialog (no DB endpoints); everything else uses the full editor. */}
+      <ExternalEventDialog
+        event={openEvent?.external ? openEvent : null}
+        open={!!openEvent?.external}
+        onOpenChange={(o) => !o && setOpenEventId(null)}
+      />
+
       <EventDetailDialog
-        event={openEvent}
-        open={!!openEvent}
+        event={openEvent?.external ? null : openEvent}
+        open={!!openEvent && !openEvent.external}
         tasks={tasks}
         students={students}
         teamDriveFolderId={teamDriveFolderId ?? null}
@@ -2010,6 +2034,91 @@ function EventDetailDialog({
         </div>
         </>
         )}
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+/**
+ * Read-only detail dialog for a Project Researcher's own Google-calendar
+ * event mirrored into PhDapp. Anyone who can see the calendar can open it to
+ * read the details; only the owner (the researcher) can edit it, and only in
+ * Google Calendar — so we surface a link there rather than an in-app editor.
+ */
+function ExternalEventDialog({
+  event,
+  open,
+  onOpenChange,
+}: {
+  event: Event | null;
+  open: boolean;
+  onOpenChange: (b: boolean) => void;
+}) {
+  if (!event) return null;
+  const owner = event.ownerName ?? "researcher";
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="!max-w-md">
+        <DialogHeader>
+          <DialogTitle>{event.title}</DialogTitle>
+        </DialogHeader>
+
+        <div className="space-y-3 text-sm">
+          <div className="flex items-center gap-2 text-slate-700">
+            <Clock className="h-4 w-4 text-slate-400" />
+            <span>
+              {event.allDay
+                ? format(new Date(event.startsAt), "EEE, MMM d")
+                : `${format(new Date(event.startsAt), "EEE, MMM d · HH:mm")} – ${format(
+                    new Date(event.endsAt),
+                    "HH:mm",
+                  )}`}
+            </span>
+          </div>
+
+          {event.student && (
+            <div className="flex items-center gap-2 text-slate-700">
+              <UsersIcon className="h-4 w-4 text-slate-400" />
+              <Badge color={event.student.color}>{owner}</Badge>
+            </div>
+          )}
+
+          {event.location && (
+            <div className="flex items-center gap-2 text-slate-700">
+              <MapPin className="h-4 w-4 text-slate-400" />
+              <span>{event.location}</span>
+            </div>
+          )}
+
+          {event.description && (
+            <div className="rounded-lg bg-slate-50 p-3 text-slate-700 whitespace-pre-wrap">
+              {event.description}
+            </div>
+          )}
+
+          <div className="rounded-lg bg-slate-50/60 border px-3 py-2 text-xs text-slate-500">
+            {event.mine
+              ? "This event lives on your workspace calendar — edit it in Google Calendar."
+              : `Read-only · from ${owner}'s calendar. Only ${owner} can edit it.`}
+          </div>
+        </div>
+
+        <div className="flex flex-wrap items-center justify-end gap-2 pt-3 mt-3 border-t">
+          {event.htmlLink && (
+            <a
+              href={event.htmlLink}
+              target="_blank"
+              rel="noopener"
+              className="inline-flex items-center gap-1.5 rounded-md border px-3 py-1.5 text-sm font-medium text-[var(--c-teal)] hover:bg-teal-50/60"
+            >
+              <ExternalLink className="h-4 w-4" />
+              {event.mine ? "Edit in Google Calendar" : "Open in Google Calendar"}
+            </a>
+          )}
+          <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
+            Close
+          </Button>
+        </div>
       </DialogContent>
     </Dialog>
   );
