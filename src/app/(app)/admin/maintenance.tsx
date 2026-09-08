@@ -74,42 +74,79 @@ export function MaintenanceTools() {
     });
   }
 
-  async function runPurgePersonalSynced(dryRun: boolean) {
+  async function runOrphanEvents(action: "report" | "rehome" | "delete") {
     if (
-      !dryRun &&
+      action === "delete" &&
       !confirm(
-        "Remove events that were imported from personal Google calendars?\n\n" +
-          "These are the home-less events the old “Sync Google” pulled in from " +
-          "a supervisor's OWN calendar (they appear under “All” but belong to no " +
-          "student, General or researcher calendar).\n\n" +
-          "Only PhDapp's copies are deleted — the events stay untouched in the " +
-          "person's own Google Calendar. Run the dry-run first to preview.",
+        "Delete the home-less calendar events (studentId=null, not General)?\n\n" +
+          "These appear only under “All” and belong to no student, General or " +
+          "researcher calendar — e.g. events the old “Sync Google” imported from a " +
+          "personal calendar, or legacy team-only events.\n\n" +
+          "Task/sub-task deadlines are NOT deleted (use “Re-home task deadlines” " +
+          "for those). Only PhDapp rows are removed — Google Calendar is never " +
+          "touched. Run “Diagnose” first to preview.",
+      )
+    )
+      return;
+    if (
+      action === "rehome" &&
+      !confirm(
+        "Re-home General/team task & sub-task deadlines so they show under " +
+          "“General only” instead of only under “All”?",
       )
     )
       return;
     setBusy(true);
     setMsg(null);
-    const r = await fetch(
-      `/api/admin/purge-personal-synced${dryRun ? "?dryRun=1" : ""}`,
-      { method: "POST" },
-    );
+    const qs = action === "report" ? "" : `?fix=${action}`;
+    const r = await fetch(`/api/admin/orphan-events${qs}`, { method: "POST" });
     setBusy(false);
     if (!r.ok) {
       const j = await r.json().catch(() => ({}));
-      setMsg({ type: "err", text: j.error ?? "Cleanup failed" });
+      setMsg({ type: "err", text: j.error ?? "Failed" });
       return;
     }
     const j = await r.json();
-    const owners = Array.from(
-      new Set((j.samples ?? []).map((s: { owner: string }) => s.owner)),
-    ).join(", ");
+    if (action === "delete") {
+      setMsg({
+        type: "ok",
+        text: `Deleted ${j.deleted} home-less event(s) from PhDapp (Google untouched). Refresh the Calendar.`,
+      });
+      return;
+    }
+    if (action === "rehome") {
+      setMsg({
+        type: "ok",
+        text: `Re-homed ${j.rehomed} task/sub-task deadline(s) to General.`,
+      });
+      return;
+    }
+    // report
+    const owners = (j.owners ?? []).join(", ");
+    const lines = (j.items ?? [])
+      .slice(0, 20)
+      .map(
+        (i: {
+          title: string;
+          day: string;
+          owner: string;
+          recurring: boolean;
+          allDay: boolean;
+          fromGoogle: boolean;
+          type: string;
+        }) =>
+          `• ${i.day} — “${i.title}” (${i.owner}) [${i.type}${
+            i.recurring ? ", recurring" : ""
+          }${i.allDay ? ", all-day" : ""}${i.fromGoogle ? ", from Google" : ""}]`,
+      )
+      .join("\n");
     setMsg({
       type: "ok",
-      text: dryRun
-        ? `Dry-run: ${j.count} imported personal event(s)` +
-          (owners ? ` — from: ${owners}` : "") +
-          `. Re-run without dry-run to delete them from PhDapp.`
-        : `Deleted ${j.count} imported personal event(s) from PhDapp. Their originals in Google Calendar are untouched. Refresh the Calendar to see the result.`,
+      text:
+        `${j.total} home-less event(s): ${j.deletableEvents} deletable, ` +
+        `${j.rehomeableTaskDeadlines} task deadline(s) to re-home` +
+        (owners ? `. Owners: ${owners}` : "") +
+        (lines ? `\n\n${lines}` : ""),
     });
   }
 
@@ -190,29 +227,39 @@ export function MaintenanceTools() {
           <Button
             variant="outline"
             size="sm"
-            onClick={() => runPurgePersonalSynced(true)}
+            onClick={() => runOrphanEvents("report")}
             disabled={busy}
-            title="Preview events imported from personal Google calendars"
+            title="List calendar events that belong to no student / General / researcher calendar"
           >
             <CalendarSync className="h-4 w-4" />
-            {busy ? "Working…" : "Personal-calendar imports — dry run"}
+            {busy ? "Working…" : "Home-less events — diagnose"}
+          </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => runOrphanEvents("rehome")}
+            disabled={busy}
+            title="Show General/team task deadlines under 'General only' instead of only 'All'"
+          >
+            <CalendarSync className="h-4 w-4" />
+            {busy ? "Working…" : "Re-home task deadlines"}
           </Button>
           <Button
             variant="danger"
             size="sm"
-            onClick={() => runPurgePersonalSynced(false)}
+            onClick={() => runOrphanEvents("delete")}
             disabled={busy}
           >
             <Trash2 className="h-4 w-4" />
-            {busy ? "Working…" : "Remove personal-calendar imports"}
+            {busy ? "Working…" : "Delete home-less events"}
           </Button>
         </div>
         {msg && (
           <div
             className={
               msg.type === "ok"
-                ? "text-sm text-[var(--c-green)] bg-green-50 rounded-lg p-3"
-                : "text-sm text-[var(--c-red)] bg-red-50 rounded-lg p-3"
+                ? "text-sm text-[var(--c-green)] bg-green-50 rounded-lg p-3 whitespace-pre-wrap"
+                : "text-sm text-[var(--c-red)] bg-red-50 rounded-lg p-3 whitespace-pre-wrap"
             }
           >
             {msg.text}

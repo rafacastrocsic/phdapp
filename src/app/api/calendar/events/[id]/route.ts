@@ -23,6 +23,9 @@ async function callerCanWrite(
   userId: string,
   role: Role,
 ) {
+  // Admin can edit or delete ANY event, including ones created by others and
+  // unassigned/General events — full oversight.
+  if (isAdmin(role)) return true;
   if (eventOwnerId === userId) return true;
   if (!studentId) return role === "supervisor";
   const a = await accessForStudent(studentId, userId, role);
