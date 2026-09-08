@@ -196,6 +196,7 @@ export function KanbanBoard({
   const [tickets, setTickets] = useState<Ticket[]>(initial);
   const [studentFilter, setStudentFilter] = useState<string>(filterStudent ?? "");
   const [priorityFilter, setPriorityFilter] = useState<string>("");
+  const [statusFilter, setStatusFilter] = useState<string>("");
   const [categoryFilter, setCategoryFilter] = useState<string>("");
   // "" = any · "__none__" = only ungrouped/individual · <id> = that group
   const [groupFilter, setGroupFilter] = useState<string>("");
@@ -248,6 +249,7 @@ export function KanbanBoard({
     return tickets.filter((t) => {
       if (studentFilter && t.student.id !== studentFilter) return false;
       if (priorityFilter && t.priority !== priorityFilter) return false;
+      if (statusFilter && t.status !== statusFilter) return false;
       if (categoryFilter === "other") {
         // "Other" matches literal "other" + any custom user-typed label.
         if (!isOtherCategory(t.category)) return false;
@@ -267,7 +269,7 @@ export function KanbanBoard({
         return false;
       return true;
     });
-  }, [tickets, studentFilter, priorityFilter, categoryFilter, groupFilter, search]);
+  }, [tickets, studentFilter, priorityFilter, statusFilter, categoryFilter, groupFilter, search]);
 
   // Distinct groups present in the loaded tasks (optionally scoped to the
   // selected student), for the toolbar group filter.
@@ -543,6 +545,19 @@ export function KanbanBoard({
               ))}
             </Select>
           )}
+          <Select
+            value={statusFilter}
+            onChange={(e) => setStatusFilter(e.target.value)}
+            className="!w-auto grow-0 basis-32 max-w-[10rem]"
+            title="Filter by status"
+          >
+            <option value="">Any status</option>
+            {STATUSES.map((s) => (
+              <option key={s.id} value={s.id}>
+                {s.label}
+              </option>
+            ))}
+          </Select>
           <Select
             value={priorityFilter}
             onChange={(e) => setPriorityFilter(e.target.value)}
