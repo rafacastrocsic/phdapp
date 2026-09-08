@@ -17,7 +17,7 @@ import {
   subMonths,
   subWeeks,
 } from "date-fns";
-import { ChevronLeft, ChevronRight, Plus, RefreshCw, ExternalLink, MapPin, Video, Trash2, Clock, Users as UsersIcon, X as XIcon, KanbanSquare } from "lucide-react";
+import { ChevronLeft, ChevronRight, Plus, RefreshCw, ExternalLink, MapPin, Video, Trash2, Clock, Users as UsersIcon, X as XIcon, KanbanSquare, Mail } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -287,6 +287,7 @@ export function CalendarView({
   const [newOpen, setNewOpen] = useState(false);
   const [availOpen, setAvailOpen] = useState(false);
   const [summaryOpen, setSummaryOpen] = useState(false);
+  const [invitationsOpen, setInvitationsOpen] = useState(false);
   const [availDay, setAvailDay] = useState<Date | null>(null);
   // Locally-deleted availability row ids — used to optimistically
   // remove a row the moment the user clicks Delete in the
@@ -475,6 +476,63 @@ export function CalendarView({
     events.find((e) => e.id === openEventId) ??
     filtered.find((e) => e.id === openEventId) ??
     null;
+
+  // Meetings the viewer has been invited to (they appear on the guest list).
+  // Recurring series show their next upcoming occurrence; past one-offs drop.
+  const myInvitations = useMemo(() => {
+    if (!viewerUserId) return [] as { event: Event; when: Date }[];
+    const now = new Date();
+    const rangeEnd = endOfMonth(addMonths(now, 13));
+    const out: { event: Event; when: Date }[] = [];
+    for (const e of events) {
+      if (!e.attendees?.some((a) => a.userId === viewerUserId)) continue;
+      let when = new Date(e.startsAt);
+      if (e.recurrenceRule) {
+        const occ = expandOccurrences(
+          new Date(e.startsAt),
+          new Date(e.endsAt),
+          e.recurrenceRule,
+          now,
+          rangeEnd,
+        );
+        const next = occ.find((o) => o.end >= now);
+        if (!next) continue;
+        when = next.start;
+      } else if (new Date(e.endsAt) < now) {
+        continue; // past one-off
+      }
+      out.push({ event: e, when });
+    }
+    out.sort((a, b) => a.when.getTime() - b.when.getTime());
+    return out;
+  }, [events, viewerUserId]);
+
+  const pendingInvites = myInvitations.filter(
+    (i) =>
+      i.event.attendees?.find((a) => a.userId === viewerUserId)?.status ===
+      "invited",
+  ).length;
+
+  async function rsvpInvite(eventId: string, status: string) {
+    const r = await fetch(`/api/calendar/events/${eventId}/rsvp`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ status }),
+    });
+    if (!r.ok) return;
+    setEvents((prev) =>
+      prev.map((e) =>
+        e.id === eventId
+          ? {
+              ...e,
+              attendees: (e.attendees ?? []).map((a) =>
+                a.userId === viewerUserId ? { ...a, status } : a,
+              ),
+            }
+          : e,
+      ),
+    );
+  }
 
   const dayEvents = useMemo(() => {
     const map: Record<string, Event[]> = {};
@@ -797,6 +855,18 @@ export function CalendarView({
               when they're at IMSE. */}
           <Button
             variant="outline"
+            onClick={() => setInvitationsOpen(true)}
+            title="Meetings you've been invited to"
+          >
+            <Mail className="h-4 w-4" /> Invitations
+            {pendingInvites > 0 && (
+              <span className="ml-1 inline-flex h-4 min-w-4 items-center justify-center rounded-full bg-[var(--c-red)] px-1 text-[10px] font-bold leading-none text-white">
+                {pendingInvites}
+              </span>
+            )}
+          </Button>
+          <Button
+            variant="outline"
             onClick={() => setSummaryOpen(true)}
             title="Who's away or remote over the next 7 / 30 days"
           >
@@ -822,6 +892,18 @@ export function CalendarView({
         onOpenChange={setSummaryOpen}
         items={availabilitySummary}
         nowIso={nowIso}
+      />
+
+      <InvitationsDialog
+        open={invitationsOpen}
+        onOpenChange={setInvitationsOpen}
+        invitations={myInvitations}
+        viewerUserId={viewerUserId}
+        onRsvp={rsvpInvite}
+        onOpenEvent={(id) => {
+          setInvitationsOpen(false);
+          setOpenEventId(id);
+        }}
       />
 
       <Dialog
@@ -1548,6 +1630,117 @@ export function CalendarView({
   );
 }
 
+/**
+ * The meetings the viewer has been invited to (they're on the guest list),
+ * with their RSVP status and quick Going / Maybe / Can't actions. Opened from
+ * the "Invitations" button in the toolbar; the pending count is badged there.
+ */
+function InvitationsDialog({
+  open,
+  onOpenChange,
+  invitations,
+  viewerUserId,
+  onRsvp,
+  onOpenEvent,
+}: {
+  open: boolean;
+  onOpenChange: (b: boolean) => void;
+  invitations: { event: Event; when: Date }[];
+  viewerUserId: string;
+  onRsvp: (eventId: string, status: string) => void;
+  onOpenEvent: (eventId: string) => void;
+}) {
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="!max-w-lg">
+        <DialogHeader>
+          <DialogTitle>Your meeting invitations</DialogTitle>
+        </DialogHeader>
+        {invitations.length === 0 ? (
+          <p className="py-6 text-center text-sm text-slate-500">
+            You have no upcoming meeting invitations.
+          </p>
+        ) : (
+          <ul className="max-h-[60vh] space-y-2 overflow-y-auto">
+            {invitations.map(({ event, when }) => {
+              const status =
+                event.attendees?.find((a) => a.userId === viewerUserId)
+                  ?.status ?? "invited";
+              return (
+                <li key={event.id} className="rounded-lg border p-3">
+                  <div className="flex items-start justify-between gap-2">
+                    <button
+                      type="button"
+                      onClick={() => onOpenEvent(event.id)}
+                      className="min-w-0 flex-1 text-left"
+                      title="Open the event"
+                    >
+                      <div className="truncate font-medium text-slate-900">
+                        {event.title}
+                      </div>
+                      <div className="mt-0.5 flex items-center gap-1 text-xs text-slate-500">
+                        <Clock className="h-3 w-3" />
+                        {format(when, "EEE, MMM d · HH:mm")}
+                        {event.recurrenceRule ? " · repeats" : ""}
+                        {event.student
+                          ? ` · ${displayName(event.student)}`
+                          : event.isGeneral
+                            ? " · General"
+                            : ""}
+                      </div>
+                    </button>
+                    <span
+                      className={cn(
+                        "shrink-0 rounded-full px-2 py-0.5 text-[10px] font-semibold",
+                        status === "accepted"
+                          ? "bg-emerald-100 text-emerald-700"
+                          : status === "declined"
+                            ? "bg-red-100 text-red-700"
+                            : status === "tentative"
+                              ? "bg-amber-100 text-amber-700"
+                              : "bg-slate-200 text-slate-600",
+                      )}
+                    >
+                      {status === "invited" ? "no reply" : status}
+                    </span>
+                  </div>
+                  <div className="mt-2 flex items-center gap-1.5">
+                    {(["accepted", "tentative", "declined"] as const).map(
+                      (s) => (
+                        <button
+                          key={s}
+                          type="button"
+                          onClick={() => onRsvp(event.id, s)}
+                          className={cn(
+                            "rounded-md px-2 py-1 text-[11px] font-semibold",
+                            status === s
+                              ? s === "accepted"
+                                ? "bg-emerald-600 text-white"
+                                : s === "declined"
+                                  ? "bg-red-600 text-white"
+                                  : "bg-amber-500 text-white"
+                              : "border bg-white text-slate-600 hover:bg-slate-100",
+                          )}
+                        >
+                          {s === "accepted"
+                            ? "Going"
+                            : s === "declined"
+                              ? "Can't"
+                              : "Maybe"}
+                        </button>
+                      ),
+                    )}
+                  </div>
+                </li>
+              );
+            })}
+          </ul>
+        )}
+      </DialogContent>
+    </Dialog>
+  );
+}
+
 function EventDetailDialog({
   event,
   open,
@@ -2239,7 +2432,12 @@ function EventEditForm({
         meetingUrl: meetingUrl.trim() || null,
         description: description.trim() || null,
         linkedTaskId: linkedTaskId || null,
-        ...(canAssignStudent ? { studentId: studentId || null } : {}),
+        // Re-assign to a calendar: a student, or General (visible to all)
+        // when no student is chosen. Send isGeneral so "General" is a real
+        // General event, not a home-less/team-only orphan.
+        ...(canAssignStudent
+          ? { studentId: studentId || null, isGeneral: !studentId }
+          : {}),
         pushToGoogle: linkedToGoogle,
         timeZone: tz,
       }),
@@ -2261,7 +2459,7 @@ function EventEditForm({
         <Input value={title} onChange={(e) => setTitle(e.target.value)} />
       </Field>
       {canAssignStudent && (
-        <Field label="Student">
+        <Field label="Calendar">
           <Select
             value={studentId}
             onChange={(e) => {
@@ -2269,13 +2467,16 @@ function EventEditForm({
               setLinkedTaskId(""); // task list is student-scoped
             }}
           >
-            <option value="">No specific student (General calendar)</option>
+            <option value="">— General (visible to all) —</option>
             {students.map((s) => (
               <option key={s.id} value={s.id}>
                 {displayName(s)}
               </option>
             ))}
           </Select>
+          <p className="mt-1 text-[11px] text-slate-400">
+            Move this event to a student&apos;s calendar or to General.
+          </p>
         </Field>
       )}
       <div className="grid grid-cols-3 gap-2">
