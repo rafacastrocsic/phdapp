@@ -150,6 +150,67 @@ export function MaintenanceTools() {
     });
   }
 
+  async function runGeneralSyncStatus(fix: boolean) {
+    if (
+      fix &&
+      !confirm(
+        "Push the General events that never reached Google onto the shared " +
+          "General calendar?\n\nOnly events with no Google copy are pushed (no " +
+          "duplicates). Events that landed on someone's personal calendar " +
+          "(because they lacked write access to the General calendar) are left " +
+          "alone. Run without fix first to see the breakdown.",
+      )
+    )
+      return;
+    setBusy(true);
+    setMsg(null);
+    const r = await fetch(
+      `/api/admin/general-sync-status${fix ? "?fix=push" : ""}`,
+      { method: "POST" },
+    );
+    setBusy(false);
+    if (!r.ok) {
+      const j = await r.json().catch(() => ({}));
+      setMsg({ type: "err", text: j.error ?? "Failed" });
+      return;
+    }
+    const j = await r.json();
+    if (fix) {
+      setMsg({
+        type: "ok",
+        text:
+          `Pushed ${j.pushed} General event(s) to the shared calendar.` +
+          (j.failed?.length ? ` ${j.failed.length} failed.` : ""),
+      });
+      return;
+    }
+    const lines = (j.items ?? [])
+      .filter((i: { status: string }) => i.status !== "onGeneral")
+      .slice(0, 20)
+      .map(
+        (i: { title: string; day: string; owner: string; status: string }) =>
+          `• ${i.day} — “${i.title}” (${i.owner}) — ${
+            i.status === "notPushed"
+              ? "never pushed to Google"
+              : "on a personal calendar (no General write access)"
+          }`,
+      )
+      .join("\n");
+    setMsg({
+      type: "ok",
+      text:
+        (j.generalCalendarConfigured
+          ? ""
+          : "⚠ No General calendar configured (Admin → General calendar) — all General events fall back to creators' personal calendars.\n\n") +
+        `${j.total} General event(s): ${j.onGeneral} on the shared calendar, ` +
+        `${j.elsewhere} on a personal calendar, ${j.notPushed} never pushed.` +
+        (lines ? `\n\n${lines}` : "") +
+        (j.notPushed
+          ? `\n\nUse “Backfill General events to Google” to push the ${j.notPushed} never-pushed one(s).`
+          : ""),
+    });
+  }
+
   async function runChatCleanup() {
     if (
       !confirm(
@@ -252,6 +313,26 @@ export function MaintenanceTools() {
           >
             <Trash2 className="h-4 w-4" />
             {busy ? "Working…" : "Delete home-less events"}
+          </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => runGeneralSyncStatus(false)}
+            disabled={busy}
+            title="See which General events reached the shared Google calendar"
+          >
+            <CalendarSync className="h-4 w-4" />
+            {busy ? "Working…" : "General events — sync status"}
+          </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => runGeneralSyncStatus(true)}
+            disabled={busy}
+            title="Push never-synced General events onto the shared Google calendar"
+          >
+            <CalendarSync className="h-4 w-4" />
+            {busy ? "Working…" : "Backfill General events to Google"}
           </Button>
         </div>
         {msg && (
