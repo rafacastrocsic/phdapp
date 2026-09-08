@@ -5,9 +5,12 @@ import { calendarForUser } from "@/lib/google";
 import { studentVisibilityWhere, type Role } from "@/lib/access";
 
 /**
- * Pulls events from Google Calendar (per-student calendars when set, plus
- * the user's primary), and upserts them into the local Event table for the
- * given time window.
+ * Pulls events from Google Calendar into the local Event table for the given
+ * time window. ONLY the shared per-student calendars are synced — never the
+ * user's own `primary` calendar. Importing `primary` pulled a supervisor's
+ * private personal events into PhDapp as team-wide events, which is never
+ * wanted; the app is the source of truth for its own events and pushes them
+ * OUT to Google, it doesn't pull a personal calendar IN.
  */
 export async function POST(req: Request) {
   const session = await auth();
@@ -34,11 +37,13 @@ export async function POST(req: Request) {
     select: { id: true, calendarId: true },
   });
 
-  // Always include 'primary' for the supervisor so 1:1s land somewhere
-  const sources = [
-    { calendarId: "primary", studentId: null as string | null },
-    ...students.map((s) => ({ calendarId: s.calendarId!, studentId: s.id })),
-  ];
+  // Only the shared per-student calendars — NEVER the user's own 'primary'
+  // calendar (that pulled supervisors' private personal events into PhDapp
+  // as home-less team-wide events).
+  const sources = students.map((s) => ({
+    calendarId: s.calendarId!,
+    studentId: s.id as string | null,
+  }));
 
   let imported = 0;
   for (const src of sources) {

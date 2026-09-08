@@ -74,6 +74,45 @@ export function MaintenanceTools() {
     });
   }
 
+  async function runPurgePersonalSynced(dryRun: boolean) {
+    if (
+      !dryRun &&
+      !confirm(
+        "Remove events that were imported from personal Google calendars?\n\n" +
+          "These are the home-less events the old “Sync Google” pulled in from " +
+          "a supervisor's OWN calendar (they appear under “All” but belong to no " +
+          "student, General or researcher calendar).\n\n" +
+          "Only PhDapp's copies are deleted — the events stay untouched in the " +
+          "person's own Google Calendar. Run the dry-run first to preview.",
+      )
+    )
+      return;
+    setBusy(true);
+    setMsg(null);
+    const r = await fetch(
+      `/api/admin/purge-personal-synced${dryRun ? "?dryRun=1" : ""}`,
+      { method: "POST" },
+    );
+    setBusy(false);
+    if (!r.ok) {
+      const j = await r.json().catch(() => ({}));
+      setMsg({ type: "err", text: j.error ?? "Cleanup failed" });
+      return;
+    }
+    const j = await r.json();
+    const owners = Array.from(
+      new Set((j.samples ?? []).map((s: { owner: string }) => s.owner)),
+    ).join(", ");
+    setMsg({
+      type: "ok",
+      text: dryRun
+        ? `Dry-run: ${j.count} imported personal event(s)` +
+          (owners ? ` — from: ${owners}` : "") +
+          `. Re-run without dry-run to delete them from PhDapp.`
+        : `Deleted ${j.count} imported personal event(s) from PhDapp. Their originals in Google Calendar are untouched. Refresh the Calendar to see the result.`,
+    });
+  }
+
   async function runChatCleanup() {
     if (
       !confirm(
@@ -147,6 +186,25 @@ export function MaintenanceTools() {
           >
             <CalendarSync className="h-4 w-4" />
             {busy ? "Working…" : "Calendar cleanup — apply"}
+          </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => runPurgePersonalSynced(true)}
+            disabled={busy}
+            title="Preview events imported from personal Google calendars"
+          >
+            <CalendarSync className="h-4 w-4" />
+            {busy ? "Working…" : "Personal-calendar imports — dry run"}
+          </Button>
+          <Button
+            variant="danger"
+            size="sm"
+            onClick={() => runPurgePersonalSynced(false)}
+            disabled={busy}
+          >
+            <Trash2 className="h-4 w-4" />
+            {busy ? "Working…" : "Remove personal-calendar imports"}
           </Button>
         </div>
         {msg && (
