@@ -32,6 +32,11 @@ export interface ExternalCalEvent {
   // True when the viewer is the researcher who owns this calendar — only they
   // can edit it (in Google Calendar); everyone else sees it read-only.
   mine: boolean;
+  // The researcher (calendar owner) + raw Google event id, so an admin can
+  // create/edit/delete on the researcher's calendar via the API.
+  researcherId: string;
+  googleEventId: string;
+  googleCalendarId: string;
   student: { id: string; fullName: string; alias: string | null; color: string };
 }
 
@@ -163,7 +168,7 @@ export async function getResearcherCalendarEvents(
           const endDt = ev.end?.dateTime;
           const end =
             endDt ?? (ev.end?.date ? `${ev.end.date}T00:00:00` : start);
-          if (!start || !end || ev.status === "cancelled") continue;
+          if (!start || !end || ev.status === "cancelled" || !ev.id) continue;
           out.push({
             id: `ext-${r.id}-${ev.id}`,
             title: ev.summary?.trim() || "(busy)",
@@ -176,6 +181,9 @@ export async function getResearcherCalendarEvents(
             ownerName: name,
             htmlLink: ev.htmlLink ?? null,
             mine: r.id === viewerId,
+            researcherId: r.id,
+            googleEventId: ev.id,
+            googleCalendarId: r.calendarId!,
             student: {
               id: `ext-${r.id}`,
               fullName: `${name} · calendar`,

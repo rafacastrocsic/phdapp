@@ -109,6 +109,7 @@ interface Event {
   ownerName?: string;
   htmlLink?: string | null;
   mine?: boolean; // viewer owns this researcher calendar
+  researcherId?: string; // owner of the researcher calendar (for admin edits)
 }
 
 // Shape passed from the server for researcher-calendar events.
@@ -123,6 +124,9 @@ interface ExternalEvent {
   ownerName: string;
   htmlLink: string | null;
   mine: boolean;
+  researcherId: string;
+  googleEventId: string;
+  googleCalendarId: string;
   student: { id: string; fullName: string; alias: string | null; color: string };
 }
 
@@ -455,8 +459,9 @@ export function CalendarView({
           agenda: null,
           meetingNotes: null,
           student: x.student,
-          googleEventId: null,
-          googleCalendarId: null,
+          googleEventId: x.googleEventId,
+          googleCalendarId: x.googleCalendarId,
+          researcherId: x.researcherId,
           ticketId: null,
           taskPriority: null,
           linkedTaskId: null,
@@ -1571,6 +1576,8 @@ export function CalendarView({
         isStudent={isStudent}
         researcherMode={researcherMode}
         hasWorkspaceCalendar={hasWorkspaceCalendar}
+        researcherCalendars={researcherCalendars}
+        canCreateForResearchers={viewerRole === "admin"}
         invitablePeople={invitablePeople}
         prefill={duplicateSource}
         onCreated={(e) => {
@@ -1585,7 +1592,12 @@ export function CalendarView({
       <ExternalEventDialog
         event={openEvent?.external ? openEvent : null}
         open={!!openEvent?.external}
+        canManage={viewerRole === "admin"}
         onOpenChange={(o) => !o && setOpenEventId(null)}
+        onChanged={() => {
+          setOpenEventId(null);
+          router.refresh();
+        }}
       />
 
       <EventDetailDialog
@@ -2270,77 +2282,230 @@ function EventDetailDialog({
 function ExternalEventDialog({
   event,
   open,
+  canManage = false,
   onOpenChange,
+  onChanged,
 }: {
   event: Event | null;
   open: boolean;
+  // Admin: can edit / delete this researcher-calendar event in place (acts on
+  // the researcher's Google calendar via the API).
+  canManage?: boolean;
   onOpenChange: (b: boolean) => void;
+  onChanged?: () => void;
 }) {
+  const [editing, setEditing] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState<string | null>(null);
+  const s = event ? new Date(event.startsAt) : new Date();
+  const en = event ? new Date(event.endsAt) : new Date();
+  const [title, setTitle] = useState(event?.title ?? "");
+  const [date, setDate] = useState(format(s, "yyyy-MM-dd"));
+  const [start, setStart] = useState(format(s, "HH:mm"));
+  const [end, setEnd] = useState(format(en, "HH:mm"));
+  const [location, setLocation] = useState(event?.location ?? "");
+  const [description, setDescription] = useState(event?.description ?? "");
+  // Re-seed the form whenever a different event opens.
+  const eventId = event?.id ?? null;
+  useEffect(() => {
+    if (!event) return;
+    setEditing(false);
+    setErr(null);
+    setTitle(event.title);
+    setDate(format(new Date(event.startsAt), "yyyy-MM-dd"));
+    setStart(format(new Date(event.startsAt), "HH:mm"));
+    setEnd(format(new Date(event.endsAt), "HH:mm"));
+    setLocation(event.location ?? "");
+    setDescription(event.description ?? "");
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [eventId]);
   if (!event) return null;
   const owner = event.ownerName ?? "researcher";
+
+  async function saveEdit() {
+    if (!event) return;
+    const sISO = new Date(`${date}T${start}:00`);
+    const eISO = new Date(`${date}T${end}:00`);
+    if (isNaN(sISO.getTime()) || isNaN(eISO.getTime()) || eISO <= sISO) {
+      setErr("Check the date/time — end must be after start.");
+      return;
+    }
+    setBusy(true);
+    setErr(null);
+    let tz = "UTC";
+    try {
+      tz = Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC";
+    } catch {
+      /* keep UTC */
+    }
+    const r = await fetch("/api/calendar/researcher-event", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        researcherId: event.researcherId,
+        googleEventId: event.googleEventId,
+        title: title.trim(),
+        startsAt: sISO.toISOString(),
+        endsAt: eISO.toISOString(),
+        location: location.trim() || null,
+        description: description.trim() || null,
+        timeZone: tz,
+      }),
+    });
+    setBusy(false);
+    if (!r.ok) {
+      const j = await r.json().catch(() => ({}));
+      setErr(j.error ?? "Could not save.");
+      return;
+    }
+    onChanged?.();
+  }
+
+  async function del() {
+    if (!event) return;
+    if (!confirm(`Delete "${event.title}" from ${owner}'s calendar?`)) return;
+    setBusy(true);
+    setErr(null);
+    const r = await fetch("/api/calendar/researcher-event", {
+      method: "DELETE",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        researcherId: event.researcherId,
+        googleEventId: event.googleEventId,
+      }),
+    });
+    setBusy(false);
+    if (!r.ok) {
+      const j = await r.json().catch(() => ({}));
+      setErr(j.error ?? "Could not delete.");
+      return;
+    }
+    onChanged?.();
+  }
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="!max-w-md">
         <DialogHeader>
-          <DialogTitle>{event.title}</DialogTitle>
+          <DialogTitle>{editing ? "Edit event" : event.title}</DialogTitle>
         </DialogHeader>
 
-        <div className="space-y-3 text-sm">
-          <div className="flex items-center gap-2 text-slate-700">
-            <Clock className="h-4 w-4 text-slate-400" />
-            <span>
-              {event.allDay
-                ? format(new Date(event.startsAt), "EEE, MMM d")
-                : `${format(new Date(event.startsAt), "EEE, MMM d · HH:mm")} – ${format(
-                    new Date(event.endsAt),
-                    "HH:mm",
-                  )}`}
-            </span>
+        {editing ? (
+          <div className="space-y-3">
+            <Field label="Title">
+              <Input value={title} onChange={(e) => setTitle(e.target.value)} />
+            </Field>
+            <div className="grid grid-cols-3 gap-2">
+              <Field label="Date">
+                <Input type="date" value={date} onChange={(e) => setDate(e.target.value)} />
+              </Field>
+              <Field label="Start">
+                <Input type="time" value={start} onChange={(e) => setStart(e.target.value)} />
+              </Field>
+              <Field label="End">
+                <Input type="time" value={end} onChange={(e) => setEnd(e.target.value)} />
+              </Field>
+            </div>
+            <Field label="Location">
+              <Input value={location} onChange={(e) => setLocation(e.target.value)} />
+            </Field>
+            <Field label="Description">
+              <Textarea rows={3} value={description} onChange={(e) => setDescription(e.target.value)} />
+            </Field>
+            <p className="text-[11px] text-slate-400">
+              Saved to {owner}&apos;s workspace Google calendar.
+            </p>
+            {err && (
+              <div className="rounded-lg bg-red-50 p-2 text-sm text-[var(--c-red)]">{err}</div>
+            )}
+            <div className="flex justify-end gap-2">
+              <Button type="button" variant="outline" onClick={() => setEditing(false)} disabled={busy}>
+                Cancel
+              </Button>
+              <Button type="button" variant="brand" onClick={saveEdit} disabled={busy}>
+                {busy ? "Saving…" : "Save"}
+              </Button>
+            </div>
           </div>
+        ) : (
+          <>
+            <div className="space-y-3 text-sm">
+              <div className="flex items-center gap-2 text-slate-700">
+                <Clock className="h-4 w-4 text-slate-400" />
+                <span>
+                  {event.allDay
+                    ? format(new Date(event.startsAt), "EEE, MMM d")
+                    : `${format(new Date(event.startsAt), "EEE, MMM d · HH:mm")} – ${format(
+                        new Date(event.endsAt),
+                        "HH:mm",
+                      )}`}
+                </span>
+              </div>
 
-          {event.student && (
-            <div className="flex items-center gap-2 text-slate-700">
-              <UsersIcon className="h-4 w-4 text-slate-400" />
-              <Badge color={event.student.color}>{owner}</Badge>
+              {event.student && (
+                <div className="flex items-center gap-2 text-slate-700">
+                  <UsersIcon className="h-4 w-4 text-slate-400" />
+                  <Badge color={event.student.color}>{owner}</Badge>
+                </div>
+              )}
+
+              {event.location && (
+                <div className="flex items-center gap-2 text-slate-700">
+                  <MapPin className="h-4 w-4 text-slate-400" />
+                  <span>{event.location}</span>
+                </div>
+              )}
+
+              {event.description && (
+                <div className="rounded-lg bg-slate-50 p-3 text-slate-700 whitespace-pre-wrap">
+                  {event.description}
+                </div>
+              )}
+
+              <div className="rounded-lg bg-slate-50/60 border px-3 py-2 text-xs text-slate-500">
+                {event.mine
+                  ? "This event lives on your workspace calendar — edit it here or in Google Calendar."
+                  : canManage
+                    ? `On ${owner}'s workspace calendar. As admin you can edit or delete it here.`
+                    : `Read-only · from ${owner}'s calendar. Only ${owner} can edit it.`}
+              </div>
+              {err && (
+                <div className="rounded-lg bg-red-50 p-2 text-sm text-[var(--c-red)]">{err}</div>
+              )}
             </div>
-          )}
 
-          {event.location && (
-            <div className="flex items-center gap-2 text-slate-700">
-              <MapPin className="h-4 w-4 text-slate-400" />
-              <span>{event.location}</span>
+            <div className="flex flex-wrap items-center justify-between gap-2 pt-3 mt-3 border-t">
+              <div>
+                {canManage && (
+                  <Button type="button" variant="danger" size="sm" onClick={del} disabled={busy}>
+                    <Trash2 className="h-4 w-4" /> Delete
+                  </Button>
+                )}
+              </div>
+              <div className="flex flex-wrap items-center gap-2">
+                {event.htmlLink && (
+                  <a
+                    href={event.htmlLink}
+                    target="_blank"
+                    rel="noopener"
+                    className="inline-flex items-center gap-1.5 rounded-md border px-3 py-1.5 text-sm font-medium text-[var(--c-teal)] hover:bg-teal-50/60"
+                  >
+                    <ExternalLink className="h-4 w-4" />
+                    {event.mine ? "Edit in Google" : "Open in Google"}
+                  </a>
+                )}
+                {canManage && (
+                  <Button type="button" variant="brand" size="sm" onClick={() => setEditing(true)}>
+                    Edit
+                  </Button>
+                )}
+                <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
+                  Close
+                </Button>
+              </div>
             </div>
-          )}
-
-          {event.description && (
-            <div className="rounded-lg bg-slate-50 p-3 text-slate-700 whitespace-pre-wrap">
-              {event.description}
-            </div>
-          )}
-
-          <div className="rounded-lg bg-slate-50/60 border px-3 py-2 text-xs text-slate-500">
-            {event.mine
-              ? "This event lives on your workspace calendar — edit it in Google Calendar."
-              : `Read-only · from ${owner}'s calendar. Only ${owner} can edit it.`}
-          </div>
-        </div>
-
-        <div className="flex flex-wrap items-center justify-end gap-2 pt-3 mt-3 border-t">
-          {event.htmlLink && (
-            <a
-              href={event.htmlLink}
-              target="_blank"
-              rel="noopener"
-              className="inline-flex items-center gap-1.5 rounded-md border px-3 py-1.5 text-sm font-medium text-[var(--c-teal)] hover:bg-teal-50/60"
-            >
-              <ExternalLink className="h-4 w-4" />
-              {event.mine ? "Edit in Google Calendar" : "Open in Google Calendar"}
-            </a>
-          )}
-          <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
-            Close
-          </Button>
-        </div>
+          </>
+        )}
       </DialogContent>
     </Dialog>
   );
@@ -2569,6 +2734,8 @@ function NewEventDialog({
   isStudent,
   researcherMode = false,
   hasWorkspaceCalendar = false,
+  researcherCalendars = [],
+  canCreateForResearchers = false,
   invitablePeople,
   prefill,
   onCreated,
@@ -2585,6 +2752,9 @@ function NewEventDialog({
   // "My workspace calendar".
   researcherMode?: boolean;
   hasWorkspaceCalendar?: boolean;
+  // Admin: can also target a researcher's workspace calendar.
+  researcherCalendars?: { id: string; name: string; color: string; calendarId: string }[];
+  canCreateForResearchers?: boolean;
   invitablePeople: InvitablePerson[];
   // When set, the form opens pre-populated with this event's
   // fields — title, date, time, location, meetingUrl, description,
@@ -2621,6 +2791,12 @@ function NewEventDialog({
   // "My workspace calendar" target — writes to the viewer's own Google
   // calendar via /api/calendar/my-event (no PhDapp Event row).
   const isMine = studentId === "__mine__";
+  // Admin targeting a researcher's calendar (value "ext-<researcherId>") →
+  // /api/calendar/researcher-event (no PhDapp Event row either).
+  const isResearcherTarget = studentId.startsWith("ext-");
+  // Both write straight to a Google calendar; the DB-only extras (drive
+  // folder, task link, invitees, 1:1, push toggle) don't apply.
+  const isGoogleOnlyTarget = isMine || isResearcherTarget;
   const [linkedTaskId, setLinkedTaskId] = useState(prefill?.linkedTaskId ?? "");
   // Optional Drive folder attached at creation (will be sent in payload).
   const [driveFolderUrl, setDriveFolderUrl] = useState<string | null>(
@@ -2740,6 +2916,35 @@ function NewEventDialog({
       return;
     }
 
+    // Admin targeting a researcher's calendar: write to that researcher's
+    // Google calendar (no PhDapp Event row); mirrored back on refresh.
+    if (isResearcherTarget) {
+      const researcherId = studentId.slice(4); // strip "ext-"
+      const rRes = await fetch("/api/calendar/researcher-event", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          researcherId,
+          title: payload.title,
+          startsAt: payload.startsAt,
+          endsAt: payload.endsAt,
+          location: payload.location || null,
+          description: payload.description || null,
+          recurrenceRule: payload.recurrenceRule || null,
+          timeZone: payload.timeZone,
+        }),
+      });
+      setSubmitting(false);
+      if (!rRes.ok) {
+        const j = await rRes.json().catch(() => ({}));
+        setError(j.error ?? "Could not add the event to the researcher's calendar");
+        return;
+      }
+      onOpenChange(false);
+      router.refresh();
+      return;
+    }
+
     const r = await fetch("/api/calendar/events", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -2800,13 +3005,23 @@ function NewEventDialog({
                     Project Researcher gets no student targets — only
                     General and their own workspace calendar. */}
                 <option value="__general__">— General (visible to all) —</option>
-                {researcherMode
-                  ? hasWorkspaceCalendar && (
-                      <option value="__mine__">My workspace calendar</option>
-                    )
-                  : students.map((s) => (
+                {researcherMode ? (
+                  hasWorkspaceCalendar && (
+                    <option value="__mine__">My workspace calendar</option>
+                  )
+                ) : (
+                  <>
+                    {students.map((s) => (
                       <option key={s.id} value={s.id}>{displayName(s)}</option>
                     ))}
+                    {canCreateForResearchers &&
+                      researcherCalendars.map((r) => (
+                        <option key={`ext-${r.id}`} value={`ext-${r.id}`}>
+                          {r.name} · researcher
+                        </option>
+                      ))}
+                  </>
+                )}
               </Select>
             </Field>
           )}
@@ -2845,7 +3060,7 @@ function NewEventDialog({
               defaultValue={prefill?.meetingUrl ?? ""}
             />
           </Field>
-          {!isMine && (
+          {!isGoogleOnlyTarget && (
           <Field label="Drive folder (optional)">
             {(() => {
               const stu = effectiveStudentId
@@ -2904,7 +3119,7 @@ function NewEventDialog({
               defaultValue={prefill?.description ?? ""}
             />
           </Field>
-          {!isMine && (
+          {!isGoogleOnlyTarget && (
           <Field label="Related task (optional)">
             <Select
               value={linkedTaskId}
@@ -2972,7 +3187,7 @@ function NewEventDialog({
               </p>
             )}
           </Field>
-          {!isMine && (
+          {!isGoogleOnlyTarget && (
           <label className="flex items-center gap-2 text-sm text-slate-700">
             <input
               type="checkbox"
@@ -2983,7 +3198,7 @@ function NewEventDialog({
             This is a 1:1 meeting (agenda, notes & action items)
           </label>
           )}
-          {!isMine && invitablePeople.length > 0 && (
+          {!isGoogleOnlyTarget && invitablePeople.length > 0 && (
             <Field label="Invite people (optional)">
               <InviteePicker
                 people={invitablePeople}
@@ -3000,6 +3215,11 @@ function NewEventDialog({
             <p className="text-[11px] text-slate-500">
               This event is added to your own workspace calendar in Google
               Calendar, and shows here read-only in your colour.
+            </p>
+          ) : isResearcherTarget ? (
+            <p className="text-[11px] text-slate-500">
+              This event is added to the researcher&apos;s workspace calendar in
+              Google Calendar, and shows here in their colour.
             </p>
           ) : (
             <label className="flex items-center gap-2 text-sm text-slate-700">

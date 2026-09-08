@@ -3,6 +3,8 @@ import { z } from "zod";
 import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
 import { calendarForUser } from "@/lib/google";
+import { normalizeCalendarId } from "@/lib/calendar-id";
+import { getGeneralCalendarId } from "@/lib/general-calendar";
 import {
   accessForStudent,
   canWriteForStudent,
@@ -166,6 +168,24 @@ export async function PATCH(
     data.studentId = newStudentId;
   }
 
+  // When the event is re-assigned to a different calendar, work out where its
+  // Google copy should now live: the new student's shared calendar, or the
+  // General calendar when it becomes unassigned. Left null when the
+  // assignment didn't change (no move needed).
+  let moveTargetCalendarId: string | null = null;
+  if (d.studentId !== undefined) {
+    const resultingStudentId = (data.studentId as string | null) ?? null;
+    if (resultingStudentId) {
+      const st = await prisma.student.findUnique({
+        where: { id: resultingStudentId },
+        select: { calendarId: true },
+      });
+      moveTargetCalendarId = normalizeCalendarId(st?.calendarId);
+    } else {
+      moveTargetCalendarId = await getGeneralCalendarId();
+    }
+  }
+
   // Prefer client-computed ISO instants (timezone-correct). Otherwise fall
   // back to recomputing from wall-clock date/time strings.
   if (d.startsAt || d.endsAt) {
@@ -205,9 +225,31 @@ export async function PATCH(
   ) {
     const cal = await calendarForUser(session.user.id);
     if (cal) {
+      // If the event was re-assigned to a different calendar, MOVE the Google
+      // copy there first (keeps the same event id) so it stops showing on the
+      // old calendar. Best-effort: on failure we still patch in place below.
+      let patchCalendarId = event.googleCalendarId;
+      if (
+        moveTargetCalendarId &&
+        moveTargetCalendarId !== event.googleCalendarId
+      ) {
+        try {
+          await cal.events.move({
+            calendarId: event.googleCalendarId,
+            eventId: event.googleEventId,
+            destination: moveTargetCalendarId,
+            sendUpdates: "none",
+          });
+          patchCalendarId = moveTargetCalendarId;
+          data.googleCalendarId = moveTargetCalendarId;
+        } catch (err) {
+          const e = err as { message?: string; code?: number; status?: number };
+          googleWarning = `Saved in PhDApp, but couldn't move the Google event to the new calendar (${e.code ?? e.status ?? "?"}): ${e.message ?? "unknown"}.`;
+        }
+      }
       try {
         await cal.events.patch({
-          calendarId: event.googleCalendarId,
+          calendarId: patchCalendarId,
           eventId: event.googleEventId,
           requestBody: {
             summary: (data.title as string | undefined) ?? event.title,
