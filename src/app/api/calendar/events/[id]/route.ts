@@ -191,7 +191,18 @@ export async function PATCH(
   }
 
   let googleWarning: string | null = null;
-  if (d.pushToGoogle && event.googleEventId && event.googleCalendarId) {
+  // Never modify a Google event on someone else's PERSONAL calendar. Events
+  // wrongly imported from a personal calendar carry googleCalendarId="primary"
+  // and belong to their owner; an admin/other user patching would hit their
+  // OWN primary (or 404). Skip the push — the PhDapp row still updates.
+  const skipGooglePush =
+    event.googleCalendarId === "primary" && event.ownerId !== session.user.id;
+  if (
+    d.pushToGoogle &&
+    !skipGooglePush &&
+    event.googleEventId &&
+    event.googleCalendarId
+  ) {
     const cal = await calendarForUser(session.user.id);
     if (cal) {
       try {
@@ -226,7 +237,14 @@ export async function PATCH(
           sendUpdates: "all",
         });
       } catch (err) {
-        googleWarning = (err as Error).message ?? "Google update failed";
+        const e = err as { message?: string; code?: number; status?: number };
+        const code = e.code ?? e.status ?? 0;
+        // A missing/gone Google copy (404/410) is not worth alarming about —
+        // the PhDapp row saved fine. Only surface real failures, and phrase
+        // them so it's clear the save itself succeeded.
+        if (code !== 404 && code !== 410) {
+          googleWarning = `Saved in PhDApp, but the Google Calendar copy couldn't be updated (${code || "?"}): ${e.message ?? "unknown"}.`;
+        }
       }
     } else {
       googleWarning = "Google account not linked — updated locally only.";
