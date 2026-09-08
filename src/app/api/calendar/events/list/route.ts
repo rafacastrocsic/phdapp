@@ -124,6 +124,12 @@ export async function GET(req: Request) {
       taskPriority: e.ticket?.priority ?? null,
       linkedTaskId: e.linkedTaskId,
       linkedTaskTitle: e.linkedTask?.title ?? null,
+      links: e.links,
+      driveFolderUrl: e.driveFolderUrl,
+      // Three-state visibility. MUST be returned: the client's "General only"
+      // filter matches `student === null && isGeneral`, so omitting it made a
+      // poll silently drop every General event from view.
+      isGeneral: e.isGeneral,
       // Surfaced so the client renders task/sub-task mirror events
       // as "all day" instead of at their noon-UTC anchor time.
       allDay: e.allDay,
