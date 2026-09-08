@@ -282,7 +282,14 @@ export function CalendarView({
   // filter (fetch/sync params, create-form default) must treat it as "no
   // student scope"; only the client-side `filtered` memo acts on it.
   const isResearcherFilter = studentFilter.startsWith("ext-");
-  const studentScopeFilter = isResearcherFilter ? "" : studentFilter;
+  // "__general__" is a client-only sentinel too — it means "General events
+  // only", which are studentId=null rows, NOT a student called "__general__".
+  // Sending it to the events/sync API as a student id returns nothing (that
+  // was wiping General events on the next poll), so it also maps to "no
+  // student scope": the API returns the default set (visible students +
+  // unassigned) and the `filtered` memo narrows to General.
+  const studentScopeFilter =
+    isResearcherFilter || studentFilter === "__general__" ? "" : studentFilter;
   const [events, setEvents] = useState<Event[]>(initial);
   const [newOpen, setNewOpen] = useState(false);
   const [availOpen, setAvailOpen] = useState(false);

@@ -33,9 +33,12 @@ export async function GET(req: Request) {
   // Unassigned (general) events have studentId = null and must show for
   // everyone; without this the live poll flags a freshly-created one as
   // "deleted" because it never comes back in the list.
-  const scope = studentFilter
-    ? { studentId: studentFilter }
-    : { OR: [{ studentId: { in: studentIds } }, { studentId: null }] };
+  const scope =
+    studentFilter === "__general__"
+      ? { studentId: null } // General/unassigned events only
+      : studentFilter
+        ? { studentId: studentFilter }
+        : { OR: [{ studentId: { in: studentIds } }, { studentId: null }] };
   const where: Record<string, unknown> = { AND: [scope] };
   if (from || to) {
     // Recurring events always loaded (expanded client-side); one-offs windowed.
