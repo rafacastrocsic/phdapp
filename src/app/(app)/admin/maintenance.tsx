@@ -150,24 +150,32 @@ export function MaintenanceTools() {
     });
   }
 
-  async function runGeneralSyncStatus(fix: boolean) {
+  async function runGeneralSyncStatus(action: "report" | "push" | "rehome") {
     if (
-      fix &&
+      action === "push" &&
       !confirm(
         "Push the General events that never reached Google onto the shared " +
           "General calendar?\n\nOnly events with no Google copy are pushed (no " +
-          "duplicates). Events that landed on someone's personal calendar " +
-          "(because they lacked write access to the General calendar) are left " +
-          "alone. Run without fix first to see the breakdown.",
+          "duplicates). Run “sync status” first to see the breakdown.",
+      )
+    )
+      return;
+    if (
+      action === "rehome" &&
+      !confirm(
+        "Move the General events that landed on a personal calendar onto the " +
+          "shared General calendar?\n\nA fresh copy is created on the shared " +
+          "calendar and the stray copy is removed from the creator's own " +
+          "calendar. Run “sync status” first to preview.",
       )
     )
       return;
     setBusy(true);
     setMsg(null);
-    const r = await fetch(
-      `/api/admin/general-sync-status${fix ? "?fix=push" : ""}`,
-      { method: "POST" },
-    );
+    const qs = action === "report" ? "" : `?fix=${action}`;
+    const r = await fetch(`/api/admin/general-sync-status${qs}`, {
+      method: "POST",
+    });
     setBusy(false);
     if (!r.ok) {
       const j = await r.json().catch(() => ({}));
@@ -175,11 +183,20 @@ export function MaintenanceTools() {
       return;
     }
     const j = await r.json();
-    if (fix) {
+    if (action === "push") {
       setMsg({
         type: "ok",
         text:
           `Pushed ${j.pushed} General event(s) to the shared calendar.` +
+          (j.failed?.length ? ` ${j.failed.length} failed.` : ""),
+      });
+      return;
+    }
+    if (action === "rehome") {
+      setMsg({
+        type: "ok",
+        text:
+          `Moved ${j.moved} stray General event(s) onto the shared calendar.` +
           (j.failed?.length ? ` ${j.failed.length} failed.` : ""),
       });
       return;
@@ -206,7 +223,10 @@ export function MaintenanceTools() {
         `${j.elsewhere} on a personal calendar, ${j.notPushed} never pushed.` +
         (lines ? `\n\n${lines}` : "") +
         (j.notPushed
-          ? `\n\nUse “Backfill General events to Google” to push the ${j.notPushed} never-pushed one(s).`
+          ? `\n\nUse “Backfill (never pushed)” to push the ${j.notPushed} never-pushed one(s).`
+          : "") +
+        (j.elsewhere
+          ? `\n\nUse “Move stray → shared calendar” to move the ${j.elsewhere} on a personal calendar.`
           : ""),
     });
   }
@@ -317,7 +337,7 @@ export function MaintenanceTools() {
           <Button
             variant="outline"
             size="sm"
-            onClick={() => runGeneralSyncStatus(false)}
+            onClick={() => runGeneralSyncStatus("report")}
             disabled={busy}
             title="See which General events reached the shared Google calendar"
           >
@@ -327,12 +347,22 @@ export function MaintenanceTools() {
           <Button
             variant="outline"
             size="sm"
-            onClick={() => runGeneralSyncStatus(true)}
+            onClick={() => runGeneralSyncStatus("push")}
             disabled={busy}
             title="Push never-synced General events onto the shared Google calendar"
           >
             <CalendarSync className="h-4 w-4" />
-            {busy ? "Working…" : "Backfill General events to Google"}
+            {busy ? "Working…" : "Backfill (never pushed)"}
+          </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => runGeneralSyncStatus("rehome")}
+            disabled={busy}
+            title="Move General events that landed on a personal calendar onto the shared one"
+          >
+            <CalendarSync className="h-4 w-4" />
+            {busy ? "Working…" : "Move stray → shared calendar"}
           </Button>
         </div>
         {msg && (

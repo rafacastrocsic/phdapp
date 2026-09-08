@@ -1608,6 +1608,8 @@ export function CalendarView({
         canWrite={!(researcherMode && !!openEvent?.student)}
         tasks={tasks}
         students={students}
+        researcherCalendars={researcherCalendars}
+        canManageResearchers={viewerRole === "admin"}
         teamDriveFolderId={teamDriveFolderId ?? null}
         canAssignStudent={!isStudent}
         invitablePeople={invitablePeople}
@@ -1766,6 +1768,8 @@ function EventDetailDialog({
   canWrite = true,
   tasks,
   students,
+  researcherCalendars = [],
+  canManageResearchers = false,
   teamDriveFolderId,
   canAssignStudent,
   invitablePeople,
@@ -1781,6 +1785,8 @@ function EventDetailDialog({
   open: boolean;
   tasks: LinkableTask[];
   students: Student[];
+  researcherCalendars?: { id: string; name: string; color: string; calendarId: string }[];
+  canManageResearchers?: boolean;
   teamDriveFolderId?: string | null;
   canAssignStudent: boolean;
   invitablePeople: InvitablePerson[];
@@ -1916,6 +1922,8 @@ function EventDetailDialog({
             event={event}
             tasks={tasks}
             students={students}
+            researcherCalendars={researcherCalendars}
+            canManageResearchers={canManageResearchers}
             canAssignStudent={canAssignStudent}
             onCancel={() => setEditing(false)}
             onSaved={() => {
@@ -2515,6 +2523,8 @@ function EventEditForm({
   event,
   tasks,
   students,
+  researcherCalendars = [],
+  canManageResearchers = false,
   canAssignStudent,
   onCancel,
   onSaved,
@@ -2522,6 +2532,8 @@ function EventEditForm({
   event: Event;
   tasks: LinkableTask[];
   students: Student[];
+  researcherCalendars?: { id: string; name: string; color: string; calendarId: string }[];
+  canManageResearchers?: boolean;
   canAssignStudent: boolean;
   onCancel: () => void;
   onSaved: () => void;
@@ -2529,6 +2541,10 @@ function EventEditForm({
   const linkedToGoogle = !!event.googleEventId;
   const [linkedTaskId, setLinkedTaskId] = useState(event.linkedTaskId ?? "");
   const [studentId, setStudentId] = useState(event.student?.id ?? "");
+  // Moving to a researcher's calendar (value "ext-<id>") is a special target:
+  // the event leaves PhDapp's DB and is re-created on that researcher's own
+  // Google calendar (see save()).
+  const isResearcherTarget = studentId.startsWith("ext-");
   // Task picker follows the chosen student (else any visible task).
   const taskScopeStudentId = canAssignStudent
     ? studentId || null
@@ -2590,6 +2606,42 @@ function EventEditForm({
     } catch {
       /* keep UTC */
     }
+
+    // Move to a researcher's calendar: PhDapp has no "assigned to researcher"
+    // state, so re-create the event on that researcher's own Google calendar
+    // and remove the original PhDapp event (+ its Google copy). Net effect: it
+    // now lives only on the researcher's calendar (shown read-only in-app).
+    if (isResearcherTarget) {
+      const researcherId = studentId.slice(4);
+      const rCreate = await fetch("/api/calendar/researcher-event", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          researcherId,
+          title: title.trim(),
+          startsAt: startsAtISO,
+          endsAt: endsAtISO,
+          location: location.trim() || null,
+          description: description.trim() || null,
+          recurrenceRule: event.recurrenceRule ?? null,
+          timeZone: tz,
+        }),
+      });
+      if (!rCreate.ok) {
+        setSaving(false);
+        const j = await rCreate.json().catch(() => ({}));
+        setErr(j.error ?? "Could not move the event to the researcher's calendar.");
+        return;
+      }
+      // Remove the original (best-effort; the new copy already exists).
+      await fetch(`/api/calendar/events/${event.id}?google=1`, {
+        method: "DELETE",
+      }).catch(() => {});
+      setSaving(false);
+      onSaved();
+      return;
+    }
+
     const r = await fetch(`/api/calendar/events/${event.id}`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
@@ -2645,9 +2697,17 @@ function EventEditForm({
                 {displayName(s)}
               </option>
             ))}
+            {canManageResearchers &&
+              researcherCalendars.map((r) => (
+                <option key={`ext-${r.id}`} value={`ext-${r.id}`}>
+                  {r.name} · researcher
+                </option>
+              ))}
           </Select>
           <p className="mt-1 text-[11px] text-slate-400">
-            Move this event to a student&apos;s calendar or to General.
+            {isResearcherTarget
+              ? "Moves this event onto the researcher's own calendar (leaves PhDapp)."
+              : "Move this event to a student's calendar, General, or a researcher."}
           </p>
         </Field>
       )}
