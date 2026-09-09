@@ -160,6 +160,7 @@ export function MyWorkView({
   tasks,
   events,
   driveRoots,
+  viewerIsAdmin = false,
 }: {
   mine: Involvement[];
   shared: Involvement[];
@@ -167,7 +168,13 @@ export function MyWorkView({
   tasks: TaskOpt[];
   events: EventOpt[];
   driveRoots: DriveRoot[];
+  // Admin: can edit/delete any item, including others' (even private) ones.
+  viewerIsAdmin?: boolean;
 }) {
+  // An item is editable when it's the viewer's own, shared-with-edits, or the
+  // viewer is an admin (full oversight).
+  const canEditItem = (i: Involvement) =>
+    !i.owner || i.allowEdits || viewerIsAdmin;
   const [editing, setEditing] = useState<Involvement | null>(null);
   const [creating, setCreating] = useState(false);
   const [sort, setSort] = useState<SortKey>("updated");
@@ -363,8 +370,9 @@ export function MyWorkView({
             <li key={i.id}>
               <InvolvementCard
                 item={i}
-                readOnly={!(!i.owner || i.allowEdits)}
-                onEdit={!i.owner || i.allowEdits ? () => setEditing(i) : undefined}
+                readOnly={!canEditItem(i)}
+                onEdit={canEditItem(i) ? () => setEditing(i) : undefined}
+                canDelete={!i.owner || viewerIsAdmin}
               />
             </li>
           ))}
@@ -392,9 +400,10 @@ export function MyWorkView({
             </div>
             <InvolvementCard
               item={preview}
-              readOnly={!(!preview.owner || preview.allowEdits)}
+              readOnly={!canEditItem(preview)}
+              canDelete={!preview.owner || viewerIsAdmin}
               onEdit={
-                !preview.owner || preview.allowEdits
+                canEditItem(preview)
                   ? () => {
                       setEditing(preview);
                       setPreview(null);
@@ -409,7 +418,7 @@ export function MyWorkView({
       {(creating || editing) && (
         <InvolvementDialog
           item={editing}
-          isOwner={!editing?.owner}
+          isOwner={!editing?.owner || viewerIsAdmin}
           students={students}
           tasks={tasks}
           events={events}
@@ -602,10 +611,13 @@ function InvolvementCard({
   item,
   onEdit,
   readOnly = false,
+  canDelete = false,
 }: {
   item: Involvement;
   onEdit?: () => void;
   readOnly?: boolean;
+  // Owner or admin: may pin/delete this item.
+  canDelete?: boolean;
 }) {
   const router = useRouter();
   const [busy, setBusy] = useState(false);
@@ -613,8 +625,6 @@ function InvolvementCard({
   const [showComments, setShowComments] = useState(true);
   const sm = STATUS_META[item.status] ?? STATUS_META.active;
   const pm = PRIORITY_META[item.priority] ?? PRIORITY_META.medium;
-  // Own items have owner === null (only others' shared items carry an owner).
-  const isOwner = !item.owner;
 
   // Optimistic local copies so ticking a checklist item updates the card
   // instantly (the card may be a frozen snapshot in the board preview, and
@@ -711,8 +721,8 @@ function InvolvementCard({
         </div>
         {!readOnly && (
           <div className="flex shrink-0 items-center gap-0.5">
-            {/* Pin and Delete are owner-only; a non-owner editor gets Edit. */}
-            {isOwner && (
+            {/* Pin and Delete are owner/admin; a non-owner editor gets Edit. */}
+            {canDelete && (
               <IconBtn
                 title={item.pinned ? "Unpin" : "Pin"}
                 onClick={() => patch({ pinned: !item.pinned })}
@@ -726,7 +736,7 @@ function InvolvementCard({
                 <Pencil className="h-4 w-4" />
               </IconBtn>
             )}
-            {isOwner && (
+            {canDelete && (
               <IconBtn title="Delete" danger onClick={remove} disabled={busy}>
                 <Trash2 className="h-4 w-4" />
               </IconBtn>

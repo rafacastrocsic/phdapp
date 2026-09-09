@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
-import { type Role } from "@/lib/access";
+import { isAdmin, type Role } from "@/lib/access";
 import { isSeniorTeam } from "@/lib/discussions-access";
 import { LinkInput, sanitiseLinks } from "@/lib/links";
 import {
@@ -53,11 +53,15 @@ export async function PATCH(
   const item = await loadItem(id);
   if (!item) return NextResponse.json({ error: "not found" }, { status: 404 });
   const owned = item.ownerId === session.user.id;
-  // Non-owners may edit an item's CONTENT only when it's shared with the team,
-  // the owner enabled "Let the team edit", and the editor is on the senior
-  // team. Owner-only controls (sharing, toggles, pin, delete) are gated below.
+  // An admin has full control of any item (owner-level), including ones
+  // created by others — full oversight.
+  const canManage = owned || isAdmin(role);
+  // Beyond owner/admin, a non-owner may edit an item's CONTENT only when it's
+  // shared with the team, the owner enabled "Let the team edit", and the
+  // editor is on the senior team. Owner-only controls (sharing, toggles, pin,
+  // delete) require canManage — gated below.
   const canEdit =
-    owned ||
+    canManage ||
     (item.shared &&
       item.allowEdits &&
       (await isSeniorTeam(session.user.id, role)));
@@ -88,11 +92,11 @@ export async function PATCH(
   }
   if (d.status !== undefined) data.status = d.status;
   if (d.priority !== undefined) data.priority = d.priority;
-  // Owner-only controls — silently ignored for non-owner editors.
-  if (owned && d.shared !== undefined) data.shared = d.shared;
-  if (owned && d.allowComments !== undefined) data.allowComments = d.allowComments;
-  if (owned && d.allowEdits !== undefined) data.allowEdits = d.allowEdits;
-  if (owned && d.pinned !== undefined) data.pinned = d.pinned;
+  // Owner-only controls (owner or admin) — silently ignored for other editors.
+  if (canManage && d.shared !== undefined) data.shared = d.shared;
+  if (canManage && d.allowComments !== undefined) data.allowComments = d.allowComments;
+  if (canManage && d.allowEdits !== undefined) data.allowEdits = d.allowEdits;
+  if (canManage && d.pinned !== undefined) data.pinned = d.pinned;
   if (d.links !== undefined) {
     const sane = sanitiseLinks(d.links);
     data.links = sane.length > 0 ? JSON.stringify(sane) : null;
@@ -140,9 +144,10 @@ export async function DELETE(
   if (!session?.user)
     return NextResponse.json({ error: "unauth" }, { status: 401 });
   const { id } = await params;
+  const role = session.user.role as Role;
   const item = await loadItem(id);
   if (!item) return NextResponse.json({ error: "not found" }, { status: 404 });
-  if (item.ownerId !== session.user.id)
+  if (item.ownerId !== session.user.id && !isAdmin(role))
     return NextResponse.json(
       { error: "You can only delete your own involvements." },
       { status: 403 },

@@ -4,6 +4,7 @@ import { prisma } from "@/lib/prisma";
 import {
   studentVisibilityWhere,
   studentVisibilityWhereAllForAdmin,
+  isAdmin,
   type Role,
 } from "@/lib/access";
 import { isSeniorTeam } from "@/lib/discussions-access";
@@ -34,6 +35,9 @@ export default async function MyWorkPage() {
     data: { myWorkLastSeenAt: new Date() },
   });
 
+  // An admin sees (and can edit) every teammate's items, shared or not —
+  // full oversight. Everyone else sees only items shared with the team.
+  const admin = isAdmin(role);
   const [mineRows, sharedRows] = await Promise.all([
     prisma.involvement.findMany({
       where: { ownerId: session.user.id },
@@ -41,7 +45,9 @@ export default async function MyWorkPage() {
       orderBy: [{ pinned: "desc" }, { updatedAt: "desc" }],
     }),
     prisma.involvement.findMany({
-      where: { shared: true, ownerId: { not: session.user.id } },
+      where: admin
+        ? { ownerId: { not: session.user.id } }
+        : { shared: true, ownerId: { not: session.user.id } },
       include: {
         ...INV_INCLUDE,
         owner: { select: { id: true, name: true, image: true, color: true } },
@@ -191,6 +197,7 @@ export default async function MyWorkPage() {
       tasks={tasks}
       events={events}
       driveRoots={driveRoots}
+      viewerIsAdmin={admin}
     />
   );
 }
