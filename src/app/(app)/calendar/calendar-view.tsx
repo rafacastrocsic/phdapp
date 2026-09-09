@@ -1925,6 +1925,8 @@ function EventDetailDialog({
             researcherCalendars={researcherCalendars}
             canManageResearchers={canManageResearchers}
             canAssignStudent={canAssignStudent}
+            onUpdated={onUpdated}
+            onRemoved={onDeleted}
             onCancel={() => setEditing(false)}
             onSaved={() => {
               setEditing(false);
@@ -2528,6 +2530,8 @@ function EventEditForm({
   canAssignStudent,
   onCancel,
   onSaved,
+  onUpdated,
+  onRemoved,
 }: {
   event: Event;
   tasks: LinkableTask[];
@@ -2537,6 +2541,10 @@ function EventEditForm({
   canAssignStudent: boolean;
   onCancel: () => void;
   onSaved: () => void;
+  // Apply the edit to the parent's client state so it shows immediately
+  // (router.refresh alone doesn't re-seed the events state).
+  onUpdated?: (updates: Partial<Event>) => void;
+  onRemoved?: (id: string) => void;
 }) {
   const linkedToGoogle = !!event.googleEventId;
   const [linkedTaskId, setLinkedTaskId] = useState(event.linkedTaskId ?? "");
@@ -2638,6 +2646,7 @@ function EventEditForm({
         method: "DELETE",
       }).catch(() => {});
       setSaving(false);
+      onRemoved?.(event.id); // drop it from the board immediately
       onSaved();
       return;
     }
@@ -2674,6 +2683,30 @@ function EventEditForm({
     }
     const j = await r.json().catch(() => ({}));
     if (j.googleWarning) alert(j.googleWarning);
+    // Optimistically reflect the edit in the parent's events state so it's
+    // visible without a manual reload (router.refresh doesn't re-seed it).
+    const updates: Partial<Event> = {
+      title: title.trim(),
+      startsAt: startsAtISO,
+      endsAt: endsAtISO,
+      location: location.trim() || null,
+      meetingUrl: meetingUrl.trim() || null,
+      description: description.trim() || null,
+      linkedTaskId: linkedTaskId || null,
+      linkedTaskTitle: linkedTaskId
+        ? tasks.find((t) => t.id === linkedTaskId)?.title ??
+          event.linkedTaskTitle ??
+          null
+        : null,
+    };
+    if (canAssignStudent) {
+      const st = studentId ? students.find((s) => s.id === studentId) ?? null : null;
+      updates.student = st
+        ? { id: st.id, fullName: st.fullName, alias: st.alias, color: st.color }
+        : null;
+      updates.isGeneral = !studentId;
+    }
+    onUpdated?.(updates);
     onSaved();
   }
 
