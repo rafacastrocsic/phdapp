@@ -95,7 +95,9 @@ export default async function MyWorkPage() {
     select: { id: true },
   });
   const visibleIds = allVisible.map((s) => s.id);
-  const since = new Date(Date.now() - 7 * 86_400_000);
+  // A wide window so recent past meetings and upcoming ones are all linkable
+  // (a note often records a past meeting).
+  const since = new Date(Date.now() - 90 * 86_400_000);
   const eventRows = await prisma.event.findMany({
     where: {
       ticketId: null,
@@ -108,8 +110,8 @@ export default async function MyWorkPage() {
       ],
     },
     select: { id: true, title: true, startsAt: true },
-    orderBy: { startsAt: "asc" },
-    take: 200,
+    orderBy: { startsAt: "desc" },
+    take: 300,
   });
   // Make sure any currently-linked event stays selectable even if it's
   // outside the upcoming window.

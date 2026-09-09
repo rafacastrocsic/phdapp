@@ -812,7 +812,8 @@ function InvolvementCard({
           )}
           {item.event && (
             <Chip href="/calendar">
-              <CalendarDays className="h-3 w-3" /> {item.event.title}
+              <CalendarDays className="h-3 w-3" /> {item.event.title} ·{" "}
+              {format(new Date(item.event.startsAt), "d MMM")}
             </Chip>
           )}
           {item.links.map((l) => (
@@ -1254,7 +1255,7 @@ function InvolvementDialog({
                 <option value="">— none —</option>
                 {events.map((ev) => (
                   <option key={ev.id} value={ev.id}>
-                    {ev.title}
+                    {ev.title} · {format(new Date(ev.startsAt), "d MMM yyyy")}
                   </option>
                 ))}
               </Select>
