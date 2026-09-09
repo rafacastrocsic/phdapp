@@ -698,7 +698,7 @@ function InvolvementCard({
                 👥
               </span>
             )}
-            {readOnly && item.owner && (
+            {item.owner && (
               <span className="inline-flex items-center gap-1 text-[11px] text-slate-400">
                 <Avatar name={item.owner.name} src={null} color={item.owner.color} size="xs" />
                 {item.owner.name}
