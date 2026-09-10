@@ -36,9 +36,11 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
   if (!session?.user) return NextResponse.json({ error: "unauth" }, { status: 401 });
   const { id } = await params;
   const level = await teamLevelForStudent(id, session.user.id, session.user.role as Role);
-  if (level !== "supervisor" && level !== "self")
+  // Supervisors and the student add directly; a Team Advisor ("observer") may
+  // also add readings (directly approved, like a supervisor). Others can't.
+  if (level !== "supervisor" && level !== "self" && level !== "observer")
     return NextResponse.json(
-      { error: "Only supervisors or the student can add readings" },
+      { error: "You don't have access to add readings for this student" },
       { status: 403 },
     );
 

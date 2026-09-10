@@ -73,9 +73,10 @@ export function ReadingView({
   const [note, setNote] = useState("");
   // Per-item draft reason a supervisor types before clicking Approve/Reject.
   const [decisionDrafts, setDecisionDrafts] = useState<Record<string, string>>({});
-  // Students the viewer can ADD/PROPOSE for (supervisor of, or themselves).
-  const addable = students.filter(
-    (s) => levelByStudent[s.id] === "supervisor" || levelByStudent[s.id] === "self",
+  // Students the viewer can ADD/PROPOSE for: supervisor of, the student
+  // themselves, or a team advisor ("observer") of that student.
+  const addable = students.filter((s) =>
+    ["supervisor", "self", "observer"].includes(levelByStudent[s.id]),
   );
   const [addTarget, setAddTarget] = useState(
     initialStudent && addable.some((s) => s.id === initialStudent)
@@ -164,11 +165,12 @@ export function ReadingView({
   function canSelfProgress(i: ReadingItem) {
     return levelByStudent[i.studentId] === "self";
   }
-  // Generic "can edit/delete this row" — student OR supervisor (admin
-  // counts as supervisor via teamLevelForStudent).
+  // Generic "can delete this row" — student, supervisor (admin counts as
+  // supervisor via teamLevelForStudent), or whoever added it (so a team
+  // advisor can remove a reading they added themselves; the API agrees).
   function canProgress(i: ReadingItem) {
     const lvl = levelByStudent[i.studentId];
-    return lvl === "supervisor" || lvl === "self";
+    return lvl === "supervisor" || lvl === "self" || i.addedBy.id === viewerUserId;
   }
 
   async function add() {
