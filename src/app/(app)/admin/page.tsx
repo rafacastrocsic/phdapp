@@ -11,6 +11,7 @@ import { relativeTime } from "@/lib/utils";
 import { AddTeamMember } from "./add-team-member";
 import { MaintenanceTools } from "./maintenance";
 import { GeneralCalendarSetting } from "./general-calendar-setting";
+import { NewsManager } from "./news-manager";
 
 // The "Senior team" (everyone with the global `supervisor` role) is split by
 // each person's actual per-student relationships. A person can wear several
@@ -120,6 +121,8 @@ export default async function AdminPage() {
       <AddTeamMember students={studentOpts} />
 
       <GeneralCalendarSetting />
+
+      <NewsManager />
 
       <MaintenanceTools />
 

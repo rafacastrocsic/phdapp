@@ -4,6 +4,7 @@ import { prisma } from "@/lib/prisma";
 import { Sidebar } from "@/components/app-shell/sidebar";
 import { Topbar } from "@/components/app-shell/topbar";
 import { TabAlerts } from "@/components/app-shell/tab-alerts";
+import { NewsGate } from "@/components/app-shell/news-gate";
 import { UnreadProvider } from "@/components/app-shell/unread-provider";
 import { MobileNavProvider } from "@/components/app-shell/mobile-nav-context";
 import {
@@ -129,6 +130,7 @@ export default async function AppLayout({
       <MobileNavProvider>
         <div className="flex h-screen overflow-hidden print:block print:h-auto print:overflow-visible">
           <TabAlerts />
+          <NewsGate />
           <Sidebar
             role={session.user.role}
             showLog={showLog}

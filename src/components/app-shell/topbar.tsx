@@ -5,6 +5,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { UserMenu } from "./user-menu";
 import { NotificationBell } from "./notification-bell";
+import { NewsButton } from "./news-button";
 import { GlobalSearch } from "./global-search";
 import { TopbarMenuButton } from "./topbar-menu-button";
 
@@ -70,6 +71,7 @@ export function Topbar({ user, studentId = null, roleBadge = null }: TopbarProps
             </Button>
           </Link>
         )}
+        <NewsButton />
         <NotificationBell />
         <UserMenu
           profileHref={profileHref}

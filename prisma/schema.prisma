@@ -30,6 +30,11 @@ model User {
   feedbackLastSeenAt DateTime?
   discussionsLastSeenAt DateTime?
   myWorkLastSeenAt DateTime?
+  // "News" window: when the user last dismissed it, and their personal opt-out
+  // (they can turn it off forever and bring it back). A global admin toggle
+  // lives in Setting("newsEnabled").
+  newsLastSeenAt DateTime?
+  newsEnabled    Boolean   @default(true)
 
   // Project Researcher workspace — provisioned by an admin/supervisor, like a
   // student's. The folder + calendar are shared view-only with the circle of
@@ -89,9 +94,25 @@ model User {
   pollVotes             PollVote[]        @relation("PollVoter")
   topicsAuthored        Topic[]           @relation("TopicAuthor")
   involvements          Involvement[]     @relation("InvolvementOwner")
+  newsPosts             NewsPost[]        @relation("NewsAuthor")
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+}
+
+// Admin-authored "What's new in PhDApp" announcements, shown in the News
+// window. Data activity in the same window comes from ActivityLog instead.
+model NewsPost {
+  id          String   @id @default(cuid())
+  title       String
+  body        String
+  authorId    String?
+  author      User?    @relation("NewsAuthor", fields: [authorId], references: [id], onDelete: SetNull)
+  publishedAt DateTime @default(now())
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([publishedAt])
 }
 
 model Account {
