@@ -73,10 +73,13 @@ export async function buildNewsFeed(userId: string, role: Role): Promise<NewsFee
   });
   const studentIds = visible.map((s) => s.id);
 
+  // App updates read as a short changelog: show recent ones whenever the
+  // window is open (not only unseen), so they don't disappear after one view.
+  const appWindow = new Date(Date.now() - 21 * 86_400_000);
   const [appUpdates, logs, topics] = await Promise.all([
     // App updates: visible to everyone.
     prisma.newsPost.findMany({
-      where: { publishedAt: { gt: since } },
+      where: { publishedAt: { gte: appWindow } },
       orderBy: { publishedAt: "desc" },
       take: 20,
       select: { id: true, title: true, body: true, publishedAt: true },
@@ -125,10 +128,13 @@ export async function buildNewsFeed(userId: string, role: Role): Promise<NewsFee
     .sort((a, b) => b.createdAt.localeCompare(a.createdAt))
     .slice(0, 40);
 
+  // Auto-open only for genuinely new content (unseen app updates or activity);
+  // the recent app updates still render when the window is opened on demand.
+  const hasUnseenApp = appUpdates.some((p) => p.publishedAt > since);
   return {
     featureEnabled,
     userEnabled,
-    show: featureEnabled && userEnabled && appUpdates.length + activity.length > 0,
+    show: featureEnabled && userEnabled && (hasUnseenApp || activity.length > 0),
     since: since.toISOString(),
     appUpdates: appUpdates.map((p) => ({
       id: p.id,
