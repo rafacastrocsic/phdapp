@@ -11,6 +11,9 @@ import {
   Pencil,
   Trash2,
   GraduationCap,
+  KanbanSquare,
+  CalendarDays,
+  MessageSquare,
   Lock as LockIcon,
   Unlock,
   FolderOpen,
@@ -45,6 +48,9 @@ type Topic = {
   student: { id: string; name: string; color: string } | null;
   links: ExternalLink[];
   driveFolderUrl: string | null;
+  task: { id: string; title: string } | null;
+  event: { id: string; title: string } | null;
+  chat: { id: string; name: string } | null;
   createdAt: string;
 };
 
@@ -53,11 +59,17 @@ export function TopicDetail({
   canEdit,
   driveRoots,
   students,
+  taskOpts = [],
+  eventOpts = [],
+  channelOpts = [],
 }: {
   topic: Topic;
   canEdit: boolean;
   driveRoots: { id: string; name: string; kind: "student" | "team" }[];
   students: { id: string; name: string; color: string }[];
+  taskOpts?: { id: string; title: string }[];
+  eventOpts?: { id: string; title: string }[];
+  channelOpts?: { id: string; name: string }[];
   viewerId: string;
 }) {
   const router = useRouter();
@@ -175,6 +187,30 @@ export function TopicDetail({
               Closed
             </span>
           )}
+          {topic.task && (
+            <Link
+              href={`/kanban?ticket=${topic.task.id}`}
+              className="inline-flex items-center gap-1 rounded-full bg-slate-100 px-2 py-0.5 hover:text-[var(--c-violet)]"
+            >
+              <KanbanSquare className="h-3.5 w-3.5" /> {topic.task.title}
+            </Link>
+          )}
+          {topic.event && (
+            <Link
+              href="/calendar"
+              className="inline-flex items-center gap-1 rounded-full bg-slate-100 px-2 py-0.5 hover:text-[var(--c-violet)]"
+            >
+              <CalendarDays className="h-3.5 w-3.5" /> {topic.event.title}
+            </Link>
+          )}
+          {topic.chat && (
+            <Link
+              href={`/chat?channel=${topic.chat.id}`}
+              className="inline-flex items-center gap-1 rounded-full bg-slate-100 px-2 py-0.5 hover:text-[var(--c-violet)]"
+            >
+              <MessageSquare className="h-3.5 w-3.5" /> {topic.chat.name}
+            </Link>
+          )}
         </div>
 
         {topic.body && (
@@ -276,6 +312,9 @@ export function TopicDetail({
         <EditTopicDialog
           topic={topic}
           students={students}
+          taskOpts={taskOpts}
+          eventOpts={eventOpts}
+          channelOpts={channelOpts}
           onClose={() => setEditing(false)}
           onSaved={(payload) => {
             setEditing(false);
@@ -319,11 +358,17 @@ function IconBtn({
 function EditTopicDialog({
   topic,
   students,
+  taskOpts,
+  eventOpts,
+  channelOpts,
   onClose,
   onSaved,
 }: {
   topic: Topic;
   students: { id: string; name: string; color: string }[];
+  taskOpts: { id: string; title: string }[];
+  eventOpts: { id: string; title: string }[];
+  channelOpts: { id: string; name: string }[];
   onClose: () => void;
   onSaved: (payload: Record<string, unknown>) => void;
 }) {
@@ -333,6 +378,23 @@ function EditTopicDialog({
     topic.visibility,
   );
   const [studentId, setStudentId] = useState(topic.student?.id ?? "");
+  const [taskId, setTaskId] = useState(topic.task?.id ?? "");
+  const [eventId, setEventId] = useState(topic.event?.id ?? "");
+  const [chatId, setChatId] = useState(topic.chat?.id ?? "");
+  // If the current link points at something not in the loaded options (e.g. an
+  // older item outside the window), keep it selectable so saving doesn't drop it.
+  const taskList =
+    topic.task && !taskOpts.some((t) => t.id === topic.task!.id)
+      ? [{ id: topic.task.id, title: topic.task.title }, ...taskOpts]
+      : taskOpts;
+  const eventList =
+    topic.event && !eventOpts.some((e) => e.id === topic.event!.id)
+      ? [{ id: topic.event.id, title: topic.event.title }, ...eventOpts]
+      : eventOpts;
+  const chatList =
+    topic.chat && !channelOpts.some((c) => c.id === topic.chat!.id)
+      ? [{ id: topic.chat.id, name: topic.chat.name }, ...channelOpts]
+      : channelOpts;
 
   function submit(e: React.FormEvent) {
     e.preventDefault();
@@ -342,6 +404,9 @@ function EditTopicDialog({
       body: body.trim() || null,
       visibility,
       studentId: studentId || null,
+      linkedTaskId: taskId || null,
+      linkedEventId: eventId || null,
+      linkedChannelId: chatId || null,
     });
   }
 
@@ -395,6 +460,49 @@ function EditTopicDialog({
                 {students.map((s) => (
                   <option key={s.id} value={s.id}>
                     {s.name}
+                  </option>
+                ))}
+              </Select>
+            </div>
+          </div>
+
+          {/* Connect this thread to a task, event and/or chat (shortcuts). */}
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+            <div>
+              <label className="mb-1 block text-xs font-semibold text-slate-600">
+                Task
+              </label>
+              <Select value={taskId} onChange={(e) => setTaskId(e.target.value)}>
+                <option value="">— none —</option>
+                {taskList.map((t) => (
+                  <option key={t.id} value={t.id}>
+                    {t.title}
+                  </option>
+                ))}
+              </Select>
+            </div>
+            <div>
+              <label className="mb-1 block text-xs font-semibold text-slate-600">
+                Event
+              </label>
+              <Select value={eventId} onChange={(e) => setEventId(e.target.value)}>
+                <option value="">— none —</option>
+                {eventList.map((ev) => (
+                  <option key={ev.id} value={ev.id}>
+                    {ev.title}
+                  </option>
+                ))}
+              </Select>
+            </div>
+            <div>
+              <label className="mb-1 block text-xs font-semibold text-slate-600">
+                Chat
+              </label>
+              <Select value={chatId} onChange={(e) => setChatId(e.target.value)}>
+                <option value="">— none —</option>
+                {chatList.map((c) => (
+                  <option key={c.id} value={c.id}>
+                    {c.name}
                   </option>
                 ))}
               </Select>

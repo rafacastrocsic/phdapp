@@ -1,5 +1,5 @@
 import { prisma } from "./prisma";
-import { studentVisibilityWhereAllForAdmin, type Role } from "./access";
+import { isAdmin, studentVisibilityWhereAllForAdmin, type Role } from "./access";
 
 // Validate the optional student / task / event a "My Work" involvement points
 // at: the user may only reference things they can actually see. Each returns
@@ -59,4 +59,22 @@ export async function resolveEventRef(
     select: { id: true },
   });
   return e ? { ok: true, id: e.id } : { ok: false, id: null };
+}
+
+// A chat channel the user can reference: one they're a member of (admins may
+// reference any channel).
+export async function resolveChannelRef(
+  id: string | null | undefined,
+  userId: string,
+  role: Role,
+): Promise<{ ok: boolean; id: string | null }> {
+  if (!id) return { ok: true, id: null };
+  const c = await prisma.channel.findFirst({
+    where: {
+      id,
+      ...(isAdmin(role) ? {} : { members: { some: { userId } } }),
+    },
+    select: { id: true },
+  });
+  return c ? { ok: true, id: c.id } : { ok: false, id: null };
 }

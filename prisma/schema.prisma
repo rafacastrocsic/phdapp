@@ -467,6 +467,7 @@ model Ticket {
   dependsOn    TaskDependency[] @relation("Dependent")
   dependents   TaskDependency[] @relation("DependsOn")
   involvements Involvement[]    @relation("InvolvementTask")
+  topicLinks   Topic[]          @relation("TopicTask")
   order        Int       @default(0)
 
   createdAt    DateTime  @default(now())
@@ -578,6 +579,14 @@ model Topic {
   // JSON array of { id, label, url } — mirrors Ticket.links / Event.links.
   links          String?
   driveFolderUrl String?
+  // Optional connections to a task, a calendar event and/or a chat channel.
+  // Tags/shortcuts only — they don't affect who can see the topic.
+  linkedTaskId    String?
+  linkedTask      Ticket?  @relation("TopicTask", fields: [linkedTaskId], references: [id], onDelete: SetNull)
+  linkedEventId   String?
+  linkedEvent     Event?   @relation("TopicEvent", fields: [linkedEventId], references: [id], onDelete: SetNull)
+  linkedChannelId String?
+  linkedChannel   Channel? @relation("TopicChannel", fields: [linkedChannelId], references: [id], onDelete: SetNull)
   pinned         Boolean   @default(false)
   closedAt       DateTime? // set when someone closes the thread (read-only-ish)
   // Bumped whenever a comment is posted so the list can sort by real recency
@@ -703,6 +712,7 @@ model Event {
   attendees EventAttendee[]
   comments  Comment[]  @relation("EventComments")
   involvements Involvement[] @relation("InvolvementEvent")
+  topicLinks   Topic[]        @relation("TopicEvent")
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
@@ -736,6 +746,7 @@ model Channel {
   members     ChannelMember[]
   messages    Message[]
   tickets     Ticket[]
+  topicLinks  Topic[]  @relation("TopicChannel")
 
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt

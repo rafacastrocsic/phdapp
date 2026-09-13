@@ -9,6 +9,11 @@ import {
 } from "@/lib/access";
 import { LinkInput, sanitiseLinks } from "@/lib/links";
 import { logActivity } from "@/lib/activity-log";
+import {
+  resolveTaskRef,
+  resolveEventRef,
+  resolveChannelRef,
+} from "@/lib/involvement-refs";
 
 const Patch = z.object({
   title: z.string().min(1).max(200).optional(),
@@ -20,6 +25,9 @@ const Patch = z.object({
   pinned: z.boolean().optional(),
   // true = close the thread, false = re-open.
   closed: z.boolean().optional(),
+  linkedTaskId: z.string().nullable().optional(),
+  linkedEventId: z.string().nullable().optional(),
+  linkedChannelId: z.string().nullable().optional(),
 });
 
 // Only the topic author or an admin may edit / close / pin / delete.
@@ -86,6 +94,25 @@ export async function PATCH(
     } else {
       data.studentId = null;
     }
+  }
+
+  if (d.linkedTaskId !== undefined) {
+    const r = await resolveTaskRef(d.linkedTaskId, session.user.id, role);
+    if (!r.ok)
+      return NextResponse.json({ error: "That task isn't visible to you." }, { status: 400 });
+    data.linkedTaskId = r.id;
+  }
+  if (d.linkedEventId !== undefined) {
+    const r = await resolveEventRef(d.linkedEventId, session.user.id, role);
+    if (!r.ok)
+      return NextResponse.json({ error: "That event isn't visible to you." }, { status: 400 });
+    data.linkedEventId = r.id;
+  }
+  if (d.linkedChannelId !== undefined) {
+    const r = await resolveChannelRef(d.linkedChannelId, session.user.id, role);
+    if (!r.ok)
+      return NextResponse.json({ error: "That chat isn't visible to you." }, { status: 400 });
+    data.linkedChannelId = r.id;
   }
 
   await prisma.topic.update({ where: { id }, data });

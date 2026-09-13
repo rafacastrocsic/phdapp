@@ -6,6 +6,11 @@ import { studentVisibilityWhereAllForAdmin, type Role } from "@/lib/access";
 import { isSeniorTeam } from "@/lib/discussions-access";
 import { LinkInput, sanitiseLinks } from "@/lib/links";
 import { logActivity } from "@/lib/activity-log";
+import {
+  resolveTaskRef,
+  resolveEventRef,
+  resolveChannelRef,
+} from "@/lib/involvement-refs";
 
 const Body = z.object({
   title: z.string().min(1).max(200),
@@ -15,6 +20,10 @@ const Body = z.object({
   studentId: z.string().nullable().optional(),
   links: z.array(LinkInput).optional(),
   driveFolderUrl: z.string().nullable().optional(),
+  // Optional connections (shortcuts only, not access control).
+  linkedTaskId: z.string().nullable().optional(),
+  linkedEventId: z.string().nullable().optional(),
+  linkedChannelId: z.string().nullable().optional(),
 });
 
 // Create a discussion topic. Only the senior team may open topics; students
@@ -54,6 +63,17 @@ export async function POST(req: Request) {
     studentId = visible.id;
   }
 
+  const [task, event, channel] = await Promise.all([
+    resolveTaskRef(d.linkedTaskId, session.user.id, role),
+    resolveEventRef(d.linkedEventId, session.user.id, role),
+    resolveChannelRef(d.linkedChannelId, session.user.id, role),
+  ]);
+  if (!task.ok || !event.ok || !channel.ok)
+    return NextResponse.json(
+      { error: "A linked task, event or chat isn't visible to you." },
+      { status: 400 },
+    );
+
   const sane = d.links ? sanitiseLinks(d.links) : [];
   const topic = await prisma.topic.create({
     data: {
@@ -64,6 +84,9 @@ export async function POST(req: Request) {
       studentId,
       links: sane.length > 0 ? JSON.stringify(sane) : null,
       driveFolderUrl: d.driveFolderUrl || null,
+      linkedTaskId: task.id,
+      linkedEventId: event.id,
+      linkedChannelId: channel.id,
     },
     select: { id: true, title: true },
   });
