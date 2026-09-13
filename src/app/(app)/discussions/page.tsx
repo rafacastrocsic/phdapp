@@ -17,7 +17,7 @@ export default async function DiscussionsPage() {
   const topics = await prisma.topic.findMany({
     where: topicVisibilityWhere(senior),
     include: {
-      author: { select: { name: true, image: true, color: true } },
+      author: { select: { id: true, name: true, image: true, color: true } },
       student: { select: { id: true, fullName: true, alias: true, color: true } },
       _count: { select: { comments: true } },
     },
@@ -54,7 +54,8 @@ export default async function DiscussionsPage() {
         id: t.id,
         title: t.title,
         excerpt: t.body ? t.body.slice(0, 240) : null,
-        author: t.author,
+        authorId: t.author.id,
+        author: { name: t.author.name, image: t.author.image, color: t.author.color },
         visibility: t.visibility as "team" | "supervisors",
         student: t.student
           ? { id: t.student.id, name: displayName(t.student), color: t.student.color }

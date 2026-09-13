@@ -1,5 +1,5 @@
 "use client";
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
@@ -28,6 +28,7 @@ type TopicRow = {
   id: string;
   title: string;
   excerpt: string | null;
+  authorId: string;
   author: { name: string | null; image: string | null; color: string };
   visibility: "team" | "supervisors";
   student: { id: string; name: string; color: string } | null;
@@ -56,6 +57,45 @@ export function DiscussionsView({
   viewerId: string;
 }) {
   const [creating, setCreating] = useState(false);
+  const [sort, setSort] = useState<
+    "recent" | "newest" | "oldest" | "comments" | "title"
+  >("recent");
+  const [authorFilter, setAuthorFilter] = useState("");
+  const [studentFilter, setStudentFilter] = useState("");
+  const [visFilter, setVisFilter] = useState("");
+  const [statusFilter, setStatusFilter] = useState("");
+
+  // Distinct authors present in the list, for the author filter.
+  const authorOptions = useMemo(() => {
+    const m = new Map<string, string>();
+    for (const t of topics) m.set(t.authorId, t.author.name ?? "Someone");
+    return [...m.entries()].sort((a, b) => a[1].localeCompare(b[1]));
+  }, [topics]);
+
+  const visibleTopics = useMemo(() => {
+    const filtered = topics.filter((t) => {
+      if (authorFilter && t.authorId !== authorFilter) return false;
+      if (studentFilter === "__none__") {
+        if (t.student) return false;
+      } else if (studentFilter && t.student?.id !== studentFilter) return false;
+      if (visFilter && t.visibility !== visFilter) return false;
+      if (statusFilter === "open" && t.closed) return false;
+      if (statusFilter === "closed" && !t.closed) return false;
+      return true;
+    });
+    const cmp: Record<string, (a: TopicRow, b: TopicRow) => number> = {
+      recent: (a, b) => b.lastActivityAt.localeCompare(a.lastActivityAt),
+      newest: (a, b) => b.createdAt.localeCompare(a.createdAt),
+      oldest: (a, b) => a.createdAt.localeCompare(b.createdAt),
+      comments: (a, b) => b.commentCount - a.commentCount,
+      title: (a, b) => a.title.localeCompare(b.title),
+    };
+    // Pinned always float to the top; the chosen sort orders the rest.
+    return [...filtered].sort(
+      (a, b) =>
+        Number(b.pinned) - Number(a.pinned) || cmp[sort](a, b),
+    );
+  }, [topics, authorFilter, studentFilter, visFilter, statusFilter, sort]);
 
   return (
     <div className="mx-auto w-full max-w-4xl p-4 md:p-6">
@@ -79,6 +119,77 @@ export function DiscussionsView({
         )}
       </div>
 
+      {topics.length > 0 && (
+        <div className="mb-4 flex flex-wrap items-center gap-2">
+          <Select
+            value={sort}
+            onChange={(e) => setSort(e.target.value as typeof sort)}
+            className="!w-auto"
+            title="Sort"
+          >
+            <option value="recent">Recent activity</option>
+            <option value="newest">Newest</option>
+            <option value="oldest">Oldest</option>
+            <option value="comments">Most comments</option>
+            <option value="title">Title (A–Z)</option>
+          </Select>
+          <Select
+            value={authorFilter}
+            onChange={(e) => setAuthorFilter(e.target.value)}
+            className="!w-auto"
+            title="Filter by author"
+          >
+            <option value="">Any author</option>
+            {authorOptions.map(([id, name]) => (
+              <option key={id} value={id}>
+                {name}
+              </option>
+            ))}
+          </Select>
+          {students.length > 0 && (
+            <Select
+              value={studentFilter}
+              onChange={(e) => setStudentFilter(e.target.value)}
+              className="!w-auto"
+              title="Filter by tagged student"
+            >
+              <option value="">Any student</option>
+              <option value="__none__">No student</option>
+              {students.map((s) => (
+                <option key={s.id} value={s.id}>
+                  {s.name}
+                </option>
+              ))}
+            </Select>
+          )}
+          {senior && (
+            <Select
+              value={visFilter}
+              onChange={(e) => setVisFilter(e.target.value)}
+              className="!w-auto"
+              title="Filter by visibility"
+            >
+              <option value="">Any visibility</option>
+              <option value="team">Whole team</option>
+              <option value="supervisors">Supervisors</option>
+            </Select>
+          )}
+          <Select
+            value={statusFilter}
+            onChange={(e) => setStatusFilter(e.target.value)}
+            className="!w-auto"
+            title="Filter by status"
+          >
+            <option value="">Any status</option>
+            <option value="open">Open</option>
+            <option value="closed">Closed</option>
+          </Select>
+          <span className="ml-auto text-xs text-slate-400">
+            {visibleTopics.length} of {topics.length}
+          </span>
+        </div>
+      )}
+
       {topics.length === 0 ? (
         <div className="rounded-xl border border-dashed bg-slate-50 p-10 text-center">
           <Lightbulb className="mx-auto h-8 w-8 text-slate-300" />
@@ -101,9 +212,13 @@ export function DiscussionsView({
             </Button>
           )}
         </div>
+      ) : visibleTopics.length === 0 ? (
+        <div className="rounded-xl border border-dashed bg-slate-50 p-10 text-center text-sm text-slate-500">
+          No discussions match these filters.
+        </div>
       ) : (
         <ul className="space-y-2.5">
-          {topics.map((t) => (
+          {visibleTopics.map((t) => (
             <li key={t.id}>
               <Link
                 href={`/discussions/${t.id}`}
