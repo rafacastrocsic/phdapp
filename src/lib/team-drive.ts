@@ -67,11 +67,24 @@ export async function syncTeamDriveAcl(
       warning: "No team Drive folder is set. Add its URL first.",
     };
 
-  // Recipients: every admin/supervisor with an email. (Co-supervisors
-  // and team advisors carry a global "supervisor" role, so they're
-  // included; students never are.)
+  // Recipients: the senior team, by RELATIONSHIP rather than global role —
+  // admins, primary supervisors, co-supervisors and team advisors (the same
+  // set isSeniorTeam admits, and the set the Files module shows the Team
+  // Drive to). A team advisor is included whatever their account role;
+  // project researchers / external advisors / committee / students are not.
   const recipients = await prisma.user.findMany({
-    where: { role: { in: ["admin", "supervisor"] }, email: { not: "" } },
+    where: {
+      email: { not: "" },
+      OR: [
+        { role: "admin" },
+        { supervisedStudents: { some: {} } },
+        {
+          coSupervisedStudents: {
+            some: { role: { in: ["supervisor", "co_supervisor", "team_advisor"] } },
+          },
+        },
+      ],
+    },
     select: { id: true, email: true },
   });
   const targetEmails = Array.from(

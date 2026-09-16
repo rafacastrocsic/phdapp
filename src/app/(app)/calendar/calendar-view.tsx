@@ -2209,6 +2209,9 @@ function EventDetailDialog({
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({ links: next }),
               });
+              // Reflect immediately in the events state — router.refresh()
+              // doesn't re-seed it, so a reopened dialog showed stale links.
+              onUpdated({ links: next.length > 0 ? JSON.stringify(next) : null });
               router.refresh();
             }}
             composerLabelPlaceholder="Label (e.g. ‘Agenda doc’)"
