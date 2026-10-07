@@ -4,6 +4,7 @@ import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
 import { studentVisibilityWhereAllForAdmin, type Role } from "@/lib/access";
 import { isSeniorTeam } from "@/lib/discussions-access";
+import { PALETTE } from "@/lib/utils";
 
 // Calls & deadlines. Readable by EVERYONE (students included — fellowship
 // calls matter to them); only the senior team may create or edit.
@@ -17,6 +18,7 @@ const Body = z.object({
   notes: z.string().max(5000).nullable().optional(),
   driveFolderUrl: z.string().nullable().optional(),
   studentId: z.string().nullable().optional(),
+  color: z.string().regex(/^#[0-9a-fA-F]{6}$/).nullable().optional(),
 });
 
 export async function GET() {
@@ -66,6 +68,20 @@ export async function POST(req: Request) {
     studentId = visible.id;
   }
 
+  // Colour: honour an explicit choice, otherwise pick one that isn't already
+  // in use so overlapping windows stay distinguishable. Once the palette is
+  // exhausted, fall back to the least-used colour.
+  let color = d.color ?? null;
+  if (!color) {
+    const used = await prisma.deadline.findMany({ select: { color: true } });
+    const counts = new Map<string, number>(PALETTE.map((c) => [c, 0]));
+    for (const row of used) {
+      if (row.color && counts.has(row.color))
+        counts.set(row.color, (counts.get(row.color) ?? 0) + 1);
+    }
+    color = [...counts.entries()].sort((a, b) => a[1] - b[1])[0]?.[0] ?? PALETTE[0]!;
+  }
+
   const item = await prisma.deadline.create({
     data: {
       title: d.title.trim(),
@@ -76,6 +92,7 @@ export async function POST(req: Request) {
       notes: d.notes?.trim() || null,
       driveFolderUrl: d.driveFolderUrl?.trim() || null,
       studentId,
+      color,
       createdById: session.user.id,
     },
     select: { id: true },

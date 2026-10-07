@@ -23,7 +23,7 @@ export function initials(name?: string | null): string {
     .join("");
 }
 
-const PALETTE = [
+export const PALETTE = [
   "#06b6d4", // cyan
   "#8b5cf6", // violet
   "#ec4899", // pink

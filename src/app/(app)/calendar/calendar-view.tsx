@@ -28,7 +28,7 @@ import {
 import { Input, Select, Textarea } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Avatar } from "@/components/ui/avatar";
-import { cn, displayName } from "@/lib/utils";
+import { cn, displayName, PALETTE } from "@/lib/utils";
 import {
   buildRRule,
   parseRRule,
@@ -151,6 +151,7 @@ export interface DeadlineRow {
   id: string;
   title: string;
   kind: string; // call | report | internal
+  color: string | null;
   opensAt: string | null;
   closesAt: string;
   url: string | null;
@@ -662,7 +663,14 @@ export function CalendarView({
   const deadlinesByDay = useMemo(() => {
     const map: Record<
       string,
-      { id: string; title: string; kind: string; isOpen: boolean; isClose: boolean }[]
+      {
+        id: string;
+        title: string;
+        kind: string;
+        color: string;
+        isOpen: boolean;
+        isClose: boolean;
+      }[]
     > = {};
     for (const d of deadlines) {
       const close = new Date(d.closesAt);
@@ -679,6 +687,7 @@ export function CalendarView({
           id: d.id,
           title: d.title,
           kind: d.kind,
+          color: d.color || DEADLINE_FALLBACK,
           isOpen: key === openKey && openKey !== closeKey,
           isClose: key === closeKey,
         });
@@ -1135,6 +1144,7 @@ export function CalendarView({
             <YearGrid
               year={cursor.getFullYear()}
               events={filtered}
+              deadlinesByDay={deadlinesByDay}
               availabilityByDay={availabilityByDay}
               holidaysByDay={holidaysByDay}
               onPickDay={(day) => {
@@ -1228,7 +1238,6 @@ export function CalendarView({
                       </div>
                       <div className="mt-1 flex-1 space-y-1">
                         {(deadlinesByDay[key] ?? []).map((d) => {
-                          const st = deadlineStyle(d.kind);
                           // Closing day = the thing you must not miss, so it
                           // shouts; opening day is a quieter chip; the days in
                           // between are a solid bar (availability uses stripes,
@@ -1242,13 +1251,11 @@ export function CalendarView({
                                   ev.stopPropagation();
                                   setDeadlinesOpen(true);
                                 }}
-                                className={cn(
-                                  "block w-full truncate rounded px-1.5 py-0.5 text-left text-[10px] font-bold",
-                                  st.closeClass,
-                                )}
+                                className="block w-full truncate rounded px-1.5 py-0.5 text-left text-[10px] font-bold text-white"
+                                style={{ background: d.color }}
                                 title={`Closes — ${d.title}`}
                               >
-                                ⏳ {d.title}
+                                🏁 {d.title}
                               </button>
                             );
                           if (d.isOpen)
@@ -1260,10 +1267,8 @@ export function CalendarView({
                                   ev.stopPropagation();
                                   setDeadlinesOpen(true);
                                 }}
-                                className={cn(
-                                  "block w-full truncate rounded px-1.5 py-0.5 text-left text-[10px] font-medium",
-                                  st.openClass,
-                                )}
+                                className="block w-full truncate rounded px-1.5 py-0.5 text-left text-[10px] font-medium"
+                                style={{ background: `${d.color}22`, color: d.color }}
                                 title={`Opens — ${d.title}`}
                               >
                                 ▶ {d.title}
@@ -1272,7 +1277,8 @@ export function CalendarView({
                           return (
                             <div
                               key={`dl-${d.id}`}
-                              className={cn("h-1 rounded-full", st.barClass)}
+                              className="h-1 rounded-full"
+                              style={{ background: `${d.color}99` }}
                               title={d.title}
                             />
                           );
@@ -1535,6 +1541,63 @@ export function CalendarView({
         </div>
 
         <aside className="border-l bg-white p-4 overflow-y-auto">
+          {/* Calls & deadlines first: a closing call outranks the next
+              meeting, and the countdown is the whole point. */}
+          {(() => {
+            const now = Date.now();
+            const soon = deadlines
+              .filter((d) => new Date(d.closesAt).getTime() >= now)
+              .sort((a, b) => a.closesAt.localeCompare(b.closesAt))
+              .slice(0, 4);
+            if (soon.length === 0) return null;
+            return (
+              <div className="mb-5">
+                <h3 className="mb-2 flex items-center gap-1.5 text-sm font-semibold text-slate-900">
+                  <Hourglass className="h-3.5 w-3.5 text-amber-500" /> Calls &amp; deadlines
+                </h3>
+                <ul className="space-y-1.5">
+                  {soon.map((d) => {
+                    const left = daysUntil(d.closesAt);
+                    const urgent = left <= 7;
+                    const color = d.color || DEADLINE_FALLBACK;
+                    return (
+                      <li key={d.id}>
+                        <button
+                          type="button"
+                          onClick={() => setDeadlinesOpen(true)}
+                          className="flex w-full items-center gap-2 rounded-lg border p-2 text-left hover:border-slate-300 hover:shadow-sm"
+                        >
+                          <span
+                            className="h-7 w-1 shrink-0 rounded-full"
+                            style={{ background: color }}
+                          />
+                          <span className="min-w-0 flex-1">
+                            <span className="block truncate text-xs font-medium text-slate-800">
+                              {d.title}
+                            </span>
+                            <span className="block text-[10px] text-slate-400">
+                              🏁 {format(new Date(d.closesAt), "d MMM")}
+                            </span>
+                          </span>
+                          <span
+                            className={cn(
+                              "shrink-0 rounded-full px-1.5 py-0.5 text-[10px] font-semibold",
+                              urgent
+                                ? "bg-red-100 text-red-700"
+                                : "bg-slate-100 text-slate-600",
+                            )}
+                          >
+                            {left === 0 ? "today" : `${left}d`}
+                          </span>
+                        </button>
+                      </li>
+                    );
+                  })}
+                </ul>
+              </div>
+            );
+          })()}
+
           <h3 className="text-sm font-semibold text-slate-900 mb-3">
             Upcoming
           </h3>
@@ -1807,29 +1870,14 @@ export function CalendarView({
  * with their RSVP status and quick Going / Maybe / Can't actions. Opened from
  * the "Invitations" button in the toolbar; the pending count is badged there.
  */
-// Calls & deadlines palette. Solid fills (availability uses stripes), so the
-// two range layers are never confused at a glance.
-function deadlineStyle(kind: string) {
-  if (kind === "report")
-    return {
-      closeClass: "bg-violet-600 text-white",
-      openClass: "bg-violet-100 text-violet-800",
-      barClass: "bg-violet-300",
-      label: "Report",
-    };
-  if (kind === "internal")
-    return {
-      closeClass: "bg-slate-600 text-white",
-      openClass: "bg-slate-100 text-slate-700",
-      barClass: "bg-slate-300",
-      label: "Internal",
-    };
-  return {
-    closeClass: "bg-amber-500 text-white",
-    openClass: "bg-amber-100 text-amber-800",
-    barClass: "bg-amber-300",
-    label: "Call",
-  };
+// Calls & deadlines. Colour is PER CALL (author-chosen, else auto-assigned by
+// the API) so overlapping windows stay readable; `kind` only supplies a label.
+const DEADLINE_FALLBACK = "#f59e0b";
+
+function deadlineKindLabel(kind: string): string {
+  if (kind === "report") return "Report";
+  if (kind === "internal") return "Internal";
+  return "Call";
 }
 
 /** Days from now until `iso` (negative = past). */
@@ -1876,7 +1924,7 @@ function DeadlinesDialog({
   }
 
   function Row({ d, dim }: { d: DeadlineRow; dim?: boolean }) {
-    const st = deadlineStyle(d.kind);
+    const color = d.color || DEADLINE_FALLBACK;
     const left = daysUntil(d.closesAt);
     const urgent = left >= 0 && left <= 7;
     return (
@@ -1884,8 +1932,11 @@ function DeadlinesDialog({
         <div className="flex items-start justify-between gap-2">
           <div className="min-w-0">
             <div className="flex flex-wrap items-center gap-1.5">
-              <span className={cn("rounded px-1.5 py-0.5 text-[10px] font-bold", st.closeClass)}>
-                {st.label}
+              <span
+                className="rounded px-1.5 py-0.5 text-[10px] font-bold text-white"
+                style={{ background: color }}
+              >
+                {deadlineKindLabel(d.kind)}
               </span>
               <span className="font-medium text-slate-900">{d.title}</span>
               {d.student && (
@@ -2046,6 +2097,8 @@ function DeadlineFormDialog({
   const [url, setUrl] = useState(deadline?.url ?? "");
   const [notes, setNotes] = useState(deadline?.notes ?? "");
   const [studentId, setStudentId] = useState(deadline?.student?.id ?? "");
+  // "" = let the API pick a colour not already in use.
+  const [color, setColor] = useState(deadline?.color ?? "");
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<string | null>(null);
 
@@ -2066,6 +2119,7 @@ function DeadlineFormDialog({
       url: url.trim() || null,
       notes: notes.trim() || null,
       studentId: studentId || null,
+      color: color || null,
     };
     const r = await fetch(
       deadline ? `/api/deadlines/${deadline.id}` : "/api/deadlines",
@@ -2129,6 +2183,40 @@ function DeadlineFormDialog({
                 </option>
               ))}
             </Select>
+          </Field>
+          <Field label="Colour">
+            <div className="flex flex-wrap items-center gap-1.5">
+              <button
+                type="button"
+                onClick={() => setColor("")}
+                className={cn(
+                  "rounded-full border px-2 py-1 text-[11px] font-medium",
+                  color === ""
+                    ? "border-slate-800 bg-slate-800 text-white"
+                    : "border-slate-200 text-slate-600 hover:bg-slate-50",
+                )}
+                title="Pick a colour that isn't already in use"
+              >
+                Auto
+              </button>
+              {PALETTE.map((c) => (
+                <button
+                  key={c}
+                  type="button"
+                  onClick={() => setColor(c)}
+                  style={{ background: c }}
+                  className={cn(
+                    "h-6 w-6 rounded-full border-2 transition-transform",
+                    color === c ? "border-slate-900 scale-110" : "border-transparent",
+                  )}
+                  title={c}
+                />
+              ))}
+            </div>
+            <p className="mt-1 text-[11px] text-slate-400">
+              Leave on <strong>Auto</strong> to get a colour that no other call is
+              using.
+            </p>
           </Field>
           <Field label="Notes (optional)">
             <Textarea rows={3} value={notes} onChange={(e) => setNotes(e.target.value)} />
@@ -5499,12 +5587,17 @@ function NowLine() {
 function YearGrid({
   year,
   events,
+  deadlinesByDay,
   availabilityByDay,
   holidaysByDay,
   onPickDay,
 }: {
   year: number;
   events: Event[];
+  deadlinesByDay: Record<
+    string,
+    { id: string; title: string; kind: string; color: string; isOpen: boolean; isClose: boolean }[]
+  >;
   availabilityByDay: Record<string, { who: string; reason: string | null; label: string | null; kind: string; startsAt: string; endsAt: string; allDay: boolean }[]>;
   holidaysByDay: Map<string, string>;
   onPickDay: (day: Date) => void;
@@ -5559,6 +5652,7 @@ function YearGrid({
                   const inMonth = isSameMonth(day, monthDate);
                   const isToday = isSameDay(day, today);
                   const hasTask = evs.some((e) => e.ticketId);
+                  const dls = deadlinesByDay[key] ?? [];
                   const holidayName = holidaysByDay.get(key);
                   return (
                     <button
@@ -5595,6 +5689,23 @@ function YearGrid({
                       }
                     >
                       <span className="leading-none mt-0.5">{format(day, "d")}</span>
+                      {/* Call windows: a thin bar under the number, solid on
+                          the closing day so year view still shows WHEN things
+                          close, not just that a window exists. */}
+                      {dls.length > 0 && (
+                        <span className="mt-0.5 flex w-full gap-px px-0.5">
+                          {dls.slice(0, 3).map((d) => (
+                            <span
+                              key={d.id}
+                              className="block h-0.5 flex-1 rounded-full"
+                              style={{
+                                background: d.color,
+                                opacity: d.isClose ? 1 : 0.45,
+                              }}
+                            />
+                          ))}
+                        </span>
+                      )}
                       {evs.length > 0 && (
                         <span className="flex gap-px mt-0.5">
                           {evs.slice(0, 3).map((e, i) => (

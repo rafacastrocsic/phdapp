@@ -184,6 +184,7 @@ export default async function CalendarPage({
     id: d.id,
     title: d.title,
     kind: d.kind,
+    color: d.color,
     opensAt: d.opensAt ? d.opensAt.toISOString() : null,
     closesAt: d.closesAt.toISOString(),
     url: d.url,

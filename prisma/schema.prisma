@@ -422,6 +422,9 @@ model Deadline {
   // Null when there's no opening date (a plain due date rather than a window).
   opensAt        DateTime?
   closesAt       DateTime
+  // Per-call colour so overlapping windows stay readable. Author-chosen;
+  // when left blank the API assigns one not already in use.
+  color          String?
   url            String? // link to the convocatoria / official page
   notes          String?
   driveFolderUrl String?

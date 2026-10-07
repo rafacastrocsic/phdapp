@@ -14,6 +14,7 @@ const Patch = z.object({
   notes: z.string().max(5000).nullable().optional(),
   driveFolderUrl: z.string().nullable().optional(),
   studentId: z.string().nullable().optional(),
+  color: z.string().regex(/^#[0-9a-fA-F]{6}$/).nullable().optional(),
 });
 
 async function gate() {
@@ -36,6 +37,7 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
   const data: Record<string, unknown> = {};
   if (d.title !== undefined) data.title = d.title.trim();
   if (d.kind !== undefined) data.kind = d.kind;
+  if (d.color !== undefined) data.color = d.color || null;
   if (d.url !== undefined) data.url = d.url?.trim() || null;
   if (d.notes !== undefined) data.notes = d.notes?.trim() || null;
   if (d.driveFolderUrl !== undefined) data.driveFolderUrl = d.driveFolderUrl?.trim() || null;
