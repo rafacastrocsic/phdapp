@@ -164,6 +164,36 @@ export default async function CalendarPage({
       ].filter((x): x is string => !!x),
     ),
   );
+  // Calls & deadlines — visible to everyone. Load those overlapping the
+  // window plus every still-open one, so the panel can list upcoming calls
+  // beyond the month currently on screen.
+  const deadlineRows = await prisma.deadline.findMany({
+    where: {
+      OR: [
+        { closesAt: { gte: from, lte: to } },
+        { opensAt: { lte: to }, closesAt: { gte: from } },
+        { closesAt: { gte: new Date() } },
+      ],
+    },
+    include: {
+      student: { select: { id: true, fullName: true, alias: true, color: true } },
+    },
+    orderBy: { closesAt: "asc" },
+  });
+  const deadlines = deadlineRows.map((d) => ({
+    id: d.id,
+    title: d.title,
+    kind: d.kind,
+    opensAt: d.opensAt ? d.opensAt.toISOString() : null,
+    closesAt: d.closesAt.toISOString(),
+    url: d.url,
+    notes: d.notes,
+    driveFolderUrl: d.driveFolderUrl,
+    student: d.student
+      ? { id: d.student.id, name: displayName(d.student), color: d.student.color }
+      : null,
+  }));
+
   const availabilityRows = await prisma.availability.findMany({
     where: {
       userId: { in: teamUserIds },
@@ -275,9 +305,10 @@ export default async function CalendarPage({
   // senior team) can't create/edit student events, but CAN create General
   // events and events on their own workspace calendar. Drives the New-event
   // dialog's target options and hides student-event edit controls.
+  // Senior team: may create/edit calls & deadlines (everyone can see them).
+  const senior = await isSeniorTeam(session.user.id, role);
   const researcherMode =
-    (await isProjectResearcherAnywhere(session.user.id)) &&
-    !(await isSeniorTeam(session.user.id, role));
+    (await isProjectResearcherAnywhere(session.user.id)) && !senior;
   const hasWorkspaceCalendar = !!meUser.calendarId;
 
   // Admin-configured team Drive folder — exposed to non-students so they
@@ -338,6 +369,8 @@ export default async function CalendarPage({
           studentName: displayName(t.student!),
         }))}
       availability={availability}
+      deadlines={deadlines}
+      canEditDeadlines={senior}
       myAvailability={myAvailability}
       availabilitySummary={availabilitySummary}
       nowIso={nowIso}

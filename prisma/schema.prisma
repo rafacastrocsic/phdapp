@@ -95,6 +95,7 @@ model User {
   topicsAuthored        Topic[]           @relation("TopicAuthor")
   involvements          Involvement[]     @relation("InvolvementOwner")
   newsPosts             NewsPost[]        @relation("NewsAuthor")
+  deadlines             Deadline[]        @relation("DeadlineAuthor")
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -198,6 +199,7 @@ model Student {
   taskGroups      TaskGroup[]
   topics          Topic[]
   involvements    Involvement[]
+  deadlines       Deadline[]
 
   createdAt       DateTime  @default(now())
   updatedAt       DateTime  @updatedAt
@@ -400,6 +402,39 @@ model Availability {
   kind      String   @default("away")
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+}
+
+// ───────── Calls & deadlines ─────────
+//
+// A dated WINDOW with a hard close — a funding call that opens on one day and
+// closes on another, a report due date, an internal milestone. Deliberately
+// NOT an Event: a six-week call would smear a pill across 40+ day cells, and
+// the two dates aren't equal (the close is what must not be missed). Rendered
+// as a continuous band with emphasised bookends, like Availability.
+//
+// Visible to EVERYONE (students included — fellowship calls matter to them);
+// only the senior team may create or edit them.
+model Deadline {
+  id             String    @id @default(cuid())
+  title          String
+  // call | report | internal — extensible without a migration.
+  kind           String    @default("call")
+  // Null when there's no opening date (a plain due date rather than a window).
+  opensAt        DateTime?
+  closesAt       DateTime
+  url            String? // link to the convocatoria / official page
+  notes          String?
+  driveFolderUrl String?
+  // Optional tag — e.g. an FPI call tied to one student. Not access control.
+  studentId      String?
+  student        Student?  @relation(fields: [studentId], references: [id], onDelete: SetNull)
+  createdById    String?
+  createdBy      User?     @relation("DeadlineAuthor", fields: [createdById], references: [id], onDelete: SetNull)
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+
+  @@index([closesAt])
+  @@index([studentId])
 }
 
 model CheckIn {

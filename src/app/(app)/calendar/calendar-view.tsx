@@ -17,7 +17,7 @@ import {
   subMonths,
   subWeeks,
 } from "date-fns";
-import { ChevronLeft, ChevronRight, Plus, RefreshCw, ExternalLink, MapPin, Video, Trash2, Clock, Users as UsersIcon, X as XIcon, KanbanSquare, Mail } from "lucide-react";
+import { ChevronLeft, ChevronRight, Plus, RefreshCw, ExternalLink, MapPin, Video, Trash2, Clock, Users as UsersIcon, X as XIcon, KanbanSquare, Mail, Hourglass, Pencil } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -147,6 +147,18 @@ export interface InvitablePerson {
   role: string;
 }
 
+export interface DeadlineRow {
+  id: string;
+  title: string;
+  kind: string; // call | report | internal
+  opensAt: string | null;
+  closesAt: string;
+  url: string | null;
+  notes: string | null;
+  driveFolderUrl: string | null;
+  student: { id: string; name: string; color: string } | null;
+}
+
 type LinkableTask = {
   id: string;
   title: string;
@@ -185,6 +197,8 @@ export function CalendarView({
   viewerUserId,
   researcherMode = false,
   hasWorkspaceCalendar = false,
+  deadlines = [],
+  canEditDeadlines = false,
 }: {
   viewerRole: string;
   viewerStudentId: string | null;
@@ -238,6 +252,9 @@ export function CalendarView({
   // Viewer has their own workspace calendar (offers the "My workspace
   // calendar" target in the New-event dialog).
   hasWorkspaceCalendar?: boolean;
+  // Calls & deadlines — visible to everyone; only the senior team may edit.
+  deadlines?: DeadlineRow[];
+  canEditDeadlines?: boolean;
 }) {
   // Lookup: dateKey "yyyy-MM-dd" → holiday name (first wins if a date
   // somehow has two entries). Used by month/week/day/mini views to
@@ -299,6 +316,8 @@ export function CalendarView({
   const [availOpen, setAvailOpen] = useState(false);
   const [summaryOpen, setSummaryOpen] = useState(false);
   const [invitationsOpen, setInvitationsOpen] = useState(false);
+  const [deadlinesOpen, setDeadlinesOpen] = useState(false);
+  const [editingDeadline, setEditingDeadline] = useState<DeadlineRow | "new" | null>(null);
   const [availDay, setAvailDay] = useState<Date | null>(null);
   // Locally-deleted availability row ids — used to optimistically
   // remove a row the moment the user clicks Delete in the
@@ -627,6 +646,48 @@ export function CalendarView({
     return map;
   }, [availability, deletedAvailIds]);
 
+  // Calls & deadlines bucketed onto every day they span. The window is
+  // opensAt→closesAt (or just the closing day when there's no opening date).
+  // `isClose` is the day that actually matters, so it renders loudest.
+  // Badge: how many calls close within the next 14 days.
+  const closingSoon = useMemo(() => {
+    const now = Date.now();
+    const horizon = now + 14 * 86_400_000;
+    return deadlines.filter((d) => {
+      const t = new Date(d.closesAt).getTime();
+      return t >= now && t <= horizon;
+    }).length;
+  }, [deadlines]);
+
+  const deadlinesByDay = useMemo(() => {
+    const map: Record<
+      string,
+      { id: string; title: string; kind: string; isOpen: boolean; isClose: boolean }[]
+    > = {};
+    for (const d of deadlines) {
+      const close = new Date(d.closesAt);
+      if (isNaN(close.getTime())) continue;
+      const open = d.opensAt ? new Date(d.opensAt) : close;
+      if (isNaN(open.getTime())) continue;
+      const closeKey = format(close, "yyyy-MM-dd");
+      const openKey = format(open, "yyyy-MM-dd");
+      const cur = new Date(open.getFullYear(), open.getMonth(), open.getDate());
+      let guard = 0;
+      while (cur <= close && guard++ < 400) {
+        const key = format(cur, "yyyy-MM-dd");
+        (map[key] ??= []).push({
+          id: d.id,
+          title: d.title,
+          kind: d.kind,
+          isOpen: key === openKey && openKey !== closeKey,
+          isClose: key === closeKey,
+        });
+        cur.setDate(cur.getDate() + 1);
+      }
+    }
+    return map;
+  }, [deadlines]);
+
   // Version-gated refetch — replaces the 20s interval poll. The
   // UnreadProvider drives /api/unread freshness across the app; here
   // we only do a full /api/calendar/events/list fetch when the
@@ -867,6 +928,18 @@ export function CalendarView({
               when they're at IMSE. */}
           <Button
             variant="outline"
+            onClick={() => setDeadlinesOpen(true)}
+            title="Funding calls and deadlines"
+          >
+            <Hourglass className="h-4 w-4" /> Calls
+            {closingSoon > 0 && (
+              <span className="ml-1 inline-flex h-4 min-w-4 items-center justify-center rounded-full bg-amber-500 px-1 text-[10px] font-bold leading-none text-white">
+                {closingSoon}
+              </span>
+            )}
+          </Button>
+          <Button
+            variant="outline"
             onClick={() => setInvitationsOpen(true)}
             title="Meetings you've been invited to"
           >
@@ -905,6 +978,34 @@ export function CalendarView({
         items={availabilitySummary}
         nowIso={nowIso}
       />
+
+      <DeadlinesDialog
+        open={deadlinesOpen}
+        onOpenChange={setDeadlinesOpen}
+        deadlines={deadlines}
+        canEdit={canEditDeadlines}
+        onNew={() => {
+          setDeadlinesOpen(false);
+          setEditingDeadline("new");
+        }}
+        onEdit={(d) => {
+          setDeadlinesOpen(false);
+          setEditingDeadline(d);
+        }}
+        onChanged={() => router.refresh()}
+      />
+
+      {editingDeadline && (
+        <DeadlineFormDialog
+          deadline={editingDeadline === "new" ? null : editingDeadline}
+          students={students}
+          onClose={() => setEditingDeadline(null)}
+          onSaved={() => {
+            setEditingDeadline(null);
+            router.refresh();
+          }}
+        />
+      )}
 
       <InvitationsDialog
         open={invitationsOpen}
@@ -1126,6 +1227,56 @@ export function CalendarView({
                         )}
                       </div>
                       <div className="mt-1 flex-1 space-y-1">
+                        {(deadlinesByDay[key] ?? []).map((d) => {
+                          const st = deadlineStyle(d.kind);
+                          // Closing day = the thing you must not miss, so it
+                          // shouts; opening day is a quieter chip; the days in
+                          // between are a solid bar (availability uses stripes,
+                          // so the two layers never read the same).
+                          if (d.isClose)
+                            return (
+                              <button
+                                key={`dl-${d.id}`}
+                                type="button"
+                                onClick={(ev) => {
+                                  ev.stopPropagation();
+                                  setDeadlinesOpen(true);
+                                }}
+                                className={cn(
+                                  "block w-full truncate rounded px-1.5 py-0.5 text-left text-[10px] font-bold",
+                                  st.closeClass,
+                                )}
+                                title={`Closes — ${d.title}`}
+                              >
+                                ⏳ {d.title}
+                              </button>
+                            );
+                          if (d.isOpen)
+                            return (
+                              <button
+                                key={`dl-${d.id}`}
+                                type="button"
+                                onClick={(ev) => {
+                                  ev.stopPropagation();
+                                  setDeadlinesOpen(true);
+                                }}
+                                className={cn(
+                                  "block w-full truncate rounded px-1.5 py-0.5 text-left text-[10px] font-medium",
+                                  st.openClass,
+                                )}
+                                title={`Opens — ${d.title}`}
+                              >
+                                ▶ {d.title}
+                              </button>
+                            );
+                          return (
+                            <div
+                              key={`dl-${d.id}`}
+                              className={cn("h-1 rounded-full", st.barClass)}
+                              title={d.title}
+                            />
+                          );
+                        })}
                         {(() => {
                           const av = availabilityByDay[key] ?? [];
                           if (av.length === 0) return null;
@@ -1656,6 +1807,349 @@ export function CalendarView({
  * with their RSVP status and quick Going / Maybe / Can't actions. Opened from
  * the "Invitations" button in the toolbar; the pending count is badged there.
  */
+// Calls & deadlines palette. Solid fills (availability uses stripes), so the
+// two range layers are never confused at a glance.
+function deadlineStyle(kind: string) {
+  if (kind === "report")
+    return {
+      closeClass: "bg-violet-600 text-white",
+      openClass: "bg-violet-100 text-violet-800",
+      barClass: "bg-violet-300",
+      label: "Report",
+    };
+  if (kind === "internal")
+    return {
+      closeClass: "bg-slate-600 text-white",
+      openClass: "bg-slate-100 text-slate-700",
+      barClass: "bg-slate-300",
+      label: "Internal",
+    };
+  return {
+    closeClass: "bg-amber-500 text-white",
+    openClass: "bg-amber-100 text-amber-800",
+    barClass: "bg-amber-300",
+    label: "Call",
+  };
+}
+
+/** Days from now until `iso` (negative = past). */
+function daysUntil(iso: string): number {
+  const ms = new Date(iso).getTime() - Date.now();
+  return Math.ceil(ms / 86_400_000);
+}
+
+/**
+ * Calls & deadlines panel — the "what's closing soon?" view the month grid
+ * can't give you. Open/upcoming first, sorted by closing date, each with a
+ * countdown that turns red in the final week.
+ */
+function DeadlinesDialog({
+  open,
+  onOpenChange,
+  deadlines,
+  canEdit,
+  onNew,
+  onEdit,
+  onChanged,
+}: {
+  open: boolean;
+  onOpenChange: (b: boolean) => void;
+  deadlines: DeadlineRow[];
+  canEdit: boolean;
+  onNew: () => void;
+  onEdit: (d: DeadlineRow) => void;
+  onChanged: () => void;
+}) {
+  const now = Date.now();
+  const upcoming = deadlines
+    .filter((d) => new Date(d.closesAt).getTime() >= now)
+    .sort((a, b) => a.closesAt.localeCompare(b.closesAt));
+  const past = deadlines
+    .filter((d) => new Date(d.closesAt).getTime() < now)
+    .sort((a, b) => b.closesAt.localeCompare(a.closesAt))
+    .slice(0, 5);
+
+  async function remove(d: DeadlineRow) {
+    if (!confirm(`Delete “${d.title}”?`)) return;
+    const r = await fetch(`/api/deadlines/${d.id}`, { method: "DELETE" });
+    if (r.ok) onChanged();
+  }
+
+  function Row({ d, dim }: { d: DeadlineRow; dim?: boolean }) {
+    const st = deadlineStyle(d.kind);
+    const left = daysUntil(d.closesAt);
+    const urgent = left >= 0 && left <= 7;
+    return (
+      <li className={cn("rounded-lg border p-3", dim && "opacity-60")}>
+        <div className="flex items-start justify-between gap-2">
+          <div className="min-w-0">
+            <div className="flex flex-wrap items-center gap-1.5">
+              <span className={cn("rounded px-1.5 py-0.5 text-[10px] font-bold", st.closeClass)}>
+                {st.label}
+              </span>
+              <span className="font-medium text-slate-900">{d.title}</span>
+              {d.student && (
+                <span className="inline-flex items-center gap-1 text-[11px] text-slate-500">
+                  <span
+                    className="inline-block h-2 w-2 rounded-full"
+                    style={{ background: d.student.color }}
+                  />
+                  {d.student.name}
+                </span>
+              )}
+            </div>
+            <div className="mt-0.5 text-xs text-slate-500">
+              {d.opensAt && <>Opens {format(new Date(d.opensAt), "d MMM yyyy")} · </>}
+              Closes {format(new Date(d.closesAt), "d MMM yyyy")}
+            </div>
+            {d.notes && (
+              <p className="mt-1 whitespace-pre-wrap text-xs text-slate-600">{d.notes}</p>
+            )}
+            <div className="mt-1 flex flex-wrap gap-2">
+              {d.url && (
+                <a
+                  href={d.url}
+                  target="_blank"
+                  rel="noopener"
+                  className="inline-flex items-center gap-1 text-[11px] font-medium text-[var(--c-teal)] hover:underline"
+                >
+                  <ExternalLink className="h-3 w-3" /> Call page
+                </a>
+              )}
+              {d.driveFolderUrl && (
+                <a
+                  href={d.driveFolderUrl}
+                  target="_blank"
+                  rel="noopener"
+                  className="inline-flex items-center gap-1 text-[11px] font-medium text-[var(--c-blue)] hover:underline"
+                >
+                  <FolderOpen className="h-3 w-3" /> Documents
+                </a>
+              )}
+            </div>
+          </div>
+          <div className="flex shrink-0 flex-col items-end gap-1">
+            {left >= 0 ? (
+              <span
+                className={cn(
+                  "whitespace-nowrap rounded-full px-2 py-0.5 text-[11px] font-semibold",
+                  urgent ? "bg-red-100 text-red-700" : "bg-slate-100 text-slate-600",
+                )}
+              >
+                {left === 0 ? "closes today" : `${left}d left`}
+              </span>
+            ) : (
+              <span className="whitespace-nowrap text-[11px] text-slate-400">closed</span>
+            )}
+            {canEdit && (
+              <div className="flex gap-1">
+                <button
+                  type="button"
+                  onClick={() => onEdit(d)}
+                  className="rounded p-1 text-slate-400 hover:bg-slate-100 hover:text-slate-700"
+                  title="Edit"
+                >
+                  <Pencil className="h-3.5 w-3.5" />
+                </button>
+                <button
+                  type="button"
+                  onClick={() => void remove(d)}
+                  className="rounded p-1 text-slate-400 hover:bg-red-50 hover:text-[var(--c-red)]"
+                  title="Delete"
+                >
+                  <Trash2 className="h-3.5 w-3.5" />
+                </button>
+              </div>
+            )}
+          </div>
+        </div>
+      </li>
+    );
+  }
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="!max-w-lg">
+        <DialogHeader>
+          <DialogTitle className="flex items-center gap-2">
+            <Hourglass className="h-4 w-4 text-amber-500" /> Calls &amp; deadlines
+          </DialogTitle>
+        </DialogHeader>
+
+        <div className="max-h-[60vh] space-y-4 overflow-y-auto">
+          {upcoming.length === 0 && past.length === 0 ? (
+            <p className="py-6 text-center text-sm text-slate-500">
+              No calls or deadlines yet.
+            </p>
+          ) : (
+            <>
+              {upcoming.length > 0 && (
+                <ul className="space-y-2">
+                  {upcoming.map((d) => (
+                    <Row key={d.id} d={d} />
+                  ))}
+                </ul>
+              )}
+              {past.length > 0 && (
+                <div>
+                  <div className="mb-1 text-[11px] font-semibold uppercase tracking-wide text-slate-400">
+                    Recently closed
+                  </div>
+                  <ul className="space-y-2">
+                    {past.map((d) => (
+                      <Row key={d.id} d={d} dim />
+                    ))}
+                  </ul>
+                </div>
+              )}
+            </>
+          )}
+        </div>
+
+        <div className="flex justify-between gap-2 border-t pt-3">
+          {canEdit ? (
+            <Button variant="brand" size="sm" onClick={onNew}>
+              <Plus className="h-4 w-4" /> Add a call / deadline
+            </Button>
+          ) : (
+            <span />
+          )}
+          <Button variant="outline" onClick={() => onOpenChange(false)}>
+            Close
+          </Button>
+        </div>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+/** Create / edit a call or deadline (senior team only). */
+function DeadlineFormDialog({
+  deadline,
+  students,
+  onClose,
+  onSaved,
+}: {
+  deadline: DeadlineRow | null;
+  students: Student[];
+  onClose: () => void;
+  onSaved: () => void;
+}) {
+  const [title, setTitle] = useState(deadline?.title ?? "");
+  const [kind, setKind] = useState(deadline?.kind ?? "call");
+  const [opensAt, setOpensAt] = useState(
+    deadline?.opensAt ? format(new Date(deadline.opensAt), "yyyy-MM-dd") : "",
+  );
+  const [closesAt, setClosesAt] = useState(
+    deadline ? format(new Date(deadline.closesAt), "yyyy-MM-dd") : "",
+  );
+  const [url, setUrl] = useState(deadline?.url ?? "");
+  const [notes, setNotes] = useState(deadline?.notes ?? "");
+  const [studentId, setStudentId] = useState(deadline?.student?.id ?? "");
+  const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState<string | null>(null);
+
+  async function save() {
+    if (!title.trim() || !closesAt) {
+      setErr("A title and a closing date are required.");
+      return;
+    }
+    setBusy(true);
+    setErr(null);
+    const payload = {
+      title: title.trim(),
+      kind,
+      // Dates are whole days: anchor the close at end-of-day so "closes today"
+      // stays true for the entire day.
+      opensAt: opensAt ? new Date(`${opensAt}T00:00:00`).toISOString() : null,
+      closesAt: new Date(`${closesAt}T23:59:00`).toISOString(),
+      url: url.trim() || null,
+      notes: notes.trim() || null,
+      studentId: studentId || null,
+    };
+    const r = await fetch(
+      deadline ? `/api/deadlines/${deadline.id}` : "/api/deadlines",
+      {
+        method: deadline ? "PATCH" : "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      },
+    );
+    setBusy(false);
+    if (!r.ok) {
+      const j = await r.json().catch(() => ({}));
+      setErr(j.error ?? "Could not save.");
+      return;
+    }
+    onSaved();
+  }
+
+  return (
+    <Dialog open onOpenChange={(o) => !o && onClose()}>
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>{deadline ? "Edit" : "New"} call / deadline</DialogTitle>
+        </DialogHeader>
+        <div className="space-y-3">
+          <Field label="Title">
+            <Input
+              value={title}
+              onChange={(e) => setTitle(e.target.value)}
+              placeholder="e.g. Proyectos de Generación de Conocimiento 2026"
+            />
+          </Field>
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+            <Field label="Type">
+              <Select value={kind} onChange={(e) => setKind(e.target.value)}>
+                <option value="call">Call</option>
+                <option value="report">Report</option>
+                <option value="internal">Internal</option>
+              </Select>
+            </Field>
+            <Field label="Opens (optional)">
+              <Input type="date" value={opensAt} onChange={(e) => setOpensAt(e.target.value)} />
+            </Field>
+            <Field label="Closes *">
+              <Input type="date" value={closesAt} onChange={(e) => setClosesAt(e.target.value)} />
+            </Field>
+          </div>
+          <Field label="Link (optional)">
+            <Input
+              value={url}
+              onChange={(e) => setUrl(e.target.value)}
+              placeholder="https://… (convocatoria)"
+            />
+          </Field>
+          <Field label="Student (optional)">
+            <Select value={studentId} onChange={(e) => setStudentId(e.target.value)}>
+              <option value="">— not tied to a student —</option>
+              {students.map((st) => (
+                <option key={st.id} value={st.id}>
+                  {displayName(st)}
+                </option>
+              ))}
+            </Select>
+          </Field>
+          <Field label="Notes (optional)">
+            <Textarea rows={3} value={notes} onChange={(e) => setNotes(e.target.value)} />
+          </Field>
+          {err && (
+            <div className="rounded-lg bg-red-50 p-2 text-sm text-[var(--c-red)]">{err}</div>
+          )}
+          <div className="flex justify-end gap-2 border-t pt-3">
+            <Button type="button" variant="outline" onClick={onClose} disabled={busy}>
+              Cancel
+            </Button>
+            <Button type="button" variant="brand" onClick={save} disabled={busy}>
+              {busy ? "Saving…" : "Save"}
+            </Button>
+          </div>
+        </div>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
 function InvitationsDialog({
   open,
   onOpenChange,
