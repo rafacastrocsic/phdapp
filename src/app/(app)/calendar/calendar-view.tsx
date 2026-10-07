@@ -1576,6 +1576,9 @@ export function CalendarView({
                               {d.title}
                             </span>
                             <span className="block text-[10px] text-slate-400">
+                              {d.opensAt && (
+                                <>▶ {format(new Date(d.opensAt), "d MMM")} → </>
+                              )}
                               🏁 {format(new Date(d.closesAt), "d MMM")}
                             </span>
                           </span>
