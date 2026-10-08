@@ -58,6 +58,7 @@ export type Involvement = {
   allowComments: boolean;
   allowEdits: boolean;
   commentCount: number;
+  lastCommentAt: string | null;
   pinned: boolean;
   links: ExternalLink[];
   driveFolderUrl: string | null;
@@ -102,27 +103,39 @@ const SORT_OPTIONS: { key: SortKey; label: string }[] = [
 
 const PRIORITY_RANK: Record<string, number> = { high: 3, medium: 2, low: 1 };
 
+/**
+ * Last time anything happened on an item: edited OR commented. Commenting
+ * doesn't bump `updatedAt`, so sorting on that alone buried items the team
+ * was actively discussing. ISO strings compare lexicographically.
+ */
+function activityAt(i: Involvement): string {
+  const c = i.lastCommentAt;
+  return c && c > i.updatedAt ? c : i.updatedAt;
+}
+
 function compareBy(a: Involvement, b: Involvement, key: SortKey): number {
+  const aa = activityAt(a);
+  const ba = activityAt(b);
   switch (key) {
     case "created":
       return b.createdAt.localeCompare(a.createdAt);
     case "priority":
       return (
         (PRIORITY_RANK[b.priority] ?? 0) - (PRIORITY_RANK[a.priority] ?? 0) ||
-        b.updatedAt.localeCompare(a.updatedAt)
+        ba.localeCompare(aa)
       );
     case "progress":
-      return b.progress - a.progress || b.updatedAt.localeCompare(a.updatedAt);
+      return b.progress - a.progress || ba.localeCompare(aa);
     case "author":
       return (
         (a.owner?.name ?? "").localeCompare(b.owner?.name ?? "") ||
-        b.updatedAt.localeCompare(a.updatedAt)
+        ba.localeCompare(aa)
       );
     case "title":
       return a.title.localeCompare(b.title);
     case "updated":
     default:
-      return b.updatedAt.localeCompare(a.updatedAt);
+      return ba.localeCompare(aa);
   }
 }
 
@@ -707,6 +720,14 @@ function InvolvementCard({
           </div>
           <div className="mt-0.5 text-[11px] text-slate-400">
             Created {format(new Date(item.createdAt), "d MMM yyyy")}
+            {item.lastCommentAt && item.lastCommentAt > item.updatedAt && (
+              <>
+                {" · Commented "}
+                <span title={format(new Date(item.lastCommentAt), "d MMM yyyy, HH:mm")}>
+                  {format(new Date(item.lastCommentAt), "d MMM yyyy")}
+                </span>
+              </>
+            )}
             {Math.abs(
               +new Date(item.updatedAt) - +new Date(item.createdAt),
             ) > 2000 && (

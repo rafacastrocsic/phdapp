@@ -21,6 +21,14 @@ const INV_INCLUDE = {
   linkedTask: { select: { id: true, title: true, status: true } },
   linkedEvent: { select: { id: true, title: true, startsAt: true } },
   _count: { select: { comments: true } },
+  // Newest comment, so "Recently updated" can mean "recently active" —
+  // commenting doesn't touch Involvement.updatedAt (@updatedAt only fires
+  // when the row itself changes), so a freshly-discussed item would sink.
+  comments: {
+    orderBy: { createdAt: "desc" },
+    take: 1,
+    select: { createdAt: true },
+  },
 } as const;
 
 export default async function MyWorkPage() {
@@ -166,6 +174,7 @@ export default async function MyWorkPage() {
     allowComments: r.allowComments,
     allowEdits: r.allowEdits,
     commentCount: r._count.comments,
+    lastCommentAt: r.comments[0]?.createdAt.toISOString() ?? null,
     pinned: r.pinned,
     links: parseLinks(r.links),
     driveFolderUrl: r.driveFolderUrl,
