@@ -182,6 +182,8 @@ export function ChatView({
   // editing. Submitting calls PATCH and merges the response into
   // `messages`; Esc / Cancel discards changes.
   const [editingId, setEditingId] = useState<string | null>(null);
+  // Admins can remove anyone's message (same rule the API enforces).
+  const canModerate = meRole === "admin";
   const [editingBody, setEditingBody] = useState("");
   const [dragOver, setDragOver] = useState(false);
   const [editOpen, setEditOpen] = useState(false);
@@ -490,6 +492,29 @@ export function ChatView({
     setEditingId(null);
     setEditingBody("");
   }
+  // Delete a message (own, or any when admin). Optimistic: drop it from the
+  // list immediately and restore it in place if the request fails. A deleted
+  // message's replies survive — they just lose the quoted preview — so we
+  // clear any dangling replyTo locally to match what the server did.
+  async function deleteMessage(m: Message) {
+    if (!activeId) return;
+    if (!window.confirm("Delete this message? This can't be undone.")) return;
+    const snapshot = messages;
+    setMessages((prev) =>
+      prev
+        .filter((x) => x.id !== m.id)
+        .map((x) => (x.replyTo?.id === m.id ? { ...x, replyTo: null } : x)),
+    );
+    const r = await fetch(`/api/channels/${activeId}/messages/${m.id}`, {
+      method: "DELETE",
+    });
+    if (!r.ok) {
+      setMessages(snapshot);
+      const j = await r.json().catch(() => ({}));
+      alert(j.error ?? "Could not delete the message");
+    }
+  }
+
   async function saveEdit(m: Message) {
     if (!activeId) return;
     const next = editingBody.trim();
@@ -1087,6 +1112,20 @@ export function ChatView({
                                 title="Edit this message"
                               >
                                 <Pencil className="h-3.5 w-3.5 md:h-3 md:w-3" /> Edit
+                              </button>
+                            )}
+                            {(mine || canModerate) && (
+                              <button
+                                type="button"
+                                onClick={() => void deleteMessage(m)}
+                                className="inline-flex items-center gap-1 py-1 text-slate-500 hover:text-[var(--c-red)] md:text-slate-400"
+                                title={
+                                  mine
+                                    ? "Delete this message"
+                                    : "Delete this message (admin)"
+                                }
+                              >
+                                <Trash2 className="h-3.5 w-3.5 md:h-3 md:w-3" /> Delete
                               </button>
                             )}
                           </div>

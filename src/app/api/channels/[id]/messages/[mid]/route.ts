@@ -47,3 +47,36 @@ export async function PATCH(
     editedAt: updated.editedAt?.toISOString() ?? null,
   });
 }
+
+// Delete a chat message — including one that is itself a reply. Only the
+// author can delete their own; admins can delete any.
+//
+// Replies to a deleted message SURVIVE: Message.replyToId is ON DELETE SET
+// NULL, so a thread isn't destroyed by removing its first message — the
+// replies simply lose their quoted preview. An attached poll cascades away
+// with the message.
+export async function DELETE(
+  _req: Request,
+  { params }: { params: Promise<{ id: string; mid: string }> },
+) {
+  const session = await auth();
+  if (!session?.user)
+    return NextResponse.json({ error: "unauth" }, { status: 401 });
+
+  const { id, mid } = await params;
+  const msg = await prisma.message.findFirst({
+    where: { id: mid, channelId: id },
+    select: { id: true, authorId: true },
+  });
+  if (!msg) return NextResponse.json({ error: "not found" }, { status: 404 });
+
+  const admin = isAdmin(session.user.role as Role);
+  if (msg.authorId !== session.user.id && !admin)
+    return NextResponse.json(
+      { error: "You can only delete your own messages." },
+      { status: 403 },
+    );
+
+  await prisma.message.delete({ where: { id: mid } });
+  return NextResponse.json({ ok: true });
+}
