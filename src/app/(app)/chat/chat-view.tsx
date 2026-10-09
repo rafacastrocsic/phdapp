@@ -601,10 +601,13 @@ export function ChatView({
       <aside
         className={cn(
           "shrink-0 border-r bg-white flex-col transition-[width] duration-200",
+          // Desktop width is owned ONLY by this ternary. Repeating a
+          // md:w-* below would win in twMerge and silently defeat the
+          // collapse (that was the bug).
           channelsCollapsed ? "md:w-[72px]" : "md:w-72",
           // Mobile: full-width when no conversation is open, hidden
           // when one is. Desktop: always visible at the chosen width.
-          mobileConversationOpen ? "hidden md:flex" : "flex w-full md:w-72",
+          mobileConversationOpen ? "hidden md:flex" : "flex w-full",
         )}
       >
         <div className="p-3 border-b space-y-2">
@@ -721,7 +724,10 @@ export function ChatView({
 
       <main
         className={cn(
-          "flex-1 flex-col bg-slate-50",
+          // min-w-0 is load-bearing: a flex item defaults to min-width:auto,
+          // so without it the quoted reply preview widens this column and the
+          // composer's send button gets clipped off the right edge.
+          "flex-1 min-w-0 flex-col bg-slate-50",
           // Mobile: shown only when a conversation is open. Desktop:
           // always visible as the right pane.
           mobileConversationOpen ? "flex" : "hidden md:flex",
