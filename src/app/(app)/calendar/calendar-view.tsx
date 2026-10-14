@@ -2792,7 +2792,9 @@ function EventDetailDialog({
               await fetch(`/api/calendar/events/${event.id}`, {
                 method: "PATCH",
                 headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ links: next }),
+                // pushToGoogle so the URL block in the Google event's
+                // description stays in step with the links shown here.
+                body: JSON.stringify({ links: next, pushToGoogle: true }),
               });
               // Reflect immediately in the events state — router.refresh()
               // doesn't re-seed it, so a reopened dialog showed stale links.
@@ -4116,7 +4118,9 @@ function EventDriveField({
     const r = await fetch(`/api/calendar/events/${event.id}`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ driveFolderUrl: next }),
+      // pushToGoogle so the Documents URL in the Google event's description
+      // stays in step with the folder picked here.
+      body: JSON.stringify({ driveFolderUrl: next, pushToGoogle: true }),
     });
     if (r.ok) onChanged(next);
   }

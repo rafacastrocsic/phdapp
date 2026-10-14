@@ -13,7 +13,8 @@ import {
   type Role,
 } from "@/lib/access";
 import { logActivity } from "@/lib/activity-log";
-import { LinkInput, sanitiseLinks } from "@/lib/links";
+import { LinkInput, parseLinks, sanitiseLinks } from "@/lib/links";
+import { composeGoogleDescription } from "@/lib/google-event-description";
 
 async function loadEvent(id: string) {
   return prisma.event.findUnique({ where: { id } });
@@ -253,8 +254,22 @@ export async function PATCH(
           eventId: event.googleEventId,
           requestBody: {
             summary: (data.title as string | undefined) ?? event.title,
-            description:
-              (data.description as string | null | undefined) ?? event.description ?? undefined,
+            // Rebuilt from the RESULTING values (new where edited, existing
+            // otherwise) so the URL block always matches the saved event and
+            // never accumulates duplicates.
+            description: composeGoogleDescription({
+              description:
+                (data.description as string | null | undefined) ?? event.description,
+              meetingUrl:
+                (data.meetingUrl as string | null | undefined) ?? event.meetingUrl,
+              links:
+                d.links !== undefined
+                  ? sanitiseLinks(d.links)
+                  : parseLinks(event.links),
+              driveFolderUrl:
+                (data.driveFolderUrl as string | null | undefined) ??
+                event.driveFolderUrl,
+            }),
             location:
               (data.location as string | null | undefined) ?? event.location ?? undefined,
             start: data.startsAt

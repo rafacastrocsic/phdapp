@@ -14,6 +14,7 @@ import {
 } from "@/lib/access";
 import { logActivity } from "@/lib/activity-log";
 import { LinkInput, sanitiseLinks } from "@/lib/links";
+import { composeGoogleDescription } from "@/lib/google-event-description";
 
 const Body = z.object({
   title: z.string().min(1),
@@ -152,7 +153,14 @@ export async function POST(req: Request) {
       const tz = (d.timeZone && d.timeZone.trim()) || "UTC";
       const requestBody = {
         summary: d.title,
-        description: d.description ?? undefined,
+        // Google has no meeting-link / links / documents fields — fold them
+        // into the description so they're usable from the Google client.
+        description: composeGoogleDescription({
+          description: d.description,
+          meetingUrl: d.meetingUrl,
+          links: d.links ? sanitiseLinks(d.links) : [],
+          driveFolderUrl: d.driveFolderUrl,
+        }),
         location: d.location ?? undefined,
         start: { dateTime: startsAt.toISOString(), timeZone: tz },
         end: { dateTime: endsAt.toISOString(), timeZone: tz },
