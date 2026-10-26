@@ -60,15 +60,57 @@ export async function POST(req: Request) {
         timeMin: from.toISOString(),
         timeMax: to.toISOString(),
         singleEvents: false,
+        // Cancelled instances are how Google represents a skipped occurrence,
+        // so they must come through or we'd never learn about one.
+        showDeleted: true,
         maxResults: 250,
       });
       for (const item of r.data.items ?? []) {
         if (!item.id || !item.start || !item.end) continue;
-        // Defensive: skip per-instance overrides of a recurring
-        // series (recurringEventId set means this is NOT the master).
-        // They should not appear with singleEvents:false, but Google
-        // does return overrides for exceptions to a series.
-        if (item.recurringEventId) continue;
+        // A per-instance override of a recurring series (recurringEventId
+        // set = this is NOT the master). Import it as an exception against
+        // our copy of the series, so a meeting someone moved or skipped in
+        // Google shows the same way here.
+        if (item.recurringEventId) {
+          const master = await prisma.event.findUnique({
+            where: { googleEventId: item.recurringEventId },
+            select: { id: true },
+          });
+          if (!master) continue;
+          const ostRaw =
+            item.originalStartTime?.dateTime ?? item.originalStartTime?.date;
+          if (!ostRaw) continue;
+          const originalStart = new Date(ostRaw);
+          if (isNaN(originalStart.getTime())) continue;
+          const cancelled = item.status === "cancelled";
+          const stRaw = item.start?.dateTime ?? item.start?.date ?? null;
+          const enRaw = item.end?.dateTime ?? item.end?.date ?? null;
+          const movedStart = !cancelled && stRaw ? new Date(stRaw) : null;
+          const movedEnd = !cancelled && enRaw ? new Date(enRaw) : null;
+          await prisma.eventOccurrence.upsert({
+            where: {
+              eventId_originalStart: { eventId: master.id, originalStart },
+            },
+            create: {
+              eventId: master.id,
+              originalStart,
+              cancelled,
+              startsAt: movedStart,
+              endsAt: movedEnd,
+              googleEventId: item.id ?? null,
+            },
+            update: {
+              cancelled,
+              startsAt: movedStart,
+              endsAt: movedEnd,
+              googleEventId: item.id ?? null,
+            },
+          });
+          imported++;
+          continue;
+        }
+        // A cancelled MASTER isn't something we mirror — skip it.
+        if (item.status === "cancelled") continue;
         const startsAt = new Date(item.start.dateTime ?? item.start.date!);
         const endsAt = new Date(item.end.dateTime ?? item.end.date!);
         // Extract the RRULE body (e.g. "FREQ=WEEKLY;INTERVAL=1") from

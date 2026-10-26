@@ -771,12 +771,44 @@ model Event {
   attendees EventAttendee[]
   comments  Comment[]  @relation("EventComments")
   involvements Involvement[] @relation("InvolvementEvent")
+  occurrences  EventOccurrence[] @relation("EventExceptions")
   topicLinks   Topic[]        @relation("TopicEvent")
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
   @@unique([subtaskParentId, subtaskKey])
   @@index([linkedTaskId])
+}
+
+// ───────── Recurring-event exceptions ─────────
+//
+// One occurrence of a repeating Event that differs from the series — moved to
+// another slot, or skipped entirely. This is the iCal/Google model: the series
+// stays a single Event + RRULE, and each deviation is a row keyed by the
+// occurrence's ORIGINAL start (iCal's RECURRENCE-ID; `cancelled` is EXDATE).
+//
+// Occurrences are still computed from the RRULE; these rows are applied on
+// top — cancelled ones are dropped, moved ones get their times swapped.
+model EventOccurrence {
+  id            String    @id @default(cuid())
+  eventId       String
+  event         Event     @relation("EventExceptions", fields: [eventId], references: [id], onDelete: Cascade)
+  // Identifies WHICH occurrence this overrides (its start before any move).
+  originalStart DateTime
+  cancelled     Boolean   @default(false)
+  // Null = unchanged from the series.
+  startsAt      DateTime?
+  endsAt        DateTime?
+  title         String?
+  location      String?
+  // Google's id for this specific instance, so a move/cancel can be pushed
+  // to (and reconciled with) the right instance rather than the master.
+  googleEventId String?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  @@unique([eventId, originalStart])
+  @@index([eventId])
 }
 
 model EventAttendee {

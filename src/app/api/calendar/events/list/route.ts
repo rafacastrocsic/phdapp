@@ -61,6 +61,14 @@ export async function GET(req: Request) {
       student: { select: { id: true, fullName: true, alias: true, color: true } },
       ticket: { select: { id: true, priority: true } },
       linkedTask: { select: { id: true, title: true } },
+      occurrences: {
+        select: {
+          originalStart: true,
+          cancelled: true,
+          startsAt: true,
+          endsAt: true,
+        },
+      },
       attendees: {
         include: {
           user: { select: { id: true, name: true, image: true, color: true } },
@@ -116,6 +124,12 @@ export async function GET(req: Request) {
       recurrenceRule: e.recurrenceRule,
       isMeeting: e.isMeeting,
       agenda: e.agenda,
+      occurrences: e.occurrences.map((o) => ({
+        originalStart: o.originalStart.toISOString(),
+        cancelled: o.cancelled,
+        startsAt: o.startsAt?.toISOString() ?? null,
+        endsAt: o.endsAt?.toISOString() ?? null,
+      })),
       meetingNotes: e.meetingNotes,
       student: e.student,
       googleEventId: e.googleEventId,

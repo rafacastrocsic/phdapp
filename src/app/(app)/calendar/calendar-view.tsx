@@ -92,6 +92,16 @@ interface Event {
   // isGeneral true → general (visible to all).
   isGeneral: boolean;
   recurring?: boolean; // synthetic occurrence flag (client-only)
+  // Exceptions to this series (moved / skipped single occurrences).
+  occurrences?: {
+    originalStart: string;
+    cancelled: boolean;
+    startsAt: string | null;
+    endsAt: string | null;
+  }[];
+  // On an EXPANDED row: which occurrence this is, by its original start.
+  // Lets the UI act on one instance instead of the whole series.
+  occurrenceStart?: string;
   // True for task / sub-task mirror events (which use a noon-UTC
   // anchor as their startsAt). When true, render without a time
   // prefix and treat the event as an all-day pill.
@@ -334,6 +344,10 @@ export function CalendarView({
   const [selectedDay, setSelectedDay] = useState<Date | null>(null);
   const [syncing, setSyncing] = useState(false);
   const [openEventId, setOpenEventId] = useState<string | null>(null);
+  // Which occurrence of a repeating event is open (its original start), so
+  // actions can target one instance. Also fixes the long-standing wart where
+  // opening any occurrence showed the SERIES' first date.
+  const [openOccurrence, setOpenOccurrence] = useState<string | null>(null);
   // Source event for the "Duplicate" flow. When set, NewEventDialog
   // opens with all of this event's fields pre-populated (title,
   // date/time, location, meeting URL, description, student, drive
@@ -451,12 +465,24 @@ export function CalendarView({
         rangeStart,
         rangeEnd,
       );
+      // Apply per-occurrence exceptions on top of the computed series:
+      // cancelled ones vanish, moved ones get their times swapped. Keyed by
+      // the occurrence's ORIGINAL start so a moved instance still matches.
+      const exMap = new Map(
+        (e.occurrences ?? []).map((x) => [
+          new Date(x.originalStart).getTime(),
+          x,
+        ]),
+      );
       for (const o of occ) {
+        const ex = exMap.get(o.start.getTime());
+        if (ex?.cancelled) continue;
         out.push({
           ...e,
-          startsAt: o.start.toISOString(),
-          endsAt: o.end.toISOString(),
+          startsAt: ex?.startsAt ?? o.start.toISOString(),
+          endsAt: ex?.endsAt ?? o.end.toISOString(),
           recurring: true,
+          occurrenceStart: o.start.toISOString(),
         });
       }
     }
@@ -505,6 +531,13 @@ export function CalendarView({
   // events aren't there, so fall back to the rendered `filtered` list (which
   // carries them in Event shape).
   const openEvent =
+    // Prefer the exact expanded occurrence, so the dialog shows THIS
+    // instance's date rather than the series start.
+    (openOccurrence
+      ? filtered.find(
+          (e) => e.id === openEventId && e.occurrenceStart === openOccurrence,
+        )
+      : undefined) ??
     events.find((e) => e.id === openEventId) ??
     filtered.find((e) => e.id === openEventId) ??
     null;
@@ -1344,7 +1377,7 @@ export function CalendarView({
                                   ev.stopPropagation();
                                   dismissEvent(e.id);
                                   if (goesToMeeting) {
-                                    setOpenEventId(e.id);
+                                    setOpenEventId(e.id); setOpenOccurrence(e.occurrenceStart ?? null);
                                   } else if (e.subtaskParentId) {
                                     setPeekTicketId(e.subtaskParentId);
                                   }
@@ -1408,7 +1441,7 @@ export function CalendarView({
                               key={e.id}
                               onClick={(ev) => {
                                 ev.stopPropagation();
-                                setOpenEventId(e.id);
+                                setOpenEventId(e.id); setOpenOccurrence(e.occurrenceStart ?? null);
                                 dismissEvent(e.id);
                               }}
                               className={cn(
@@ -1625,7 +1658,7 @@ export function CalendarView({
                     if (e.ticketId) {
                       setPeekTicketId(e.ticketId);
                     } else {
-                      setOpenEventId(e.id);
+                      setOpenEventId(e.id); setOpenOccurrence(e.occurrenceStart ?? null);
                     }
                   }}
                   className={cn(
@@ -1812,7 +1845,7 @@ export function CalendarView({
         canManage={viewerRole === "admin"}
         onOpenChange={(o) => !o && setOpenEventId(null)}
         onChanged={() => {
-          setOpenEventId(null);
+          setOpenEventId(null); setOpenOccurrence(null);
           router.refresh();
         }}
       />
@@ -1823,6 +1856,29 @@ export function CalendarView({
         // A read-only researcher can't edit a student-tied event — hide the
         // write controls so they aren't offered an action that 403s.
         canWrite={!(researcherMode && !!openEvent?.student)}
+        occurrenceStart={openOccurrence}
+        onOccurrenceSaved={(occ) => {
+          // Fold the exception into local state so the grid updates at once
+          // (router.refresh alone doesn't re-seed the events list).
+          setEvents((prev) =>
+            prev.map((e) =>
+              e.id === openEventId
+                ? {
+                    ...e,
+                    occurrences: [
+                      ...(e.occurrences ?? []).filter(
+                        (o) => o.originalStart !== occ.originalStart,
+                      ),
+                      ...(occ.removed ? [] : [occ.value!]),
+                    ],
+                  }
+                : e,
+            ),
+          );
+          setOpenEventId(null);
+          setOpenOccurrence(null);
+          router.refresh();
+        }}
         tasks={tasks}
         students={students}
         researcherCalendars={researcherCalendars}
@@ -1833,12 +1889,12 @@ export function CalendarView({
         viewerUserId={viewerUserId}
         onOpenChange={(o) => !o && setOpenEventId(null)}
         onPeekTask={(id) => {
-          setOpenEventId(null);
+          setOpenEventId(null); setOpenOccurrence(null);
           setPeekTicketId(id);
         }}
         onDeleted={(id) => {
           setEvents((prev) => prev.filter((e) => e.id !== id));
-          setOpenEventId(null);
+          setOpenEventId(null); setOpenOccurrence(null);
         }}
         onUpdated={(updates) => {
           // Sync changes made from within the dialog (Drive folder
@@ -1854,7 +1910,7 @@ export function CalendarView({
           // Close the detail dialog, capture the source event, and
           // open the New event dialog. NewEventDialog reads
           // `prefill` and seeds every field from it.
-          setOpenEventId(null);
+          setOpenEventId(null); setOpenOccurrence(null);
           setDuplicateSource(source);
           setNewOpen(true);
         }}
@@ -2351,6 +2407,8 @@ function EventDetailDialog({
   event,
   open,
   canWrite = true,
+  occurrenceStart = null,
+  onOccurrenceSaved,
   tasks,
   students,
   researcherCalendars = [],
@@ -2367,6 +2425,18 @@ function EventDetailDialog({
 }: {
   event: Event | null;
   canWrite?: boolean;
+  // Set when the open event is ONE occurrence of a repeating series.
+  occurrenceStart?: string | null;
+  onOccurrenceSaved?: (occ: {
+    originalStart: string;
+    removed?: boolean;
+    value?: {
+      originalStart: string;
+      cancelled: boolean;
+      startsAt: string | null;
+      endsAt: string | null;
+    };
+  }) => void;
   open: boolean;
   tasks: LinkableTask[];
   students: Student[];
@@ -2742,6 +2812,18 @@ function EventDetailDialog({
             </button>
           )}
 
+          {canWrite && occurrenceStart && event.recurrenceRule && (
+            <OccurrenceActions
+              eventId={event.id}
+              occurrenceStart={occurrenceStart}
+              existing={
+                (event.occurrences ?? []).find(
+                  (o) => o.originalStart === occurrenceStart,
+                ) ?? null
+              }
+              onSaved={onOccurrenceSaved}
+            />
+          )}
           {recSummary && (
             <div className="flex items-center justify-between gap-2 rounded-lg bg-violet-50 px-3 py-2 text-xs text-[var(--c-violet)]">
               <span>↻ Repeats: {recSummary}</span>
@@ -3108,6 +3190,172 @@ function ExternalEventDialog({
         )}
       </DialogContent>
     </Dialog>
+  );
+}
+
+/**
+ * Change ONE occurrence of a repeating event without touching the series —
+ * move it to another slot, or skip that week. Mirrors onto Google's own
+ * instance so phones show the same thing.
+ */
+function OccurrenceActions({
+  eventId,
+  occurrenceStart,
+  existing,
+  onSaved,
+}: {
+  eventId: string;
+  occurrenceStart: string;
+  existing: {
+    originalStart: string;
+    cancelled: boolean;
+    startsAt: string | null;
+    endsAt: string | null;
+  } | null;
+  onSaved?: (occ: {
+    originalStart: string;
+    removed?: boolean;
+    value?: {
+      originalStart: string;
+      cancelled: boolean;
+      startsAt: string | null;
+      endsAt: string | null;
+    };
+  }) => void;
+}) {
+  const base = new Date(existing?.startsAt ?? occurrenceStart);
+  const baseEnd = existing?.endsAt ? new Date(existing.endsAt) : null;
+  const [moving, setMoving] = useState(false);
+  const [date, setDate] = useState(format(base, "yyyy-MM-dd"));
+  const [start, setStart] = useState(format(base, "HH:mm"));
+  const [end, setEnd] = useState(baseEnd ? format(baseEnd, "HH:mm") : "");
+  const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState<string | null>(null);
+
+  function tz() {
+    try {
+      return Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC";
+    } catch {
+      return "UTC";
+    }
+  }
+
+  async function post(body: Record<string, unknown>) {
+    setBusy(true);
+    setErr(null);
+    const r = await fetch(`/api/calendar/events/${eventId}/occurrences`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ originalStart: occurrenceStart, timeZone: tz(), ...body }),
+    });
+    setBusy(false);
+    if (!r.ok) {
+      const j = await r.json().catch(() => ({}));
+      setErr(j.error ?? "Could not save.");
+      return;
+    }
+    const j = await r.json().catch(() => ({}));
+    if (j.googleWarning) alert(j.googleWarning);
+    onSaved?.({ originalStart: occurrenceStart, value: j.occurrence });
+  }
+
+  async function restore() {
+    setBusy(true);
+    setErr(null);
+    const r = await fetch(`/api/calendar/events/${eventId}/occurrences`, {
+      method: "DELETE",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ originalStart: occurrenceStart }),
+    });
+    setBusy(false);
+    if (!r.ok) {
+      setErr("Could not restore.");
+      return;
+    }
+    onSaved?.({ originalStart: occurrenceStart, removed: true });
+  }
+
+  async function move() {
+    const s = new Date(`${date}T${start}:00`);
+    if (isNaN(s.getTime())) {
+      setErr("Invalid date or time.");
+      return;
+    }
+    // Keep the series' duration unless an end time was given.
+    const e = end ? new Date(`${date}T${end}:00`) : null;
+    if (e && e <= s) {
+      setErr("End time must be after the start time.");
+      return;
+    }
+    await post({ cancelled: false, startsAt: s.toISOString(), endsAt: e?.toISOString() ?? null });
+  }
+
+  return (
+    <div className="rounded-lg border border-violet-200 bg-violet-50/60 p-3">
+      <div className="mb-1.5 text-xs font-semibold text-[var(--c-violet)]">
+        This occurrence · {format(new Date(occurrenceStart), "EEE, d MMM yyyy")}
+      </div>
+      {existing && (
+        <p className="mb-2 text-[11px] text-slate-600">
+          {existing.cancelled
+            ? "Skipped — it won't show on the calendar."
+            : `Moved to ${format(new Date(existing.startsAt ?? occurrenceStart), "EEE, d MMM · HH:mm")}.`}
+        </p>
+      )}
+
+      {moving ? (
+        <div className="space-y-2">
+          <div className="grid grid-cols-3 gap-2">
+            <Field label="Date">
+              <Input type="date" value={date} onChange={(e) => setDate(e.target.value)} />
+            </Field>
+            <Field label="Start">
+              <Input type="time" value={start} onChange={(e) => setStart(e.target.value)} />
+            </Field>
+            <Field label="End">
+              <Input type="time" value={end} onChange={(e) => setEnd(e.target.value)} />
+            </Field>
+          </div>
+          <p className="text-[11px] text-slate-500">
+            Only this date changes — the rest of the series stays put.
+          </p>
+          <div className="flex justify-end gap-2">
+            <Button type="button" variant="outline" size="sm" onClick={() => setMoving(false)} disabled={busy}>
+              Cancel
+            </Button>
+            <Button type="button" variant="brand" size="sm" onClick={() => void move()} disabled={busy}>
+              {busy ? "Saving…" : "Move it"}
+            </Button>
+          </div>
+        </div>
+      ) : (
+        <div className="flex flex-wrap gap-2">
+          <Button type="button" variant="outline" size="sm" onClick={() => setMoving(true)} disabled={busy}>
+            Move this one
+          </Button>
+          {!existing?.cancelled && (
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={() => {
+                if (confirm("Skip this occurrence? The rest of the series is unaffected."))
+                  void post({ cancelled: true });
+              }}
+              disabled={busy}
+            >
+              Skip this one
+            </Button>
+          )}
+          {existing && (
+            <Button type="button" variant="ghost" size="sm" onClick={() => void restore()} disabled={busy}>
+              Restore to series
+            </Button>
+          )}
+        </div>
+      )}
+      {err && <div className="mt-2 rounded bg-red-50 p-2 text-xs text-[var(--c-red)]">{err}</div>}
+    </div>
   );
 }
 
